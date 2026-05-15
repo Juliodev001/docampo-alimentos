@@ -146,15 +146,30 @@ export default function EditarProdutorPage() {
         <AnimatePresence>
           {parceiros.map((pa, i) => (
             <motion.div key={i} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', backgroundColor: '#f9fafb', borderRadius: 10, marginBottom: 8 }}>
-              <div>
-                <p style={{ fontWeight: 600, color: NAVY, fontSize: 14, margin: 0 }}>{pa.nome}</p>
-                {pa.cpf && <p style={{ color: '#6b7280', fontSize: 12, marginTop: 2 }}>CPF/CNPJ: {pa.cpf}</p>}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', backgroundColor: '#f9fafb', borderRadius: 10, marginBottom: 8, gap: 12 }}>
+              <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '2fr 1fr 100px', gap: 8, alignItems: 'center' }}>
+                <input
+                  value={pa.nome}
+                  onChange={(e) => setParceiros((prev) => prev.map((p, idx) => idx === i ? { ...p, nome: e.target.value } : p))}
+                  style={{ ...inputStyle, fontWeight: 600, fontSize: 13 }}
+                />
+                <input
+                  value={pa.cpf}
+                  onChange={(e) => setParceiros((prev) => prev.map((p, idx) => idx === i ? { ...p, cpf: e.target.value } : p))}
+                  placeholder="CPF/CNPJ"
+                  style={{ ...inputStyle, fontSize: 13 }}
+                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="number" min="0" max="100" step="0.1"
+                    value={pa.percentual || ''}
+                    onChange={(e) => setParceiros((prev) => prev.map((p, idx) => idx === i ? { ...p, percentual: parseFloat(e.target.value) || 0 } : p))}
+                    style={{ ...inputStyle, fontSize: 13, paddingRight: 28 }}
+                  />
+                  <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: GREEN, fontWeight: 700, fontSize: 13, pointerEvents: 'none' }}>%</span>
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <span style={{ backgroundColor: `${GREEN}20`, color: GREEN, padding: '4px 14px', borderRadius: 20, fontWeight: 700, fontSize: 14 }}>
-                  {pa.percentual}%
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
                 <motion.button
                   onClick={async () => {
                     if (!confirm(`Excluir parceiro "${pa.nome}"?`)) return
