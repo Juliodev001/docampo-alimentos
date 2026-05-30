@@ -23,6 +23,7 @@ type Fechamento = {
 }
 
 function fmt(d: string) { return new Date(d).toLocaleDateString('pt-BR') }
+function fmtBRL(v: number) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
 
 export default function PagamentoClient() {
   const [fechamentos, setFechamentos] = useState<Fechamento[]>([])
@@ -172,6 +173,20 @@ export default function PagamentoClient() {
                       <p style={{ fontSize: 13, color: '#374151', fontWeight: 500, margin: 0 }}>{fmt(f.dataInicio)} – {fmt(f.dataFim)}</p>
                       <p style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0 0' }}>Pag: {fmt(f.dataPagamento)}</p>
                     </div>
+
+                    {/* Deduções */}
+                    {(f.valesEmbalagem > 0 || f.valesDinheiro > 0 || f.creditos > 0 || f.debitosAnteriores > 0) && (
+                      <div style={{ minWidth: 160 }}>
+                        <p style={{ fontSize: 10, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 4px' }}>Deduções</p>
+                        {f.valesEmbalagem > 0 && <p style={{ fontSize: 12, color: PINK, margin: '1px 0' }}>Caixas: {fmtBRL(f.valesEmbalagem)}</p>}
+                        {f.valesDinheiro > 0 && <p style={{ fontSize: 12, color: PINK, margin: '1px 0' }}>Vales: {fmtBRL(f.valesDinheiro)}</p>}
+                        {f.creditos > 0 && <p style={{ fontSize: 12, color: PINK, margin: '1px 0' }}>Créditos: {fmtBRL(f.creditos)}</p>}
+                        {f.debitosAnteriores > 0 && <p style={{ fontSize: 12, color: PINK, margin: '1px 0' }}>Déb. Ant.: {fmtBRL(f.debitosAnteriores)}</p>}
+                        <p style={{ fontSize: 12, fontWeight: 700, color: PINK, margin: '4px 0 0', borderTop: '1px solid #fee2e2', paddingTop: 3 }}>
+                          Total: {fmtBRL(f.valesEmbalagem + f.valesDinheiro + f.creditos + f.debitosAnteriores)}
+                        </p>
+                      </div>
+                    )}
 
                     {/* Botões de impressão */}
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
