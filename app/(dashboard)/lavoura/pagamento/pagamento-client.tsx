@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import Link from 'next/link'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faPlus, faSearch, faPrint, faCircleCheck, faClock, faChevronRight } from '@fortawesome/free-solid-svg-icons'
+import { faSearch, faPrint, faPlus, faFileLines } from '@fortawesome/free-solid-svg-icons'
 import PageSkeleton from '@/components/page-skeleton'
 
 const GREEN = '#5ab952'
@@ -26,201 +26,198 @@ function fmt(d: string) { return new Date(d).toLocaleDateString('pt-BR') }
 function fmtBRL(v: number) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
 
 export default function PagamentoClient() {
+  const [produtores, setProdutores] = useState<Produtor[]>([])
   const [fechamentos, setFechamentos] = useState<Fechamento[]>([])
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState('')
-  const [filtroStatus, setFiltroStatus] = useState('TODOS')
+  const [produtorSel, setProdutorSel] = useState<Produtor | null>(null)
 
   useEffect(() => {
-    fetch('/api/fechamento').then(r => r.json()).then(setFechamentos).finally(() => setLoading(false))
+    Promise.all([
+      fetch('/api/produtores').then(r => r.json()),
+      fetch('/api/fechamento').then(r => r.json()),
+    ]).then(([p, f]) => {
+      setProdutores(p)
+      setFechamentos(f)
+    }).finally(() => setLoading(false))
   }, [])
 
-  const filtrados = useMemo(() => {
+  const sugestoes = useMemo(() => {
     const q = busca.toLowerCase().trim()
-    return fechamentos.filter(f => {
-      const matchStatus = filtroStatus === 'TODOS' || f.status === filtroStatus
-      if (!matchStatus) return false
-      if (!q) return true
-      if (f.produtor.nome.toLowerCase().includes(q)) return true
-      if (f.produtor.cpf?.includes(q)) return true
-      if (f.produtor.parceiros.some(p => p.nome.toLowerCase().includes(q))) return true
-      return false
-    })
-  }, [fechamentos, busca, filtroStatus])
+    if (!q || produtorSel) return []
+    const resultado: { tipo: 'produtor' | 'meeiro'; label: string; sub: string; produtor: Produtor }[] = []
+    for (const p of produtores) {
+      if (p.nome.toLowerCase().includes(q) || p.cpf?.includes(q)) {
+        resultado.push({ tipo: 'produtor', label: p.nome, sub: p.cpf ?? '', produtor: p })
+      }
+      for (const parc of p.parceiros) {
+        if (parc.nome.toLowerCase().includes(q)) {
+          resultado.push({ tipo: 'meeiro', label: parc.nome, sub: `Meeiro de ${p.nome}`, produtor: p })
+        }
+      }
+    }
+    return resultado.slice(0, 8)
+  }, [busca, produtores, produtorSel])
 
-  if (loading) return <PageSkeleton cards={2} rows={5} />
+  const fechamentosDoProd = useMemo(() => {
+    if (!produtorSel) return []
+    return fechamentos.filter(f => f.produtor.id === produtorSel.id)
+  }, [produtorSel, fechamentos])
 
-  const pendentes = fechamentos.filter(f => f.status === 'PENDENTE').length
-  const pagos = fechamentos.filter(f => f.status === 'PAGO').length
+  function selecionar(produtor: Produtor, label: string) {
+    setProdutorSel(produtor)
+    setBusca(label)
+  }
+
+  function limpar() {
+    setProdutorSel(null)
+    setBusca('')
+  }
+
+  if (loading) return <PageSkeleton cards={0} rows={4} />
+
+  const totalParceirosPct = produtorSel ? produtorSel.parceiros.reduce((s, p) => s + p.percentual, 0) : 0
+  const percProdutor = Math.max(0, 100 - totalParceirosPct)
 
   return (
     <div>
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-        className="page-header"
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}
-      >
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 700, color: NAVY, margin: 0 }}>Demonstrativos de Pagamento</h1>
-          <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>Busque pelo nome do produtor ou meeiro para imprimir o demonstrativo</p>
-        </div>
-        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-          <Link href="/lavoura/pagamento/novo" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', backgroundColor: GREEN, color: 'white', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
-            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 15 }} /> Novo Fechamento
-          </Link>
-        </motion.div>
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}
+        style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 700, color: NAVY, margin: 0 }}>Demonstrativos de Pagamento</h1>
+        <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>Busque pelo nome do produtor ou meeiro</p>
       </motion.div>
 
-      {/* KPIs */}
-      <div className="stats-grid-2" style={{ marginBottom: 24 }}>
-        {[
-          { label: 'Pendentes', value: pendentes, color: ORANGE, icon: faClock },
-          { label: 'Pagos', value: pagos, color: GREEN, icon: faCircleCheck },
-        ].map(({ label, value, color, icon }, i) => (
-          <motion.div
-            key={label}
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.09, duration: 0.4, type: 'spring', stiffness: 180 }}
-            style={{ backgroundColor: 'white', borderRadius: 14, padding: '20px 24px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `4px solid ${color}` }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <p style={{ color: '#6b7280', fontSize: 13, margin: 0 }}>{label}</p>
-                <p style={{ color, fontSize: 32, fontWeight: 700, margin: '4px 0 0' }}>{value}</p>
-              </div>
-              <div style={{ backgroundColor: `${color}15`, borderRadius: 10, padding: 10 }}>
-                <FontAwesomeIcon icon={icon} style={{ fontSize: 20, color }} />
+      {/* Campo de busca */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+        style={{ position: 'relative', maxWidth: 520, marginBottom: 32 }}>
+        <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#9ca3af', pointerEvents: 'none', zIndex: 1 }} />
+        <input
+          value={busca}
+          onChange={e => { setBusca(e.target.value); if (produtorSel) setProdutorSel(null) }}
+          placeholder="Digite o nome do produtor ou meeiro..."
+          autoFocus
+          style={{ width: '100%', padding: '14px 16px 14px 44px', border: `2px solid ${produtorSel ? GREEN : '#e5e7eb'}`, borderRadius: 12, fontSize: 15, outline: 'none', color: NAVY, boxSizing: 'border-box', transition: 'border-color 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
+          onFocus={e => { if (!produtorSel) e.target.style.borderColor = GREEN }}
+          onBlur={e => { if (!produtorSel) e.target.style.borderColor = '#e5e7eb' }}
+        />
+        {busca && (
+          <button onClick={limpar} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 18, lineHeight: 1, padding: 4 }}>×</button>
+        )}
+
+        {/* Sugestões */}
+        <AnimatePresence>
+          {sugestoes.length > 0 && (
+            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
+              style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: 'white', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.12)', border: '1px solid #e5e7eb', zIndex: 50, overflow: 'hidden' }}>
+              {sugestoes.map((s, i) => (
+                <motion.button key={i} onMouseDown={() => selecionar(s.produtor, s.label)}
+                  whileHover={{ backgroundColor: '#f8fffe' }}
+                  style={{ width: '100%', padding: '11px 16px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', borderBottom: i < sugestoes.length - 1 ? '1px solid #f3f4f6' : 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, backgroundColor: s.tipo === 'produtor' ? `${GREEN}15` : `${PURPLE}15`, color: s.tipo === 'produtor' ? GREEN : PURPLE, textTransform: 'uppercase', flexShrink: 0 }}>
+                    {s.tipo === 'produtor' ? 'Produtor' : 'Meeiro'}
+                  </span>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: NAVY }}>{s.label}</p>
+                    {s.sub && <p style={{ margin: 0, fontSize: 12, color: '#9ca3af' }}>{s.sub}</p>}
+                  </div>
+                </motion.button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+
+      {/* Resultado: produtor selecionado */}
+      <AnimatePresence mode="wait">
+        {produtorSel && (
+          <motion.div key={produtorSel.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+
+            {/* Info do produtor */}
+            <div style={{ backgroundColor: 'white', borderRadius: 14, padding: '18px 22px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', marginBottom: 16, borderLeft: `4px solid ${GREEN}` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: NAVY }}>{produtorSel.nome}</p>
+                  {produtorSel.cpf && <p style={{ margin: '2px 0 0', fontSize: 13, color: '#6b7280' }}>CPF: {produtorSel.cpf}</p>}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: GREEN, backgroundColor: `${GREEN}12`, padding: '3px 10px', borderRadius: 20 }}>
+                      Produtor {percProdutor}%
+                    </span>
+                    {produtorSel.parceiros.map(p => (
+                      <span key={p.id} style={{ fontSize: 12, fontWeight: 700, color: PURPLE, backgroundColor: `${PURPLE}10`, padding: '3px 10px', borderRadius: 20 }}>
+                        Meeiro: {p.nome} {p.percentual}%
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <Link href={`/lavoura/pagamento/novo?produtorId=${produtorSel.id}`}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', backgroundColor: GREEN, color: 'white', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+                  <FontAwesomeIcon icon={faPlus} style={{ fontSize: 13 }} /> Novo Fechamento
+                </Link>
               </div>
             </div>
-          </motion.div>
-        ))}
-      </div>
 
-      {/* Busca + filtros */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
-          <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: '#9ca3af', pointerEvents: 'none' }} />
-          <input
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-            placeholder="Buscar por produtor ou meeiro..."
-            style={{ width: '100%', padding: '10px 14px 10px 36px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, outline: 'none', color: NAVY, boxSizing: 'border-box', transition: 'border-color 0.2s' }}
-            onFocus={e => (e.target.style.borderColor = GREEN)}
-            onBlur={e => (e.target.style.borderColor = '#e5e7eb')}
-          />
-        </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {(['TODOS', 'PENDENTE', 'PAGO'] as const).map(s => (
-            <motion.button key={s} onClick={() => setFiltroStatus(s)}
-              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-              style={{ padding: '9px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none', backgroundColor: filtroStatus === s ? NAVY : '#f3f4f6', color: filtroStatus === s ? 'white' : '#6b7280' }}>
-              {s === 'TODOS' ? 'Todos' : s === 'PENDENTE' ? 'Pendentes' : 'Pagos'}
-            </motion.button>
-          ))}
-        </div>
-      </div>
+            {/* Fechamentos */}
+            {fechamentosDoProd.length === 0 ? (
+              <div style={{ backgroundColor: 'white', borderRadius: 14, padding: '48px 24px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', color: '#9ca3af' }}>
+                <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 32, opacity: 0.3, marginBottom: 10, display: 'block', margin: '0 auto 10px' }} />
+                <p style={{ fontWeight: 600, color: '#6b7280', margin: '0 0 4px' }}>Nenhum fechamento para {produtorSel.nome}</p>
+                <p style={{ fontSize: 13, margin: 0 }}>Crie o primeiro fechamento para gerar os demonstrativos.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {fechamentosDoProd.map((f, i) => {
+                  const totalDed = f.valesEmbalagem + f.valesDinheiro + f.creditos + f.debitosAnteriores
+                  return (
+                    <motion.div key={f.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                      style={{ backgroundColor: 'white', borderRadius: 12, padding: '16px 20px', boxShadow: '0 2px 6px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
 
-      {/* Lista */}
-      <AnimatePresence mode="wait">
-        {filtrados.length === 0 ? (
-          <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ backgroundColor: 'white', borderRadius: 14, padding: 64, textAlign: 'center', color: '#9ca3af', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            <FontAwesomeIcon icon={faSearch} style={{ fontSize: 36, opacity: 0.3, marginBottom: 12, display: 'block', margin: '0 auto 12px' }} />
-            <p style={{ fontWeight: 600, margin: '0 0 6px', color: '#6b7280' }}>
-              {busca ? `Nenhum resultado para "${busca}"` : 'Nenhum fechamento encontrado'}
-            </p>
-            {!busca && <Link href="/lavoura/pagamento/novo" style={{ color: GREEN, fontSize: 13 }}>Criar fechamento →</Link>}
-          </motion.div>
-        ) : (
-          <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {filtrados.map((f, i) => {
-              const totalParceirosPct = f.produtor.parceiros.reduce((s, p) => s + p.percentual, 0)
-              const percProdutor = Math.max(0, 100 - totalParceirosPct)
-              return (
-                <motion.div
-                  key={f.id}
-                  initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  style={{ backgroundColor: 'white', borderRadius: 14, padding: '18px 22px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderLeft: `4px solid ${f.status === 'PAGO' ? GREEN : ORANGE}` }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-
-                    {/* Produtor + meeiros */}
-                    <div style={{ flex: 1, minWidth: 180 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: f.produtor.parceiros.length > 0 ? 6 : 0 }}>
-                        <span style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{f.produtor.nome}</span>
-                        <span style={{ fontSize: 11, color: GREEN, fontWeight: 700, backgroundColor: `${GREEN}12`, padding: '2px 8px', borderRadius: 20 }}>{percProdutor}%</span>
-                        <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, fontWeight: 700, backgroundColor: f.status === 'PAGO' ? '#f0faf0' : '#fff7ed', color: f.status === 'PAGO' ? GREEN : ORANGE }}>
-                          {f.status === 'PAGO' ? 'Pago' : 'Pendente'}
-                        </span>
+                      <div style={{ flex: 1, minWidth: 140 }}>
+                        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: NAVY }}>{fmt(f.dataInicio)} – {fmt(f.dataFim)}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: 12, color: '#9ca3af' }}>Pagamento: {fmt(f.dataPagamento)}</p>
                       </div>
-                      {f.produtor.parceiros.length > 0 && (
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          {f.produtor.parceiros.map(p => (
-                            <span key={p.id} style={{ fontSize: 11, color: PURPLE, backgroundColor: `${PURPLE}10`, padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
-                              Meeiro: {p.nome} ({p.percentual}%)
-                            </span>
-                          ))}
+
+                      {totalDed > 0 && (
+                        <div style={{ minWidth: 120 }}>
+                          <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5 }}>Deduções</p>
+                          <p style={{ margin: '2px 0 0', fontSize: 13, fontWeight: 700, color: PINK }}>- {fmtBRL(totalDed)}</p>
                         </div>
                       )}
-                    </div>
 
-                    {/* Período */}
-                    <div style={{ textAlign: 'center', minWidth: 130 }}>
-                      <p style={{ fontSize: 10, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 2px' }}>Período</p>
-                      <p style={{ fontSize: 13, color: '#374151', fontWeight: 500, margin: 0 }}>{fmt(f.dataInicio)} – {fmt(f.dataFim)}</p>
-                      <p style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0 0' }}>Pag: {fmt(f.dataPagamento)}</p>
-                    </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20, backgroundColor: f.status === 'PAGO' ? '#f0faf0' : '#fff7ed', color: f.status === 'PAGO' ? GREEN : ORANGE }}>
+                        {f.status === 'PAGO' ? 'Pago' : 'Pendente'}
+                      </span>
 
-                    {/* Deduções */}
-                    {(f.valesEmbalagem > 0 || f.valesDinheiro > 0 || f.creditos > 0 || f.debitosAnteriores > 0) && (
-                      <div style={{ minWidth: 160 }}>
-                        <p style={{ fontSize: 10, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 4px' }}>Deduções</p>
-                        {f.valesEmbalagem > 0 && <p style={{ fontSize: 12, color: PINK, margin: '1px 0' }}>Caixas: {fmtBRL(f.valesEmbalagem)}</p>}
-                        {f.valesDinheiro > 0 && <p style={{ fontSize: 12, color: PINK, margin: '1px 0' }}>Vales: {fmtBRL(f.valesDinheiro)}</p>}
-                        {f.creditos > 0 && <p style={{ fontSize: 12, color: PINK, margin: '1px 0' }}>Créditos: {fmtBRL(f.creditos)}</p>}
-                        {f.debitosAnteriores > 0 && <p style={{ fontSize: 12, color: PINK, margin: '1px 0' }}>Déb. Ant.: {fmtBRL(f.debitosAnteriores)}</p>}
-                        <p style={{ fontSize: 12, fontWeight: 700, color: PINK, margin: '4px 0 0', borderTop: '1px solid #fee2e2', paddingTop: 3 }}>
-                          Total: {fmtBRL(f.valesEmbalagem + f.valesDinheiro + f.creditos + f.debitosAnteriores)}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Botões de impressão */}
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <motion.button
-                        onClick={() => window.open(`/imprimir/pagamento/${f.id}`, '_blank')}
-                        whileHover={{ scale: 1.05, backgroundColor: '#1e2550' }}
-                        whileTap={{ scale: 0.95 }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', backgroundColor: NAVY, color: 'white', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                        <FontAwesomeIcon icon={faPrint} style={{ fontSize: 12 }} />
-                        {f.produtor.parceiros.length > 0 ? `Produtor (${percProdutor}%)` : 'Imprimir'}
-                      </motion.button>
-
-                      {f.produtor.parceiros.map((p, pi) => (
-                        <motion.button
-                          key={p.id}
-                          onClick={() => window.open(`/imprimir/pagamento/${f.id}/meeiro?p=${pi}`, '_blank')}
-                          whileHover={{ scale: 1.05, backgroundColor: '#6d28d9' }}
-                          whileTap={{ scale: 0.95 }}
-                          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', backgroundColor: PURPLE, color: 'white', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <motion.button onClick={() => window.open(`/imprimir/pagamento/${f.id}`, '_blank')}
+                          whileHover={{ scale: 1.05, backgroundColor: '#1e2550' }} whileTap={{ scale: 0.95 }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', backgroundColor: NAVY, color: 'white', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                           <FontAwesomeIcon icon={faPrint} style={{ fontSize: 12 }} />
-                          {p.nome} ({p.percentual}%)
+                          {produtorSel.parceiros.length > 0 ? `Produtor (${percProdutor}%)` : 'Imprimir'}
                         </motion.button>
-                      ))}
 
-                      <Link href={`/lavoura/pagamento/${f.id}`}
-                        style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 12px', backgroundColor: '#f3f4f6', color: '#6b7280', borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
-                        Detalhe <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 11 }} />
-                      </Link>
-                    </div>
+                        {produtorSel.parceiros.map((p, pi) => (
+                          <motion.button key={p.id} onClick={() => window.open(`/imprimir/pagamento/${f.id}/meeiro?p=${pi}`, '_blank')}
+                            whileHover={{ scale: 1.05, backgroundColor: '#6d28d9' }} whileTap={{ scale: 0.95 }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', backgroundColor: PURPLE, color: 'white', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                            <FontAwesomeIcon icon={faPrint} style={{ fontSize: 12 }} />
+                            {p.nome} ({p.percentual}%)
+                          </motion.button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )
+                })}
+              </div>
+            )}
+          </motion.div>
+        )}
 
-                  </div>
-                </motion.div>
-              )
-            })}
+        {!produtorSel && !busca && (
+          <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            style={{ textAlign: 'center', paddingTop: 60, color: '#9ca3af' }}>
+            <FontAwesomeIcon icon={faSearch} style={{ fontSize: 40, opacity: 0.2, display: 'block', margin: '0 auto 14px' }} />
+            <p style={{ fontWeight: 600, fontSize: 15, color: '#6b7280', margin: '0 0 4px' }}>Digite o nome para começar</p>
+            <p style={{ fontSize: 13, margin: 0 }}>Busca produtores e meeiros cadastrados no sistema</p>
           </motion.div>
         )}
       </AnimatePresence>
