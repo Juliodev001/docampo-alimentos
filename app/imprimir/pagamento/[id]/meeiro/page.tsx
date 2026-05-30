@@ -1,11 +1,12 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
 
 const GREEN = '#5ab952'
 const NAVY = '#2d3561'
 const PINK = '#e8255a'
 const ORANGE = '#e87320'
+const PURPLE = '#7c3aed'
 
 type Produto = { id: string; nome: string }
 type Parceiro = { nome: string; percentual: number }
@@ -26,10 +27,14 @@ type Fechamento = {
 function fmtBRL(v: number) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString('pt-BR') }
 
-export default function ImprimirPagamento() {
+function ImprimirPagamentoMeeiro() {
   const { id } = useParams<{ id: string }>()
+  const searchParams = useSearchParams()
   const [fechamento, setFechamento] = useState<Fechamento | null>(null)
   const printed = useRef(false)
+
+  // ?p=0 selects which parceiro (meeiro) to print; defaults to 0
+  const parceiroIdx = parseInt(searchParams.get('p') ?? '0', 10)
 
   useEffect(() => {
     fetch(`/api/fechamento/${id}`)
@@ -54,9 +59,17 @@ export default function ImprimirPagamento() {
 
   const { produtor, colheitas, dataInicio, dataFim, dataPagamento, valesEmbalagem, valesDinheiro, creditos, debitosAnteriores } = fechamento
 
-  const totalParceirosPct = produtor.parceiros.reduce((s, p) => s + p.percentual, 0)
-  const percProdutor = Math.max(0, 100 - totalParceirosPct)
-  const fator = percProdutor / 100
+  const meeiro = produtor.parceiros[parceiroIdx]
+  if (!meeiro) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'Arial, sans-serif', color: PINK }}>
+        Nenhum meeiro cadastrado para este produtor.
+      </div>
+    )
+  }
+
+  const percMeeiro = meeiro.percentual
+  const fator = percMeeiro / 100
 
   const totalFaturaBruto = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
   const totalFatura = totalFaturaBruto * fator
@@ -96,7 +109,7 @@ export default function ImprimirPagamento() {
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <h1 style={{ fontSize: 17, fontWeight: 800, color: NAVY, margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>Pagamento de Produtor</h1>
+              <h1 style={{ fontSize: 17, fontWeight: 800, color: NAVY, margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>Pagamento de Meeiro</h1>
               <p style={{ fontSize: 11, color: '#6b7280', margin: '4px 0 0' }}>
                 Período: {fmtDate(dataInicio)} a {fmtDate(dataFim)}
               </p>
@@ -107,23 +120,21 @@ export default function ImprimirPagamento() {
           </div>
         </div>
 
-        {/* Dados do produtor */}
-        <div style={{ backgroundColor: '#f8faff', borderRadius: 8, padding: '12px 16px', marginBottom: 18, border: '1px solid #e0e7ff' }}>
-          <p style={{ fontSize: 10, color: '#6b7280', margin: '0 0 4px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Produtor</p>
-          <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
-            <div>
-              <span style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{produtor.nome}</span>
-            </div>
-            {produtor.cpf && (
-              <div>
-                <span style={{ fontSize: 12, color: '#6b7280' }}>CPF: </span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{produtor.cpf}</span>
+        {/* Dados do meeiro + produtor */}
+        <div style={{ display: 'flex', gap: 14, marginBottom: 18 }}>
+          <div style={{ flex: 1, backgroundColor: '#faf5ff', borderRadius: 8, padding: '12px 16px', border: `1px solid ${PURPLE}30` }}>
+            <p style={{ fontSize: 10, color: '#6b7280', margin: '0 0 4px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Meeiro</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{meeiro.nome}</span>
+              <div style={{ marginLeft: 'auto' }}>
+                <span style={{ fontSize: 12, color: '#6b7280' }}>Participação: </span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: PURPLE }}>{percMeeiro.toFixed(0)}%</span>
               </div>
-            )}
-            <div style={{ marginLeft: 'auto' }}>
-              <span style={{ fontSize: 12, color: '#6b7280' }}>Participação: </span>
-              <span style={{ fontSize: 14, fontWeight: 800, color: GREEN }}>{percProdutor.toFixed(0)}%</span>
             </div>
+          </div>
+          <div style={{ flex: 1, backgroundColor: '#f8faff', borderRadius: 8, padding: '12px 16px', border: '1px solid #e0e7ff' }}>
+            <p style={{ fontSize: 10, color: '#6b7280', margin: '0 0 4px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Produtor</p>
+            <span style={{ fontSize: 14, fontWeight: 600, color: NAVY }}>{produtor.nome}</span>
           </div>
         </div>
 
@@ -131,7 +142,7 @@ export default function ImprimirPagamento() {
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
           <thead>
             <tr>
-              {['Data', 'Nº Doc', 'Produto / Qualidade', 'Qtd.', 'Descarte', 'Líquido', 'Preço/cx', 'Sub-total Bruto', `Parte (${percProdutor.toFixed(0)}%)`].map(h => (
+              {['Data', 'Nº Doc', 'Produto / Qualidade', 'Qtd.', 'Descarte', 'Líquido', 'Preço/cx', 'Sub-total Bruto', `Parte (${percMeeiro.toFixed(0)}%)`].map(h => (
                 <th key={h} style={{ ...th, textAlign: h.startsWith('Sub') || h.startsWith('Parte') ? 'right' : 'left' }}>{h}</th>
               ))}
             </tr>
@@ -154,7 +165,7 @@ export default function ImprimirPagamento() {
                   <td style={{ ...td, fontWeight: 600 }}>{liquido.toFixed(1)}</td>
                   <td style={td}>{fmtBRL(c.preco)}</td>
                   <td style={{ ...td, textAlign: 'right', color: '#6b7280' }}>{fmtBRL(subBruto)}</td>
-                  <td style={{ ...td, fontWeight: 700, color: GREEN, textAlign: 'right' }}>{fmtBRL(subParte)}</td>
+                  <td style={{ ...td, fontWeight: 700, color: PURPLE, textAlign: 'right' }}>{fmtBRL(subParte)}</td>
                 </tr>
               )
             })}
@@ -163,7 +174,7 @@ export default function ImprimirPagamento() {
             <tr style={{ borderTop: '2px solid #d1d5db', backgroundColor: '#f9fafb' }}>
               <td colSpan={7} style={{ padding: '10px', fontSize: 12, fontWeight: 700, color: NAVY }}>Total Bruto</td>
               <td style={{ padding: '10px', fontSize: 13, fontWeight: 700, color: '#6b7280', textAlign: 'right' }}>{fmtBRL(totalFaturaBruto)}</td>
-              <td style={{ padding: '10px', fontSize: 14, fontWeight: 800, color: GREEN, textAlign: 'right' }}>{fmtBRL(totalFatura)}</td>
+              <td style={{ padding: '10px', fontSize: 14, fontWeight: 800, color: PURPLE, textAlign: 'right' }}>{fmtBRL(totalFatura)}</td>
             </tr>
           </tfoot>
         </table>
@@ -173,7 +184,7 @@ export default function ImprimirPagamento() {
           <div style={{ width: 360, border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
             <div style={{ backgroundColor: '#f9fafb', padding: '8px 14px', borderBottom: '1px solid #e5e7eb' }}>
               <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                Deduções — parte do produtor ({percProdutor.toFixed(0)}%)
+                Deduções — parte do meeiro ({percMeeiro.toFixed(0)}%)
               </p>
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -182,7 +193,7 @@ export default function ImprimirPagamento() {
                   <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
                     <td style={{ padding: '8px 14px', fontSize: 12, color: '#6b7280' }}>
                       Caixas e Bandeja
-                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(valesEmbalagem)} × {percProdutor.toFixed(0)}%)</span>
+                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(valesEmbalagem)} × {percMeeiro.toFixed(0)}%)</span>
                     </td>
                     <td style={{ padding: '8px 14px', fontSize: 12, color: PINK, textAlign: 'right' }}>- {fmtBRL(dedValesEmbalagem)}</td>
                   </tr>
@@ -191,7 +202,7 @@ export default function ImprimirPagamento() {
                   <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
                     <td style={{ padding: '8px 14px', fontSize: 12, color: '#6b7280' }}>
                       Vales Dinheiro
-                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(valesDinheiro)} × {percProdutor.toFixed(0)}%)</span>
+                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(valesDinheiro)} × {percMeeiro.toFixed(0)}%)</span>
                     </td>
                     <td style={{ padding: '8px 14px', fontSize: 12, color: PINK, textAlign: 'right' }}>- {fmtBRL(dedValesDinheiro)}</td>
                   </tr>
@@ -200,7 +211,7 @@ export default function ImprimirPagamento() {
                   <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
                     <td style={{ padding: '8px 14px', fontSize: 12, color: '#6b7280' }}>
                       Créditos (Coleta e Filmagem)
-                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(creditos)} × {percProdutor.toFixed(0)}%)</span>
+                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(creditos)} × {percMeeiro.toFixed(0)}%)</span>
                     </td>
                     <td style={{ padding: '8px 14px', fontSize: 12, color: PINK, textAlign: 'right' }}>- {fmtBRL(dedCreditos)}</td>
                   </tr>
@@ -209,14 +220,14 @@ export default function ImprimirPagamento() {
                   <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
                     <td style={{ padding: '8px 14px', fontSize: 12, color: '#6b7280' }}>
                       Débitos Anteriores
-                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(debitosAnteriores)} × {percProdutor.toFixed(0)}%)</span>
+                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(debitosAnteriores)} × {percMeeiro.toFixed(0)}%)</span>
                     </td>
                     <td style={{ padding: '8px 14px', fontSize: 12, color: PINK, textAlign: 'right' }}>- {fmtBRL(dedDebitos)}</td>
                   </tr>
                 )}
-                <tr style={{ backgroundColor: `${GREEN}15` }}>
+                <tr style={{ backgroundColor: `${PURPLE}10` }}>
                   <td style={{ padding: '12px 14px', fontSize: 14, fontWeight: 800, color: NAVY }}>A Receber</td>
-                  <td style={{ padding: '12px 14px', fontSize: 18, fontWeight: 800, color: aReceber >= 0 ? GREEN : PINK, textAlign: 'right' }}>{fmtBRL(aReceber)}</td>
+                  <td style={{ padding: '12px 14px', fontSize: 18, fontWeight: 800, color: aReceber >= 0 ? PURPLE : PINK, textAlign: 'right' }}>{fmtBRL(aReceber)}</td>
                 </tr>
               </tbody>
             </table>
@@ -227,8 +238,8 @@ export default function ImprimirPagamento() {
         <div style={{ marginTop: 48, display: 'flex', justifyContent: 'space-between' }}>
           <div style={{ textAlign: 'center', width: 200 }}>
             <div style={{ borderTop: '1px solid #374151', paddingTop: 6 }}>
-              <p style={{ fontSize: 11, color: '#6b7280', margin: 0 }}>Assinatura do Produtor</p>
-              <p style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0 0' }}>{produtor.nome}</p>
+              <p style={{ fontSize: 11, color: '#6b7280', margin: 0 }}>Assinatura do Meeiro</p>
+              <p style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0 0' }}>{meeiro.nome}</p>
             </div>
           </div>
           <div style={{ textAlign: 'center', width: 200 }}>
@@ -241,5 +252,13 @@ export default function ImprimirPagamento() {
 
       </div>
     </>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'Arial, sans-serif', color: '#6b7280' }}>Carregando...</div>}>
+      <ImprimirPagamentoMeeiro />
+    </Suspense>
   )
 }

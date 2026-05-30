@@ -160,8 +160,21 @@ export default function PagamentoDetalheClient() {
             transition={{ type: 'spring', stiffness: 400, damping: 17 }}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', backgroundColor: NAVY, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
           >
-            <FontAwesomeIcon icon={faPrint} style={{ fontSize: 14 }} /> Imprimir / PDF
+            <FontAwesomeIcon icon={faPrint} style={{ fontSize: 14 }} /> {produtor.parceiros.length > 0 ? 'Produtor' : 'Imprimir / PDF'}
           </motion.button>
+
+          {produtor.parceiros.map((p, i) => (
+            <motion.button
+              key={p.id}
+              onClick={() => window.open(`/imprimir/pagamento/${id}/meeiro?p=${i}`, '_blank')}
+              whileHover={{ scale: 1.04, backgroundColor: '#6d28d9', boxShadow: '0 6px 20px rgba(124,58,237,0.4)' }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', backgroundColor: '#7c3aed', color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            >
+              <FontAwesomeIcon icon={faPrint} style={{ fontSize: 14 }} /> {p.nome} ({p.percentual}%)
+            </motion.button>
+          ))}
 
           <motion.button
             onClick={compartilharWhatsApp} disabled={sharing}
