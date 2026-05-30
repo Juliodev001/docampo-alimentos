@@ -282,7 +282,7 @@ export default function NovoFechamento() {
           {error && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               style={{ display: 'flex', alignItems: 'center', gap: 8, color: PINK, fontSize: 13, backgroundColor: '#fff0f3', padding: '10px 14px', borderRadius: 8, border: `1px solid ${PINK}30`, marginBottom: 16 }}>
-              <AlertCircle size={14} /> {error}
+              <FontAwesomeIcon icon={faCircleExclamation} style={{ fontSize: 14 }} /> {error}
             </motion.div>
           )}
         </AnimatePresence>
