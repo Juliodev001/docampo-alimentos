@@ -1,8 +1,8 @@
 'use client'
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import { motion } from 'motion/react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faSpinner } from '@fortawesome/free-solid-svg-icons'
+import { faSpinner, faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons'
 import { login } from '@/app/actions/auth'
 
 const GREEN = '#5ab952'
@@ -11,6 +11,7 @@ const PINK = '#e8255a'
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState(login, undefined)
+  const [showPassword, setShowPassword] = useState(false)
 
   return (
     <div
@@ -103,24 +104,34 @@ export default function LoginPage() {
             <label style={{ fontSize: 13, fontWeight: 500, color: NAVY, display: 'block', marginBottom: 6 }}>
               Senha
             </label>
-            <input
-              name="password"
-              type="password"
-              required
-              placeholder="••••••••"
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                border: '1.5px solid #e5e7eb',
-                borderRadius: 10,
-                fontSize: 14,
-                outline: 'none',
-                transition: 'border-color 0.2s',
-                color: NAVY,
-              }}
-              onFocus={(e) => (e.target.style.borderColor = GREEN)}
-              onBlur={(e) => (e.target.style.borderColor = '#e5e7eb')}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                placeholder="••••••••"
+                style={{
+                  width: '100%',
+                  padding: '10px 42px 10px 14px',
+                  border: '1.5px solid #e5e7eb',
+                  borderRadius: 10,
+                  fontSize: 14,
+                  outline: 'none',
+                  transition: 'border-color 0.2s',
+                  color: NAVY,
+                  boxSizing: 'border-box',
+                }}
+                onFocus={(e) => (e.target.style.borderColor = GREEN)}
+                onBlur={(e) => (e.target.style.borderColor = '#e5e7eb')}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(v => !v)}
+                style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 0, display: 'flex', alignItems: 'center' }}
+              >
+                <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} style={{ fontSize: 16 }} />
+              </button>
+            </div>
           </div>
 
           {state?.error && (
