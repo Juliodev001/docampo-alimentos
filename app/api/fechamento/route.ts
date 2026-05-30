@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
       ...(produtorId && { produtorId }),
       ...(status && status !== 'TODOS' && { status }),
     },
-    include: { produtor: true },
+    include: { produtor: { include: { parceiros: true } } },
     orderBy: { createdAt: 'desc' },
   })
   return NextResponse.json(fechamentos)
