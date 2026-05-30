@@ -489,6 +489,36 @@ body {
   flex-shrink: 0;
 }
 
+/* ── TopERP Polish: improved focus, hover, scrollbar ── */
+
+/* Smooth transitions on interactive elements */
+button, a, input, select, textarea {
+  transition-property: background-color, border-color, color, box-shadow, opacity;
+  transition-duration: 0.12s;
+  transition-timing-function: ease;
+}
+
+/* Focus rings */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #5ab952 !important;
+  box-shadow: 0 0 0 3px rgba(90, 185, 82, 0.12);
+}
+
+/* Meta card subtle lift on hover */
+.meta-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.18s ease;
+}
+
+/* Stat card hover */
+.meta-stat-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.18s ease;
+}
+
+/* Scrollbar for main content — handled globally in html selector below */
+
 /* ── Sidebar: esconde scrollbar do aside raiz, mostra apenas no nav ── */
 .sidebar-scroll { overflow: hidden !important; }
 
@@ -518,7 +548,7 @@ body {
 .modal-wrapper {
   position: fixed;
   top: 0;
-  left: 248px;
+  left: var(--sidebar-w, 248px);
   right: 0;
   bottom: 0;
   display: flex;
@@ -527,6 +557,7 @@ body {
   padding: 20px 16px;
   z-index: 1001;
   pointer-events: none;
+  transition: left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .modal-wrapper > * {
   pointer-events: auto;
@@ -538,20 +569,40 @@ body {
 }
 
 /* ── Layout responsivo ── */
+:root {
+  --sidebar-w: 248px;
+}
+@media (max-width: 767px) {
+  :root { --sidebar-w: 0px; }
+}
+
 .dashboard-content {
-  flex: 1;
+  margin-left: var(--sidebar-w, 248px);
+  transition: margin-left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  min-height: 100vh;
   background-color: #F0F2F5;
 }
 
 .dashboard-main {
   flex: 1;
   padding: 24px 28px;
-  overflow-y: auto;
-  max-width: 1400px;
-  width: 100%;
+}
+
+/* Scrollbar customizado para o body */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(45, 53, 97, 0.15) transparent;
+}
+html::-webkit-scrollbar { width: 6px; }
+html::-webkit-scrollbar-track { background: transparent; }
+html::-webkit-scrollbar-thumb {
+  background: rgba(45, 53, 97, 0.15);
+  border-radius: 4px;
+}
+html::-webkit-scrollbar-thumb:hover {
+  background: rgba(45, 53, 97, 0.28);
 }
 
 /* ── Tabelas responsivas ── */
@@ -595,8 +646,11 @@ body {
 
 /* ── Mobile ── */
 @media (max-width: 767px) {
+  .dashboard-content {
+    margin-left: 0 !important;
+  }
   .dashboard-main {
-    padding: 68px 14px 32px;
+    padding: 20px 14px 32px;
   }
 
   .stats-grid {
@@ -673,6 +727,35 @@ body {
   .grid-2-to-1 {
     grid-template-columns: 1fr !important;
   }
+}
+
+/* ── KPI responsive grids (para módulos com inline-style) ── */
+.kpi-grid-5 {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.kpi-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.kpi-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+@media (max-width: 1199px) {
+  .kpi-grid-5 { grid-template-columns: repeat(3, 1fr); }
+  .kpi-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 767px) {
+  .kpi-grid-5 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .kpi-grid-4 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .kpi-grid-3 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
 }
 
 /* ── Tablet ── */

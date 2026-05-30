@@ -1,7 +1,9 @@
 'use client'
 import { motion } from 'motion/react'
 import Link from 'next/link'
-import { Package, DollarSign, TrendingUp, Plus, ChevronLeft } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faBox, faDollarSign, faArrowTrendUp, faPlus, faChevronLeft } from '@fortawesome/free-solid-svg-icons'
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import { formatDate, formatCurrency } from '@/lib/utils'
 
 const GREEN = '#5ab952'
@@ -17,9 +19,9 @@ export default function SaidaClient({ saidas, totalQtd, totalValor, ticketMedio 
   saidas: Saida[]; totalQtd: number; totalValor: number; ticketMedio: number
 }) {
   const cards = [
-    { label: 'Qtd total saída', value: `${totalQtd.toFixed(0)} caixas`, color: NAVY, icon: Package },
-    { label: 'Receita total', value: formatCurrency(totalValor), color: GREEN, icon: DollarSign },
-    { label: 'Ticket médio por saída', value: formatCurrency(ticketMedio), color: PINK, icon: TrendingUp },
+    { label: 'Qtd total saída', value: `${totalQtd.toFixed(0)} caixas`, color: NAVY, icon: faBox as IconDefinition },
+    { label: 'Receita total', value: formatCurrency(totalValor), color: GREEN, icon: faDollarSign as IconDefinition },
+    { label: 'Ticket médio por saída', value: formatCurrency(ticketMedio), color: PINK, icon: faArrowTrendUp as IconDefinition },
   ]
 
   return (
@@ -30,20 +32,20 @@ export default function SaidaClient({ saidas, totalQtd, totalValor, ticketMedio 
       >
         <div>
           <Link href="/lavoura" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#6b7280', fontSize: 13, textDecoration: 'none', marginBottom: 8 }}>
-            <ChevronLeft size={14} /> Lavoura
+            <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 14 }} /> Lavoura
           </Link>
           <h1 style={{ fontSize: 26, fontWeight: 700, color: NAVY, margin: 0 }}>Saída de Produção</h1>
           <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>Movimentações financeiras da saída da lavoura</p>
         </div>
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
           <Link href="/lavoura/saida/nova" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', backgroundColor: GREEN, color: 'white', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
-            <Plus size={15} /> Registrar Saída
+            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 15 }} /> Registrar Saída
           </Link>
         </motion.div>
       </motion.div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
-        {cards.map(({ label, value, color, icon: Icon }, i) => (
+      <div className="kpi-grid-3">
+        {cards.map(({ label, value, color, icon }, i) => (
           <motion.div
             key={label}
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -60,7 +62,7 @@ export default function SaidaClient({ saidas, totalQtd, totalValor, ticketMedio 
                 >{value}</motion.p>
               </div>
               <div style={{ backgroundColor: `${color}15`, borderRadius: 10, padding: 10 }}>
-                <Icon size={20} color={color} />
+                <FontAwesomeIcon icon={icon} style={{ fontSize: 20, color }} />
               </div>
             </div>
           </motion.div>
@@ -81,7 +83,7 @@ export default function SaidaClient({ saidas, totalQtd, totalValor, ticketMedio 
         {saidas.length === 0 ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
             style={{ padding: 64, textAlign: 'center', color: '#9ca3af' }}>
-            <Package size={40} style={{ opacity: 0.3, margin: '0 auto 12px', display: 'block' }} />
+            <FontAwesomeIcon icon={faBox} style={{ fontSize: 40, opacity: 0.3, margin: '0 auto 12px', display: 'block' }} />
             <p style={{ fontWeight: 600, margin: '0 0 6px' }}>Nenhuma saída registrada ainda</p>
             <Link href="/lavoura/saida/nova" style={{ color: GREEN, fontSize: 13 }}>Registrar primeira saída →</Link>
           </motion.div>

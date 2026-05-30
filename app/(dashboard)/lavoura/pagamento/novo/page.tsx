@@ -3,7 +3,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'motion/react'
-import { ChevronLeft, AlertCircle, Search } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faChevronLeft, faCircleExclamation, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons'
 
 const GREEN = '#5ab952'
 const NAVY = '#2d3561'
@@ -43,6 +44,9 @@ export default function NovoFechamento() {
 
   useEffect(() => {
     fetch('/api/produtores').then(r => r.json()).then(d => setProdutores(Array.isArray(d) ? d : []))
+    fetch('/api/configuracoes?chave=caixas_bandeja_padrao')
+      .then(r => r.json())
+      .then(d => { if (d.valor) setValesEmbalagem(d.valor) })
   }, [])
 
   const buscarColheitas = useCallback(async () => {
@@ -103,7 +107,7 @@ export default function NovoFechamento() {
         style={{ marginBottom: 28 }}
       >
         <Link href="/lavoura/pagamento" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#6b7280', fontSize: 13, textDecoration: 'none', marginBottom: 8 }}>
-          <ChevronLeft size={14} /> Pagamentos
+          <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 14 }} /> Pagamentos
         </Link>
         <h1 style={{ fontSize: 26, fontWeight: 700, color: NAVY, margin: 0 }}>Novo Fechamento</h1>
         <p style={{ color: '#6b7280', fontSize: 13, marginTop: 4 }}>Selecione o produtor e o período para gerar o demonstrativo</p>
@@ -157,7 +161,7 @@ export default function NovoFechamento() {
                   cursor: produtorId && dataInicio && dataFim ? 'pointer' : 'not-allowed',
                 }}
               >
-                <Search size={15} /> {buscando ? 'Buscando...' : 'Buscar colheitas'}
+                <FontAwesomeIcon icon={faMagnifyingGlass} style={{ fontSize: 15 }} /> {buscando ? 'Buscando...' : 'Buscar colheitas'}
               </motion.button>
             </div>
           </motion.div>
@@ -170,7 +174,7 @@ export default function NovoFechamento() {
             <h3 style={{ fontSize: 15, fontWeight: 600, color: NAVY, margin: '0 0 22px' }}>Deduções</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[
-                { label: 'Vales Embalagem (R$)', val: valesEmbalagem, set: setValesEmbalagem },
+                { label: 'Caixas e Bandeja (R$)', val: valesEmbalagem, set: setValesEmbalagem },
                 { label: 'Vales Dinheiro (R$)', val: valesDinheiro, set: setValesDinheiro },
                 { label: 'Créditos — Coleta e Filmagem (R$)', val: creditos, set: setCreditos },
                 { label: 'Débitos Anteriores (R$)', val: debitosAnteriores, set: setDebitosAnteriores },
@@ -207,7 +211,7 @@ export default function NovoFechamento() {
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
               style={{ backgroundColor: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: 12, padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}
             >
-              <AlertCircle size={16} color="#d97706" />
+              <FontAwesomeIcon icon={faCircleExclamation} style={{ fontSize: 16, color: '#d97706' }} />
               <p style={{ fontSize: 13, color: '#92400e', margin: 0 }}>
                 Nenhuma colheita encontrada para este produtor no período <strong>{dataInicio}</strong> — <strong>{dataFim}</strong>.
                 Verifique se as colheitas foram registradas com o produtor correto.

@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import Link from 'next/link'
-import { FileText, Plus, Search, Wifi } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faFileLines, faPlus, faMagnifyingGlass, faWifi } from '@fortawesome/free-solid-svg-icons'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 const GREEN = '#5ab952'
@@ -40,11 +41,11 @@ export default function NfeClient({ rascunhos, emitidas }: { rascunhos: NFe[]; e
             whileHover={{ scale: 1.02, backgroundColor: '#f9fafb' }} whileTap={{ scale: 0.97 }}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', border: '1.5px solid #e5e7eb', borderRadius: 10, background: 'white', cursor: 'pointer', fontSize: 13, color: NAVY, fontWeight: 500 }}
           >
-            <Wifi size={14} /> Verificar Conexão
+            <FontAwesomeIcon icon={faWifi} style={{ fontSize: 14 }} /> Verificar Conexão
           </motion.button>
           <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
             <Link href="/nfe/nova" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', backgroundColor: GREEN, color: 'white', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
-              <Plus size={15} /> Nova NF-e
+              <FontAwesomeIcon icon={faPlus} style={{ fontSize: 15 }} /> Nova NF-e
             </Link>
           </motion.div>
         </div>
@@ -78,7 +79,7 @@ export default function NfeClient({ rascunhos, emitidas }: { rascunhos: NFe[]; e
         {/* Search */}
         <div style={{ padding: '14px 20px', borderBottom: '1px solid #f3f4f6' }}>
           <div style={{ position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+            <FontAwesomeIcon icon={faMagnifyingGlass} style={{ fontSize: 14, position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
             <input
               value={q} onChange={e => setQ(e.target.value)}
               placeholder="Buscar por cliente ou número..."
@@ -91,7 +92,7 @@ export default function NfeClient({ rascunhos, emitidas }: { rascunhos: NFe[]; e
           {filtrada.length === 0 ? (
             <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               style={{ padding: 64, textAlign: 'center', color: '#9ca3af' }}>
-              <FileText size={40} style={{ opacity: 0.3, margin: '0 auto 12px', display: 'block' }} />
+              <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 40, opacity: 0.3, margin: '0 auto 12px', display: 'block' }} />
               <p style={{ fontWeight: 600, margin: '0 0 6px' }}>Nenhum{aba === 'rascunhos' ? ' rascunho' : 'a NF-e emitida'}</p>
               <p style={{ fontSize: 13, margin: 0 }}>Comece criando sua primeira NF-e</p>
             </motion.div>

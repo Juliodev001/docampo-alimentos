@@ -3,8 +3,10 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'motion/react'
-import { ChevronLeft, Printer, CheckCircle, Trash2, MessageCircle } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faChevronLeft, faPrint, faCircleCheck, faTrash, faComment } from '@fortawesome/free-solid-svg-icons'
 import PageSkeleton from '@/components/page-skeleton'
+import { useToast } from '@/components/toast'
 
 const GREEN = '#5ab952'
 const NAVY = '#2d3561'
@@ -33,6 +35,7 @@ function fmtBRL(v: number) { return v.toLocaleString('pt-BR', { style: 'currency
 function fmtDate(d: string) { return new Date(d).toLocaleDateString('pt-BR') }
 
 export default function PagamentoDetalheClient() {
+  const toast = useToast()
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const [fechamento, setFechamento] = useState<Fechamento | null>(null)
@@ -123,7 +126,7 @@ export default function PagamentoDetalheClient() {
         waWindow?.close()
         return
       }
-      alert('Erro ao gerar a imagem: ' + (e instanceof Error ? e.message : String(e)))
+      toast.error('Erro ao gerar imagem', e instanceof Error ? e.message : String(e))
     } finally {
       setSharing(false)
     }
@@ -138,7 +141,7 @@ export default function PagamentoDetalheClient() {
       >
         <div>
           <Link href="/lavoura/pagamento" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#6b7280', fontSize: 13, textDecoration: 'none', marginBottom: 8 }}>
-            <ChevronLeft size={14} /> Pagamentos
+            <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 14 }} /> Pagamentos
           </Link>
           <h1 style={{ fontSize: 26, fontWeight: 700, color: NAVY, margin: 0 }}>Fechamento — {produtor.nome}</h1>
           <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>{fmtDate(dataInicio)} a {fmtDate(dataFim)}</p>
@@ -157,7 +160,7 @@ export default function PagamentoDetalheClient() {
             transition={{ type: 'spring', stiffness: 400, damping: 17 }}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', backgroundColor: NAVY, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
           >
-            <Printer size={14} /> Imprimir / PDF
+            <FontAwesomeIcon icon={faPrint} style={{ fontSize: 14 }} /> Imprimir / PDF
           </motion.button>
 
           <motion.button
@@ -167,7 +170,7 @@ export default function PagamentoDetalheClient() {
             transition={{ type: 'spring', stiffness: 400, damping: 17 }}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', backgroundColor: WA, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: sharing ? 'not-allowed' : 'pointer', opacity: sharing ? 0.7 : 1 }}
           >
-            <MessageCircle size={14} /> {sharing ? 'Gerando...' : 'WhatsApp'}
+            <FontAwesomeIcon icon={faComment} style={{ fontSize: 14 }} /> {sharing ? 'Gerando...' : 'WhatsApp'}
           </motion.button>
 
           {status !== 'PAGO' && (
@@ -178,7 +181,7 @@ export default function PagamentoDetalheClient() {
               transition={{ type: 'spring', stiffness: 400, damping: 17 }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', backgroundColor: GREEN, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: marking ? 0.7 : 1 }}
             >
-              <CheckCircle size={14} /> {marking ? 'Salvando...' : 'Marcar como Pago'}
+              <FontAwesomeIcon icon={faCircleCheck} style={{ fontSize: 14 }} /> {marking ? 'Salvando...' : 'Marcar como Pago'}
             </motion.button>
           )}
 
@@ -189,7 +192,7 @@ export default function PagamentoDetalheClient() {
             transition={{ type: 'spring', stiffness: 450, damping: 15 }}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', backgroundColor: '#fef2f2', color: PINK, border: `1px solid ${PINK}30`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
           >
-            <Trash2 size={14} />
+            <FontAwesomeIcon icon={faTrash} style={{ fontSize: 14 }} />
           </motion.button>
         </div>
       </motion.div>
@@ -272,7 +275,7 @@ export default function PagamentoDetalheClient() {
             </div>
             {valesEmbalagem > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-                <span style={{ fontSize: 13, color: '#6b7280' }}>Vales Embalagem</span>
+                <span style={{ fontSize: 13, color: '#6b7280' }}>Caixas e Bandeja</span>
                 <span style={{ fontSize: 13, color: PINK }}>- {fmtBRL(valesEmbalagem)}</span>
               </div>
             )}

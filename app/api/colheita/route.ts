@@ -38,30 +38,33 @@ export async function POST(req: NextRequest) {
   const session = await getSession()
   if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data, produtoId, produtorId, quantidadeTotal, observacao, preco, qualidade, descarte, nrDoc } = await req.json()
+  const { data, produtoId, produtorId, rocaId, parceiroId, quantidadeTotal, observacao, preco, qualidade, descarte, nrDoc, percDono: percDonoIn, percParceiro: percParceiroIn } = await req.json()
   if (!produtoId || !quantidadeTotal) {
     return NextResponse.json({ error: 'Produto e quantidade obrigatórios' }, { status: 400 })
   }
 
-  // Calcula percentuais com base no produtor selecionado
-  let percParceiro = 0
-  if (produtorId) {
+  // Calcula percentuais — usa os fornecidos no body ou calcula pelo produtor
+  let percParceiro = percParceiroIn ?? 0
+  let percDono = percDonoIn ?? (100 - percParceiro)
+  if (percDonoIn == null && percParceiroIn == null && produtorId) {
     const produtor = await prisma.produtor.findUnique({
       where: { id: produtorId },
       include: { parceiros: true },
     })
     if (produtor) {
       percParceiro = produtor.parceiros.reduce((s, p) => s + p.percentual, 0)
+      percDono = 100 - percParceiro
     }
   }
-  const percDono = 100 - percParceiro
 
   try {
     const colheita = await prisma.colheitaDiaria.create({
       data: {
         data: new Date(data),
+        rocaId: rocaId || null,
         produtoId,
         produtorId: produtorId || null,
+        parceiroId: parceiroId || null,
         percDono,
         percParceiro,
         quantidadeTotal,

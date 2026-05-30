@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'motion/react'
-import { Wifi, WifiOff, RefreshCw, Power, Smartphone, CheckCircle2 } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faWifi, faWifiSlash, faArrowsRotate, faPowerOff, faMobileScreenButton, faCircleCheck } from '@fortawesome/free-solid-svg-icons'
 
 const GREEN = '#5ab952'
 const NAVY = '#2d3561'
@@ -89,7 +90,7 @@ export default function ConexoesClient() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 46, height: 46, borderRadius: 12, backgroundColor: isConnected ? `${WA}15` : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Smartphone size={22} color={isConnected ? WA : '#9ca3af'} />
+              <FontAwesomeIcon icon={faMobileScreenButton} style={{ fontSize: 22, color: isConnected ? WA : '#9ca3af' }} />
             </div>
             <div>
               <p style={{ fontWeight: 700, color: NAVY, fontSize: 16, margin: 0 }}>WhatsApp</p>
@@ -105,7 +106,7 @@ export default function ConexoesClient() {
           </div>
           <motion.button onClick={fetchStatus} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
             style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', color: '#6b7280' }}>
-            <RefreshCw size={14} />
+            <FontAwesomeIcon icon={faArrowsRotate} style={{ fontSize: 14 }} />
           </motion.button>
         </div>
 
@@ -114,7 +115,7 @@ export default function ConexoesClient() {
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
             style={{ backgroundColor: '#f0fff4', borderRadius: 12, padding: '14px 16px', marginBottom: 18, border: `1px solid ${WA}30` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <CheckCircle2 size={18} color={WA} />
+              <FontAwesomeIcon icon={faCircleCheck} style={{ fontSize: 18, color: WA }} />
               <div>
                 <p style={{ fontWeight: 600, color: NAVY, fontSize: 14, margin: 0 }}>{session.me.pushName}</p>
                 <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0' }}>
@@ -153,7 +154,7 @@ export default function ConexoesClient() {
               whileHover={!acting ? { scale: 1.03, backgroundColor: '#1ea952' } : {}}
               whileTap={!acting ? { scale: 0.97 } : {}}
               style={{ flex: 1, padding: '11px 16px', backgroundColor: WA, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.7 : 1, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-              <Wifi size={14} />
+              <FontAwesomeIcon icon={faWifi} style={{ fontSize: 14 }} />
               {acting ? 'Conectando...' : 'Conectar WhatsApp'}
             </motion.button>
           )}
@@ -161,14 +162,14 @@ export default function ConexoesClient() {
             <motion.button onClick={connect} disabled={acting}
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
               style={{ padding: '10px 16px', border: '1.5px solid #e5e7eb', backgroundColor: 'white', color: NAVY, borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <RefreshCw size={13} /> Novo QR Code
+              <FontAwesomeIcon icon={faArrowsRotate} style={{ fontSize: 13 }} /> Novo QR Code
             </motion.button>
           )}
           {isConnected && (
             <motion.button onClick={disconnect} disabled={acting}
               whileHover={{ scale: 1.03, backgroundColor: '#c91845' }} whileTap={{ scale: 0.97 }}
               style={{ padding: '11px 16px', backgroundColor: PINK, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: acting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 7 }}>
-              <Power size={14} /> Desconectar
+              <FontAwesomeIcon icon={faPowerOff} style={{ fontSize: 14 }} /> Desconectar
             </motion.button>
           )}
         </div>

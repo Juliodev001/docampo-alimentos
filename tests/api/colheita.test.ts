@@ -21,7 +21,7 @@ import { getSession } from '@/lib/session'
 import { GET, POST } from '@/app/api/colheita/route'
 import { NextRequest } from 'next/server'
 
-const mockSession = { userId: 'user-123', expiresAt: new Date() }
+const mockSession = { userId: 'user-123', expiresAt: new Date(), name: 'Test User', email: 'test@example.com', role: 'DONO' }
 
 const mockColheita = {
   id: 'colheita-1',

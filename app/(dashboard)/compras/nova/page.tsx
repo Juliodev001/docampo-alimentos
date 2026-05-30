@@ -2,8 +2,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'motion/react'
-import { ArrowLeft, Plus, Trash2, Loader2 } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faArrowLeft, faPlus, faTrash, faSpinner } from '@fortawesome/free-solid-svg-icons'
 import Link from 'next/link'
+import { useToast } from '@/components/toast'
 
 const GREEN = '#5ab952'
 const NAVY = '#2d3561'
@@ -28,6 +30,7 @@ const inputStyle = {
 }
 
 export default function NovaCompraPage() {
+  const toast = useToast()
   const router = useRouter()
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([])
   const [loading, setLoading] = useState(false)
@@ -80,9 +83,13 @@ export default function NovaCompraPage() {
   }
 
   const submit = async () => {
-    if (!form.fornecedorId || itens.length === 0) return alert('Selecione um fornecedor e adicione ao menos 1 item.')
+    if (!form.fornecedorId || itens.length === 0) {
+      toast.warning('Campos obrigatórios', 'Selecione um fornecedor e adicione ao menos 1 item.')
+      return
+    }
     setLoading(true)
     await fetch('/api/compras', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, itens }) })
+    toast.success('Compra registrada')
     router.push('/compras')
   }
 
@@ -90,7 +97,7 @@ export default function NovaCompraPage() {
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
         <Link href="/compras" style={{ display: 'flex', alignItems: 'center', color: '#6b7280', textDecoration: 'none' }}>
-          <ArrowLeft size={20} />
+          <FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: 20 }} />
         </Link>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: NAVY, margin: 0 }}>Nova Compra/Despesa</h1>
@@ -195,7 +202,7 @@ export default function NovaCompraPage() {
             transition={{ type: 'spring', stiffness: 400, damping: 15 }}
             onClick={addItem}
             style={{ height: 40, width: 44, backgroundColor: GREEN, color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Plus size={18} />
+            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 18 }} />
           </motion.button>
         </div>
 
@@ -212,7 +219,7 @@ export default function NovaCompraPage() {
                   <motion.button onClick={() => removeItem(i)}
             whileHover={{ scale: 1.2, rotate: 10 }} whileTap={{ scale: 0.8, rotate: -10 }}
             transition={{ type: 'spring', stiffness: 500, damping: 15 }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: PINK }}><Trash2 size={15} /></motion.button>
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: PINK }}><FontAwesomeIcon icon={faTrash} style={{ fontSize: 15 }} /></motion.button>
                 </motion.div>
               ))}
             </motion.div>
@@ -273,7 +280,7 @@ export default function NovaCompraPage() {
             transition={{ type: 'spring', stiffness: 400, damping: 17 }}
             onClick={submit} disabled={loading}
             style={{ padding: '10px 24px', backgroundColor: GREEN, color: 'white', border: 'none', borderRadius: 10, cursor: loading ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, opacity: loading ? 0.7 : 1 }}>
-            {loading && <Loader2 size={15} className="animate-spin" />}
+            {loading && <FontAwesomeIcon icon={faSpinner} style={{ fontSize: 15 }} className="animate-spin" />}
             Registrar Compra
           </motion.button>
         </div>

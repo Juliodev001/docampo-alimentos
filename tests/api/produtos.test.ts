@@ -18,7 +18,7 @@ import { getSession } from '@/lib/session'
 import { GET, POST } from '@/app/api/produtos/route'
 import { NextRequest } from 'next/server'
 
-const mockSession = { userId: 'user-123', expiresAt: new Date() }
+const mockSession = { userId: 'user-123', expiresAt: new Date(), name: 'Test User', email: 'test@example.com', role: 'DONO' }
 const mockProduto = { id: 'p-1', nome: 'Morango', unidade: 'CAIXA', categoria: 'Fruta', ativo: true, createdAt: new Date() }
 
 beforeEach(() => vi.clearAllMocks())

@@ -1,7 +1,8 @@
 'use client'
 import { useActionState } from 'react'
 import { motion } from 'motion/react'
-import { Loader2 } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faSpinner } from '@fortawesome/free-solid-svg-icons'
 import { login } from '@/app/actions/auth'
 
 const GREEN = '#5ab952'
@@ -162,10 +163,18 @@ export default function LoginPage() {
               transition: 'background-color 0.2s',
             }}
           >
-            {pending && <Loader2 size={16} className="animate-spin" />}
+            {pending && <FontAwesomeIcon icon={faSpinner} style={{ fontSize: 16 }} className="animate-spin" />}
             {pending ? 'Entrando...' : 'Entrar'}
           </motion.button>
         </form>
+
+        <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: 12, marginTop: 24, marginBottom: 0 }}>
+          Ao acessar, você concorda com nossa{' '}
+          <a href="/politica-de-privacidade" target="_blank" style={{ color: GREEN, textDecoration: 'none', fontWeight: 500 }}>
+            Política de Privacidade
+          </a>
+          {' '}(LGPD)
+        </p>
       </motion.div>
     </div>
   )

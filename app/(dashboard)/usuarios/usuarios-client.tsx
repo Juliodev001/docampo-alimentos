@@ -1,7 +1,9 @@
 'use client'
 import { motion } from 'motion/react'
 import Link from 'next/link'
-import { Users, Plus, Crown, Handshake, Briefcase } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faUsers, faPlus, faCrown, faHandshake, faBriefcase } from '@fortawesome/free-solid-svg-icons'
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import { formatDate } from '@/lib/utils'
 
 const GREEN = '#5ab952'
@@ -11,7 +13,7 @@ const TEAL = '#3d6b6e'
 
 const roleLabel: Record<string, string> = { DONO: 'Dono da Lavoura', PARCEIRO: 'Parceiro', GERENTE: 'Gerente' }
 const roleColor: Record<string, string> = { DONO: NAVY, PARCEIRO: GREEN, GERENTE: TEAL }
-const roleIcon: Record<string, React.ElementType> = { DONO: Crown, PARCEIRO: Handshake, GERENTE: Briefcase }
+const roleIcon: Record<string, IconDefinition> = { DONO: faCrown, PARCEIRO: faHandshake, GERENTE: faBriefcase }
 
 type Usuario = { id: string; name: string | null; email: string; role: string; ativo: boolean; createdAt: Date }
 
@@ -21,10 +23,10 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
   const gerentes = usuarios.filter(u => u.role === 'GERENTE').length
 
   const cards = [
-    { label: 'Total', value: usuarios.length, color: NAVY, icon: Users },
-    { label: 'Donos', value: donos, color: NAVY, icon: Crown },
-    { label: 'Parceiros', value: parceiros, color: GREEN, icon: Handshake },
-    { label: 'Gerentes', value: gerentes, color: TEAL, icon: Briefcase },
+    { label: 'Total', value: usuarios.length, color: NAVY, icon: faUsers as IconDefinition },
+    { label: 'Donos', value: donos, color: NAVY, icon: faCrown as IconDefinition },
+    { label: 'Parceiros', value: parceiros, color: GREEN, icon: faHandshake as IconDefinition },
+    { label: 'Gerentes', value: gerentes, color: TEAL, icon: faBriefcase as IconDefinition },
   ]
 
   return (
@@ -39,13 +41,13 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
         </div>
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
           <Link href="/usuarios/novo" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', backgroundColor: GREEN, color: 'white', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
-            <Plus size={15} /> Novo Usuário
+            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 15 }} /> Novo Usuário
           </Link>
         </motion.div>
       </motion.div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
-        {cards.map(({ label, value, color, icon: Icon }, i) => (
+      <div className="kpi-grid-4">
+        {cards.map(({ label, value, color, icon }, i) => (
           <motion.div
             key={label}
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -63,7 +65,7 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
                 >{value}</motion.p>
               </div>
               <div style={{ backgroundColor: `${color}15`, borderRadius: 10, padding: 9 }}>
-                <Icon size={18} color={color} />
+                <FontAwesomeIcon icon={icon} style={{ fontSize: 18, color }} />
               </div>
             </div>
           </motion.div>
@@ -73,7 +75,7 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
         {usuarios.map((u, i) => {
           const color = roleColor[u.role] ?? NAVY
-          const RoleIcon = roleIcon[u.role] ?? Users
+          const roleIconDef = roleIcon[u.role] ?? faUsers
           const initials = (u.name ?? u.email).split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
           return (
             <motion.div
@@ -93,7 +95,7 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4, backgroundColor: `${color}15`, color, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>
-                    <RoleIcon size={10} /> {roleLabel[u.role] ?? u.role}
+                    <FontAwesomeIcon icon={roleIconDef} style={{ fontSize: 10 }} /> {roleLabel[u.role] ?? u.role}
                   </span>
                   <span style={{ backgroundColor: u.ativo ? '#f0faf0' : '#fef2f2', color: u.ativo ? GREEN : PINK, padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 600 }}>
                     {u.ativo ? 'Ativo' : 'Inativo'}

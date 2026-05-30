@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'motion/react'
-import { Plus, X, UserPlus } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faPlus, faXmark, faUserPlus } from '@fortawesome/free-solid-svg-icons'
 
 const GREEN = '#5ab952'
 const NAVY = '#2d3561'
@@ -115,7 +116,7 @@ export default function NovaNFe() {
                     whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                     style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', backgroundColor: `${NAVY}10`, color: NAVY, border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
                   >
-                    <UserPlus size={12} /> Novo cliente
+                    <FontAwesomeIcon icon={faUserPlus} style={{ fontSize: 12 }} /> Novo cliente
                   </motion.button>
                 </div>
                 <select
@@ -165,7 +166,7 @@ export default function NovaNFe() {
                 whileTap={{ scale: 0.93 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 style={{ padding: '6px 14px', backgroundColor: NAVY, color: 'white', border: 'none', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                <Plus size={12} style={{ display: 'inline', marginRight: 4 }} />Item
+                <FontAwesomeIcon icon={faPlus} style={{ fontSize: 12, display: 'inline', marginRight: 4 }} />Item
               </motion.button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 360, overflowY: 'auto' }}>
@@ -237,7 +238,7 @@ export default function NovaNFe() {
                 <h2 style={{ fontSize: 17, fontWeight: 700, color: NAVY, margin: 0 }}>Cadastrar Novo Cliente</h2>
                 <motion.button onClick={() => setModalCliente(false)} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                   style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: '#6b7280' }}>
-                  <X size={16} />
+                  <FontAwesomeIcon icon={faXmark} style={{ fontSize: 16 }} />
                 </motion.button>
               </div>
 

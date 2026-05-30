@@ -23,10 +23,14 @@ export async function POST(req: NextRequest) {
   const session = await getSession()
   if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  let body: { nome?: string; cpf?: string; telefone?: string; parceiros?: ParceiroInput[] }
+  let body: {
+    codigo?: string; nome?: string; tipo?: string
+    cpf?: string; cnpj?: string; inscricaoEstadual?: string
+    telefone?: string; endereco?: string; parceiros?: ParceiroInput[]
+  }
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Body inválido.' }, { status: 400 }) }
 
-  const { nome, cpf, telefone, parceiros } = body
+  const { nome, tipo, cpf, cnpj, inscricaoEstadual, telefone, endereco, parceiros } = body
   if (!nome) return NextResponse.json({ error: 'Nome é obrigatório.' }, { status: 400 })
 
   const lista = parceiros ?? []
@@ -40,11 +44,32 @@ export async function POST(req: NextRequest) {
     if (existing) return NextResponse.json({ error: 'CPF já cadastrado.' }, { status: 400 })
   }
 
+  // Auto-generate código if not provided
+  let codigo = body.codigo?.trim() || null
+  if (!codigo) {
+    const count = await prisma.produtor.count()
+    codigo = `P${String(count + 1).padStart(3, '0')}`
+    // Ensure uniqueness in edge cases
+    let suffix = count + 1
+    while (await prisma.produtor.findUnique({ where: { codigo } })) {
+      suffix++
+      codigo = `P${String(suffix).padStart(3, '0')}`
+    }
+  } else {
+    const existing = await prisma.produtor.findUnique({ where: { codigo } })
+    if (existing) return NextResponse.json({ error: 'Código já cadastrado.' }, { status: 400 })
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data: any = {
+    codigo,
     nome,
+    tipo: tipo || 'FISICA',
     cpf: cpf || null,
+    cnpj: cnpj || null,
+    inscricaoEstadual: inscricaoEstadual || null,
     telefone: telefone || null,
+    endereco: endereco || null,
     parceiros: {
       create: lista.map((p) => ({ nome: p.nome, percentual: p.percentual, cpf: p.cpf || null })),
     },

@@ -3,7 +3,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'motion/react'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Trash2, Loader2 } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faArrowLeft, faPlus, faTrash, faSpinner } from '@fortawesome/free-solid-svg-icons'
+import { useToast } from '@/components/toast'
 
 const GREEN = '#5ab952'
 const NAVY = '#2d3561'
@@ -17,6 +19,7 @@ const unidades = ['CAIXA', 'KG', 'UNIDADE', 'SACO', 'LITRO', 'DUZIA', 'FARDO']
 type Aba = '1' | '2' | '3'
 
 export default function NovoRegistroProducaoPage() {
+  const toast = useToast()
   const router = useRouter()
   const [aba, setAba] = useState<Aba>('1')
   const [loading, setLoading] = useState(false)
@@ -48,13 +51,17 @@ export default function NovoRegistroProducaoPage() {
   }
 
   const submit = async (finalizar: boolean) => {
-    if (!info.descricao) return alert('Informe a descrição.')
+    if (!info.descricao) {
+      toast.warning('Campo obrigatório', 'Informe a descrição do registro.')
+      return
+    }
     setLoading(true)
     await fetch('/api/producao', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...info, status: finalizar ? 'FINALIZADO' : 'RASCUNHO', entradas, saidas }),
     })
+    toast.success(finalizar ? 'Registro finalizado' : 'Rascunho salvo', info.descricao)
     router.push('/producao/registro')
   }
 
@@ -63,7 +70,7 @@ export default function NovoRegistroProducaoPage() {
   return (
     <div style={{ maxWidth: 860 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <Link href="/producao/registro" style={{ color: '#6b7280', display: 'flex' }}><ArrowLeft size={20} /></Link>
+        <Link href="/producao/registro" style={{ color: '#6b7280', display: 'flex' }}><FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: 20 }} /></Link>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: NAVY, margin: 0 }}>Novo Registro de Produção</h1>
       </div>
 
@@ -143,7 +150,7 @@ export default function NovoRegistroProducaoPage() {
                       whileTap={{ scale: 0.88 }}
                       transition={{ type: 'spring', stiffness: 400, damping: 15 }}
                       style={{ height: 40, width: 44, backgroundColor: GREEN, color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Plus size={18} />
+                      <FontAwesomeIcon icon={faPlus} style={{ fontSize: 18 }} />
                     </motion.button>
                   </div>
                   <div style={{ marginTop: 16 }}>
@@ -156,7 +163,7 @@ export default function NovoRegistroProducaoPage() {
                           whileHover={{ scale: 1.2, rotate: 10 }} whileTap={{ scale: 0.8, rotate: -10 }}
                           transition={{ type: 'spring', stiffness: 500, damping: 15 }}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: PINK }}>
-                          <Trash2 size={15} />
+                          <FontAwesomeIcon icon={faTrash} style={{ fontSize: 15 }} />
                         </motion.button>
                       </div>
                     ))}
@@ -198,7 +205,7 @@ export default function NovoRegistroProducaoPage() {
             whileTap={!loading ? { scale: 0.95 } : {}}
             transition={{ type: 'spring', stiffness: 400, damping: 17 }}
             style={{ padding: '9px 20px', border: 'none', borderRadius: 10, backgroundColor: GREEN, color: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, opacity: loading ? 0.7 : 1 }}>
-            {loading ? <Loader2 size={15} className="animate-spin" /> : '✓'} Finalizar registro
+            {loading ? <FontAwesomeIcon icon={faSpinner} style={{ fontSize: 15 }} className="animate-spin" /> : '✓'} Finalizar registro
           </motion.button>
         </div>
       </div>

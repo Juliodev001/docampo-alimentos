@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'motion/react'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Trash2, Loader2 } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faArrowLeft, faPlus, faTrash, faSpinner } from '@fortawesome/free-solid-svg-icons'
 
 const GREEN = '#5ab952'
 const NAVY = '#2d3561'
@@ -58,7 +59,7 @@ export default function NovoProdutorPage() {
   return (
     <div style={{ maxWidth: 700 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-        <Link href="/produtores" style={{ color: '#6b7280', display: 'flex' }}><ArrowLeft size={20} /></Link>
+        <Link href="/produtores" style={{ color: '#6b7280', display: 'flex' }}><FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: 20 }} /></Link>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: NAVY, margin: 0 }}>Novo Produtor</h1>
           <p style={{ color: '#6b7280', fontSize: 13, marginTop: 2 }}>Cadastre o dono da lavoura e seus parceiros</p>
@@ -118,7 +119,7 @@ export default function NovoProdutorPage() {
             transition={{ type: 'spring', stiffness: 400, damping: 15 }}
             onClick={addParceiro}
             style={{ height: 40, width: 44, backgroundColor: GREEN, color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Plus size={18} />
+            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 18 }} />
           </motion.button>
         </div>
 
@@ -138,7 +139,7 @@ export default function NovoProdutorPage() {
                   whileHover={{ scale: 1.2, rotate: 10 }} whileTap={{ scale: 0.8, rotate: -10 }}
                   transition={{ type: 'spring', stiffness: 500, damping: 15 }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: PINK }}>
-                  <Trash2 size={15} />
+                  <FontAwesomeIcon icon={faTrash} style={{ fontSize: 15 }} />
                 </motion.button>
               </div>
             </motion.div>
@@ -174,7 +175,7 @@ export default function NovoProdutorPage() {
           transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           onClick={submit} disabled={loading}
           style={{ padding: '10px 24px', backgroundColor: GREEN, color: 'white', border: 'none', borderRadius: 10, cursor: loading ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, opacity: loading ? 0.7 : 1 }}>
-          {loading && <Loader2 size={15} className="animate-spin" />}
+          {loading && <FontAwesomeIcon icon={faSpinner} style={{ fontSize: 15 }} className="animate-spin" />}
           Salvar Produtor
         </motion.button>
       </div>

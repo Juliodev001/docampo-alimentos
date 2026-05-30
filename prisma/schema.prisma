@@ -21,15 +21,34 @@ model User {
 }
 
 model Produto {
-  id        String           @id @default(cuid())
-  nome      String
-  unidade   UnidadeMedida    @default(CAIXA)
-  categoria String?
-  ativo     Boolean          @default(true)
-  createdAt DateTime         @default(now())
-  colheitas ColheitaDiaria[]
-  saidas    SaidaLavoura[]
-  entradas  EntradaEstoque[]
+  id               String           @id @default(cuid())
+  nome             String
+  descricao        String?
+  sku              String?
+  preco            Float            @default(0)
+  precoVenda       Float            @default(0)
+  precoPromocional Float            @default(0)
+  precoPdv         Float            @default(0)
+  unidade          UnidadeMedida    @default(CAIXA)
+  categoria        String?
+  fornecedorId     String?
+  fornecedor       Fornecedor?      @relation(fields: [fornecedorId], references: [id])
+  localizacao      String?
+  estoqueMinimo    Float            @default(0)
+  estoqueMaximo    Float            @default(0)
+  ncm              String?
+  cest             String?
+  cfop             String?
+  peso             Float?
+  altura           Float?
+  largura          Float?
+  dataValidade     DateTime?
+  observacao       String?
+  ativo            Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  colheitas        ColheitaDiaria[]
+  saidas           SaidaLavoura[]
+  entradas         EntradaEstoque[]
 }
 
 model EntradaEstoque {
@@ -44,25 +63,29 @@ model EntradaEstoque {
 }
 
 model ColheitaDiaria {
-  id                 String    @id @default(cuid())
+  id                 String        @id @default(cuid())
   data               DateTime
+  rocaId             String?
+  roca               ControleRoca? @relation(fields: [rocaId], references: [id])
   produtoId          String
-  produto            Produto   @relation(fields: [produtoId], references: [id])
+  produto            Produto       @relation(fields: [produtoId], references: [id])
   produtorId         String?
-  produtor           Produtor? @relation(fields: [produtorId], references: [id])
-  percDono           Float     @default(60)
-  percParceiro       Float     @default(40)
+  produtor           Produtor?     @relation(fields: [produtorId], references: [id])
+  parceiroId         String?
+  parceiro           Parceiro?     @relation(fields: [parceiroId], references: [id])
+  percDono           Float         @default(60)
+  percParceiro       Float         @default(40)
   quantidadeTotal    Float
   quantidadeDono     Float
   quantidadeParceiro Float
-  preco              Float     @default(0)
+  preco              Float         @default(0)
   qualidade          String?
-  descarte           Float     @default(0)
+  descarte           Float         @default(0)
   nrDoc              String?
   responsavelId      String
-  responsavel        User      @relation(fields: [responsavelId], references: [id])
+  responsavel        User          @relation(fields: [responsavelId], references: [id])
   observacao         String?
-  createdAt          DateTime  @default(now())
+  createdAt          DateTime      @default(now())
 }
 
 model SaidaLavoura {
@@ -85,15 +108,55 @@ model CentroCusto {
   compras Compra[]
 }
 
+model TipoCusto {
+  id        String   @id @default(cuid())
+  nome      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Fornecedor {
-  id       String       @id @default(cuid())
-  nome     String
-  cnpjCpf  String?
-  telefone String?
-  email    String?
-  createdAt DateTime    @default(now())
-  compras  Compra[]
-  nfes     NotaFiscal[]
+  id                String               @id @default(cuid())
+  nome              String
+  tipo              String               @default("JURIDICA")
+  cnpjCpf           String?
+  inscricaoEstadual String?
+  telefone          String?
+  email             String?
+  ativo             Boolean              @default(true)
+  createdAt         DateTime             @default(now())
+  produtos          Produto[]
+  compras           Compra[]
+  nfes              NotaFiscal[]
+  pedidos           Pedido[]
+  enderecos         FornecedorEndereco[]
+  contatos          FornecedorContato[]
+}
+
+model FornecedorEndereco {
+  id           String     @id @default(cuid())
+  fornecedorId String
+  fornecedor   Fornecedor @relation(fields: [fornecedorId], references: [id], onDelete: Cascade)
+  cep          String?
+  logradouro   String?
+  numero       String?
+  complemento  String?
+  bairro       String?
+  cidade       String?
+  estado       String?
+  referencia   String?
+  createdAt    DateTime   @default(now())
+}
+
+model FornecedorContato {
+  id           String     @id @default(cuid())
+  fornecedorId String
+  fornecedor   Fornecedor @relation(fields: [fornecedorId], references: [id], onDelete: Cascade)
+  telefone     String?
+  email        String?
+  nomeContato  String?
+  observacao   String?
+  createdAt    DateTime   @default(now())
 }
 
 model Compra {
@@ -161,15 +224,21 @@ model SaidaProducao {
 }
 
 model Produtor {
-  id          String                 @id @default(cuid())
-  nome        String
-  cpf         String?                @unique
-  telefone    String?
-  parceiros   Parceiro[]
-  colheitas   ColheitaDiaria[]
-  fechamentos FechamentoPagamento[]
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
+  id                String                 @id @default(cuid())
+  codigo            String?                @unique
+  nome              String
+  tipo              String                 @default("FISICA")
+  cpf               String?                @unique
+  cnpj              String?
+  inscricaoEstadual String?
+  telefone          String?
+  endereco          String?
+  parceiros         Parceiro[]
+  colheitas         ColheitaDiaria[]
+  fechamentos       FechamentoPagamento[]
+  rocas             ControleRoca[]
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
 }
 
 model FechamentoPagamento {
@@ -188,26 +257,79 @@ model FechamentoPagamento {
 }
 
 model Parceiro {
+  id           String           @id @default(cuid())
+  codigo       String?          @unique
+  produtorId   String
+  produtor     Produtor         @relation(fields: [produtorId], references: [id], onDelete: Cascade)
+  nome         String
+  nomeFantasia String?
+  cpf          String?
+  chavePix     String?
+  percentual   Float
+  valorEmba    Float            @default(0)
+  endereco     String?
+  telefone     String?
+  colheitas    ColheitaDiaria[]
+  pagamentos   PagamentoMeeiro[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @default(now()) @updatedAt
+}
+
+model PagamentoMeeiro {
   id         String   @id @default(cuid())
-  produtorId String
-  produtor   Produtor @relation(fields: [produtorId], references: [id], onDelete: Cascade)
-  nome       String
-  cpf        String?
-  percentual Float
+  parceiroId String
+  parceiro   Parceiro @relation(fields: [parceiroId], references: [id], onDelete: Cascade)
+  valor      Float
+  formaPag   String   @default("PIX")
+  conta      String?
+  dataPag    DateTime
+  observacao String?
+  status     String   @default("CONFIRMADO")
   createdAt  DateTime @default(now())
 }
 
 model Cliente {
-  id         String             @id @default(cuid())
-  nome       String
-  cnpjCpf    String?
-  telefone   String?
-  email      String?
-  createdAt  DateTime           @default(now())
-  nfes       NotaFiscal[]
-  devolucoes Devolucao[]
-  romaneios  Romaneio[]
-  titulos    TituloFinanceiro[]
+  id                String             @id @default(cuid())
+  nome              String
+  tipo              String             @default("FISICA")
+  cnpjCpf           String?
+  inscricaoEstadual String?
+  telefone          String?
+  email             String?
+  createdAt         DateTime           @default(now())
+  nfes              NotaFiscal[]
+  devolucoes        Devolucao[]
+  romaneios         Romaneio[]
+  titulos           TituloFinanceiro[]
+  pedidos           Pedido[]
+  enderecos         ClienteEndereco[]
+  contatos          ClienteContato[]
+}
+
+model ClienteEndereco {
+  id         String   @id @default(cuid())
+  clienteId  String
+  cliente    Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  cep        String?
+  logradouro String?
+  numero     String?
+  complemento String?
+  bairro     String?
+  cidade     String?
+  estado     String?
+  referencia String?
+  createdAt  DateTime @default(now())
+}
+
+model ClienteContato {
+  id          String   @id @default(cuid())
+  clienteId   String
+  cliente     Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  telefone    String?
+  email       String?
+  nomeContato String?
+  observacao  String?
+  createdAt   DateTime @default(now())
 }
 
 model Romaneio {
@@ -436,4 +558,144 @@ enum OrigemTitulo {
   NFE
   ROMANEIO
   MANUAL
+  PDV
+}
+
+model Configuracao {
+  id        String   @id @default(cuid())
+  chave     String   @unique
+  valor     String
+  updatedAt DateTime @updatedAt
+}
+
+// ── FASE 3: Novos módulos ──────────────────────────────────────
+
+model Transportadora {
+  id                String    @id @default(cuid())
+  nome              String
+  nomeFantasia      String?
+  cnpj              String?
+  inscricaoEstadual String?
+  telefone          String?
+  email             String?
+  contato           String?
+  cep               String?
+  logradouro        String?
+  numero            String?
+  complemento       String?
+  bairro            String?
+  cidade            String?
+  estado            String?
+  observacao        String?
+  ativo             Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  pedidos           Pedido[]
+}
+
+model Pedido {
+  id               String           @id @default(cuid())
+  numero           Int              @default(autoincrement())
+  tipo             String           @default("VENDA")
+  clienteId        String?
+  cliente          Cliente?         @relation(fields: [clienteId], references: [id])
+  fornecedorId     String?
+  fornecedor       Fornecedor?      @relation(fields: [fornecedorId], references: [id])
+  transportadoraId String?
+  transportadora   Transportadora?  @relation(fields: [transportadoraId], references: [id])
+  data             DateTime
+  dataEntrega      DateTime?
+  status           StatusPedido     @default(ABERTO)
+  totalValor       Float            @default(0)
+  frete            Float            @default(0)
+  outrasTaxas      Float            @default(0)
+  formaPagamento   String?
+  dataCobranca     DateTime?
+  observacao       String?
+  obsInternas      String?
+  obsCliente       String?
+  itens            ItemPedido[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model ItemPedido {
+  id         String        @id @default(cuid())
+  pedidoId   String
+  pedido     Pedido        @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  produto    String
+  unidade    UnidadeMedida @default(CAIXA)
+  quantidade Float
+  valorUnit  Float
+  desconto   Float         @default(0)
+  total      Float
+}
+
+model ControleRoca {
+  id            String           @id @default(cuid())
+  codigo        String?          @unique
+  nome          String
+  area          Float?
+  localizacao   String?
+  mudasPlantadas Float?
+  cultura       String?
+  produtorId    String?
+  produtor      Produtor?        @relation(fields: [produtorId], references: [id])
+  status        StatusRoca       @default(ATIVA)
+  dataPlantio   DateTime?
+  dataColheita  DateTime?
+  observacao    String?
+  registros     RegistroRoca[]
+  colheitas     ColheitaDiaria[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+}
+
+model RegistroRoca {
+  id            String        @id @default(cuid())
+  rocaId        String
+  roca          ControleRoca  @relation(fields: [rocaId], references: [id], onDelete: Cascade)
+  data          DateTime
+  tipo          TipoRegistroRoca
+  descricao     String
+  custo         Float         @default(0)
+  createdAt     DateTime      @default(now())
+}
+
+enum StatusPedido {
+  ABERTO
+  CONFIRMADO
+  ENTREGUE
+  CANCELADO
+  PAGO
+}
+
+enum StatusRoca {
+  ATIVA
+  COLHIDA
+  POUSIO
+  ABANDONADA
+}
+
+enum TipoRegistroRoca {
+  PLANTIO
+  ADUBACAO
+  IRRIGACAO
+  DEFENSIVO
+  COLHEITA
+  OUTRO
+}
+
+model LancamentoCusto {
+  id                String    @id @default(cuid())
+  produtorId        String?
+  rocaId            String?
+  data              DateTime
+  combustivel       Float     @default(0)
+  bandejaEmbalagem  Float     @default(0)
+  valesDinheiro     Float     @default(0)
+  creditos          Float     @default(0)
+  debitosAnteriores Float     @default(0)
+  observacao        String?
+  createdAt         DateTime  @default(now())
 }

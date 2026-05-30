@@ -1,0 +1,860 @@
+'use client'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faTruck, faPlus, faMagnifyingGlass, faPencil, faTrash, faPhone, faEnvelope, faFileLines, faCartShopping, faXmark, faBuilding, faUser, faLocationDot, faHashtag, faCheck } from '@fortawesome/free-solid-svg-icons'
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
+import { useToast } from '@/components/toast'
+
+const GREEN  = '#5ab952'
+const NAVY   = '#2d3561'
+const PINK   = '#e8255a'
+const ORANGE = '#e87320'
+const BLUE   = '#3b82f6'
+const TEAL   = '#0ea5e9'
+
+/* ── types ── */
+type EnderecoItem = {
+  cep: string; logradouro: string; numero: string; complemento: string
+  bairro: string; cidade: string; estado: string; referencia: string
+}
+type ContatoItem = {
+  telefone: string; email: string; nomeContato: string; observacao: string
+}
+type WizardData = {
+  tipo: 'JURIDICA' | 'FISICA'
+  nome: string; cnpjCpf: string; inscricaoEstadual: string; ativo: boolean
+  enderecos: EnderecoItem[]
+  contatos:  ContatoItem[]
+}
+type FornecedorEndereco = {
+  id: string; cep: string | null; logradouro: string | null; numero: string | null
+  complemento: string | null; bairro: string | null; cidade: string | null
+  estado: string | null; referencia: string | null
+}
+type FornecedorContato = {
+  id: string; telefone: string | null; email: string | null
+  nomeContato: string | null; observacao: string | null
+}
+type Fornecedor = {
+  id: string; nome: string; tipo: string
+  cnpjCpf: string | null; inscricaoEstadual: string | null
+  telefone: string | null; email: string | null; ativo: boolean
+  createdAt: string
+  _count?: { compras: number; nfes: number }
+  enderecos: FornecedorEndereco[]
+  contatos:  FornecedorContato[]
+}
+
+/* ── empty states ── */
+const emptyEndereco = (): EnderecoItem => ({
+  cep: '', logradouro: '', numero: '', complemento: '',
+  bairro: '', cidade: '', estado: 'SP', referencia: '',
+})
+const emptyContato = (): ContatoItem => ({
+  telefone: '', email: '', nomeContato: '', observacao: '',
+})
+const emptyWizard: WizardData = {
+  tipo: 'JURIDICA', nome: '', cnpjCpf: '', inscricaoEstadual: '', ativo: true,
+  enderecos: [], contatos: [],
+}
+const emptyEdit = { nome: '', tipo: 'JURIDICA', cnpjCpf: '', inscricaoEstadual: '', telefone: '', email: '', ativo: true }
+
+/* ── shared styles ── */
+const inp: React.CSSProperties = {
+  width: '100%', padding: '10px 14px',
+  border: '1.5px solid #e5e7eb', borderRadius: 10,
+  fontSize: 14, color: NAVY, outline: 'none',
+  boxSizing: 'border-box', fontFamily: 'inherit', background: 'white',
+}
+const lbl: React.CSSProperties = {
+  fontSize: 13, fontWeight: 600, color: NAVY, display: 'block', marginBottom: 5,
+}
+
+/* ══════════════════════════════════════════════════ */
+export default function FornecedoresClient({ fornecedores: inicial }: { fornecedores: Fornecedor[] }) {
+  const toast = useToast()
+  const [fornecedores, setFornecedores] = useState(inicial)
+  const [q, setQ] = useState('')
+
+  /* wizard (create) */
+  const [wizard, setWizard] = useState(false)
+  const [step, setStep] = useState<1|2|3>(1)
+  const [wd, setWd] = useState<WizardData>(emptyWizard)
+
+  /* edit modal */
+  const [editModal, setEditModal] = useState(false)
+  const [editing, setEditing] = useState<Fornecedor | null>(null)
+  const [ef, setEf] = useState(emptyEdit)
+
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+
+  const filtrados = fornecedores.filter(f =>
+    !q ||
+    f.nome.toLowerCase().includes(q.toLowerCase()) ||
+    (f.cnpjCpf ?? '').includes(q) ||
+    (f.telefone ?? '').includes(q)
+  )
+
+  /* ── wizard helpers ── */
+  function openWizard() { setWd(emptyWizard); setStep(1); setError(''); setWizard(true) }
+  function closeWizard() { setWizard(false) }
+
+  function nextStep() {
+    if (step === 1 && !wd.nome.trim()) { setError('Nome Fantasia é obrigatório'); return }
+    setError('')
+    setStep(s => (s < 3 ? (s + 1) as 1|2|3 : s))
+  }
+  function prevStep() { setError(''); setStep(s => (s > 1 ? (s - 1) as 1|2|3 : s)) }
+
+  /* endereços */
+  function addEndereco() { setWd(d => ({ ...d, enderecos: [...d.enderecos, emptyEndereco()] })) }
+  function removeEndereco(i: number) { setWd(d => ({ ...d, enderecos: d.enderecos.filter((_,j) => j !== i) })) }
+  function setEndereco(i: number, field: keyof EnderecoItem, val: string) {
+    setWd(d => ({ ...d, enderecos: d.enderecos.map((e, j) => j === i ? { ...e, [field]: val } : e) }))
+  }
+  /* contatos */
+  function addContato() { setWd(d => ({ ...d, contatos: [...d.contatos, emptyContato()] })) }
+  function removeContato(i: number) { setWd(d => ({ ...d, contatos: d.contatos.filter((_,j) => j !== i) })) }
+  function setContato(i: number, field: keyof ContatoItem, val: string) {
+    setWd(d => ({ ...d, contatos: d.contatos.map((c, j) => j === i ? { ...c, [field]: val } : c) }))
+  }
+
+  async function handleFinalize() {
+    if (!wd.nome.trim()) { setError('Nome Fantasia é obrigatório'); return }
+    setLoading(true); setError('')
+    try {
+      const res = await fetch('/api/fornecedores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: wd.nome.trim(),
+          tipo: wd.tipo,
+          cnpjCpf: wd.cnpjCpf || null,
+          inscricaoEstadual: wd.inscricaoEstadual || null,
+          ativo: wd.ativo,
+          enderecos: wd.enderecos,
+          contatos: wd.contatos,
+        }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Erro ao criar')
+      const novo = await res.json()
+      setFornecedores(prev => [{ ...novo, enderecos: novo.enderecos ?? [], contatos: novo.contatos ?? [] }, ...prev])
+      toast.success('Fornecedor cadastrado', novo.nome)
+      closeWizard()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erro inesperado')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /* ── edit helpers ── */
+  function openEdit(f: Fornecedor) {
+    setEditing(f)
+    setEf({
+      nome: f.nome, tipo: f.tipo,
+      cnpjCpf: f.cnpjCpf ?? '',
+      inscricaoEstadual: f.inscricaoEstadual ?? '',
+      telefone: f.telefone ?? '',
+      email: f.email ?? '',
+      ativo: f.ativo,
+    })
+    setError(''); setEditModal(true)
+  }
+  function closeEdit() { setEditModal(false); setEditing(null) }
+
+  async function handleSaveEdit() {
+    if (!ef.nome.trim()) { setError('Nome é obrigatório'); return }
+    setLoading(true); setError('')
+    try {
+      const res = await fetch(`/api/fornecedores/${editing!.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: ef.nome.trim(), tipo: ef.tipo,
+          cnpjCpf: ef.cnpjCpf || null,
+          inscricaoEstadual: ef.inscricaoEstadual || null,
+          telefone: ef.telefone || null,
+          email: ef.email || null,
+          ativo: ef.ativo,
+        }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Erro ao salvar')
+      const updated = await res.json()
+      setFornecedores(prev => prev.map(f => f.id === updated.id
+        ? { ...f, ...updated, enderecos: updated.enderecos ?? f.enderecos, contatos: updated.contatos ?? f.contatos }
+        : f
+      ))
+      toast.success('Fornecedor atualizado', updated.nome)
+      closeEdit()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erro inesperado')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleDelete(id: string) {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/fornecedores/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error((await res.json()).error || 'Erro ao excluir')
+      setFornecedores(prev => prev.filter(f => f.id !== id))
+      toast.success('Fornecedor excluído')
+    } catch (e: unknown) {
+      toast.error('Não foi possível excluir', e instanceof Error ? e.message : 'Verifique se não há compras ou NF-e vinculadas.')
+    } finally {
+      setLoading(false); setConfirmDelete(null)
+    }
+  }
+
+  /* ── wizard step progress bar ── */
+  function ProgressHeader({ title, sub }: { title: string; sub: string }) {
+    return (
+      <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f4f8', position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingRight: 36 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 9, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <FontAwesomeIcon icon={faTruck} style={{ fontSize: 18, color: BLUE }} />
+          </div>
+          <div>
+            <p style={{ margin: 0, fontWeight: 700, color: NAVY, fontSize: 16 }}>{title}</p>
+            <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>{sub}</p>
+          </div>
+        </div>
+        <div style={{ marginTop: 14, height: 4, background: '#e5e7eb', borderRadius: 4, overflow: 'hidden' }}>
+          <div style={{ width: `${(step / 3) * 100}%`, height: '100%', background: BLUE, borderRadius: 4, transition: 'width 0.35s ease' }} />
+        </div>
+        <button
+          onClick={closeWizard}
+          style={{ position: 'absolute', top: 18, right: 18, background: '#f3f4f6', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <FontAwesomeIcon icon={faXmark} style={{ fontSize: 15 }} />
+        </button>
+      </div>
+    )
+  }
+
+  /* ── wizard step 1 ── */
+  function Step1() {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {/* Tipo cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {([
+            { val: 'JURIDICA' as const, label: 'Pessoa Jurídica', sub: 'CNPJ', icon: faBuilding as IconDefinition },
+            { val: 'FISICA'   as const, label: 'Pessoa Física',   sub: 'CPF',  icon: faUser as IconDefinition  },
+          ] as const).map(({ val, label, sub, icon }) => {
+            const sel = wd.tipo === val
+            return (
+              <button
+                key={val}
+                type="button"
+                onClick={() => setWd(d => ({ ...d, tipo: val }))}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  padding: '20px 12px', gap: 10, position: 'relative',
+                  border: `2px solid ${sel ? BLUE : '#e5e7eb'}`,
+                  borderRadius: 12, background: sel ? '#eff6ff' : 'white',
+                  cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+                }}
+              >
+                {sel && (
+                  <span style={{ position: 'absolute', top: 8, right: 8, width: 18, height: 18, borderRadius: '50%', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <FontAwesomeIcon icon={faCheck} style={{ fontSize: 11, color: 'white' }} />
+                  </span>
+                )}
+                <FontAwesomeIcon icon={icon} style={{ fontSize: 28, color: sel ? BLUE : '#9ca3af' }} />
+                <span style={{ fontWeight: 700, fontSize: 14, color: sel ? BLUE : NAVY }}>{label}</span>
+                <span style={{ fontSize: 12, color: sel ? '#60a5fa' : '#9ca3af' }}>{sub}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Nome Fantasia */}
+        <div>
+          <label style={lbl}>
+            <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 13, display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />
+            Nome Fantasia <span style={{ color: PINK }}>*</span>
+          </label>
+          <input
+            value={wd.nome}
+            onChange={e => setWd(d => ({ ...d, nome: e.target.value }))}
+            placeholder="Nome da empresa ou pessoa"
+            style={inp}
+            autoFocus
+          />
+        </div>
+
+        {/* CNPJ / CPF */}
+        <div>
+          <label style={lbl}>
+            <FontAwesomeIcon icon={faHashtag} style={{ fontSize: 13, display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />
+            {wd.tipo === 'JURIDICA' ? 'CNPJ' : 'CPF'}
+            <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 400, color: '#9ca3af' }}>(opcional)</span>
+          </label>
+          <div style={{ position: 'relative' }}>
+            <input
+              value={wd.cnpjCpf}
+              onChange={e => setWd(d => ({ ...d, cnpjCpf: e.target.value }))}
+              placeholder={wd.tipo === 'JURIDICA' ? '00.000.000/0000-00' : '000.000.000-00'}
+              style={{ ...inp, paddingRight: 40 }}
+            />
+            <FontAwesomeIcon icon={faMagnifyingGlass} style={{ fontSize: 15, position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+          </div>
+        </div>
+
+        {/* Inscrição Estadual */}
+        <div>
+          <label style={lbl}>
+            <FontAwesomeIcon icon={faHashtag} style={{ fontSize: 13, display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />
+            Inscrição Estadual
+          </label>
+          <input
+            value={wd.inscricaoEstadual}
+            onChange={e => setWd(d => ({ ...d, inscricaoEstadual: e.target.value }))}
+            placeholder="000.000.000.000"
+            style={inp}
+          />
+        </div>
+
+        {/* Status Inicial */}
+        <div>
+          <label style={lbl}>Status Inicial</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {([
+              { val: true,  label: 'Ativo'   },
+              { val: false, label: 'Inativo' },
+            ] as const).map(opt => (
+              <button
+                key={String(opt.val)}
+                type="button"
+                onClick={() => setWd(d => ({ ...d, ativo: opt.val }))}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '12px 16px',
+                  border: `2px solid ${wd.ativo === opt.val ? (opt.val ? BLUE : PINK) : '#e5e7eb'}`,
+                  borderRadius: 10,
+                  background: wd.ativo === opt.val ? (opt.val ? '#eff6ff' : '#fff0f3') : 'white',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  fontWeight: 600, fontSize: 14,
+                  color: wd.ativo === opt.val ? (opt.val ? BLUE : PINK) : '#374151',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <span style={{
+                  width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+                  background: wd.ativo === opt.val ? (opt.val ? GREEN : PINK) : '#d1d5db',
+                }} />
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  /* ── wizard step 2 — endereços ── */
+  function Step2() {
+    return (
+      <div>
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 20px' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 8, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <FontAwesomeIcon icon={faLocationDot} style={{ fontSize: 16, color: BLUE }} />
+              </div>
+              <div>
+                <p style={{ margin: 0, fontWeight: 700, color: NAVY, fontSize: 14 }}>Endereços</p>
+                <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Localizações do fornecedor</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={addEndereco}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'white', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 13, fontWeight: 600, color: NAVY, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              <FontAwesomeIcon icon={faPlus} style={{ fontSize: 14 }} /> Adicionar Endereço
+            </button>
+          </div>
+
+          {/* Address cards */}
+          {wd.enderecos.map((end, i) => (
+            <div key={i} style={{ marginTop: 16, border: '1px solid #e5e7eb', borderRadius: 10, padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <p style={{ margin: 0, fontWeight: 700, color: NAVY, fontSize: 13 }}>Endereço {i + 1}</p>
+                <button type="button" onClick={() => removeEndereco(i)}
+                  style={{ background: `${PINK}15`, border: 'none', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: PINK, display: 'flex', alignItems: 'center' }}>
+                  <FontAwesomeIcon icon={faXmark} style={{ fontSize: 13 }} />
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {([
+                  { field: 'cep'         as const, label: 'CEP *',         ph: '00000-000'           },
+                  { field: 'logradouro'  as const, label: 'Logradouro *',  ph: 'Rua, Avenida, etc.'  },
+                  { field: 'numero'      as const, label: 'Número *',       ph: '123'                 },
+                  { field: 'complemento' as const, label: 'Complemento',   ph: 'Apto, Sala, etc.'    },
+                  { field: 'bairro'      as const, label: 'Bairro *',       ph: 'Nome do bairro'      },
+                  { field: 'cidade'      as const, label: 'Cidade *',       ph: 'Nome da cidade'      },
+                  { field: 'estado'      as const, label: 'Estado (UF) *',  ph: 'SP'                  },
+                  { field: 'referencia'  as const, label: 'Referência',    ph: 'Ponto de referência' },
+                ]).map(({ field, label, ph }) => (
+                  <div key={field}>
+                    <label style={{ ...lbl, fontWeight: 500, color: '#374151', fontSize: 12 }}>{label}</label>
+                    <input
+                      value={end[field]}
+                      onChange={e => setEndereco(i, field, e.target.value)}
+                      placeholder={ph}
+                      style={{ ...inp, fontSize: 13, padding: '9px 12px' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  /* ── wizard step 3 — contatos ── */
+  function Step3() {
+    return (
+      <div>
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 20px' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 8, background: `${TEAL}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <FontAwesomeIcon icon={faPhone} style={{ fontSize: 16, color: TEAL }} />
+              </div>
+              <div>
+                <p style={{ margin: 0, fontWeight: 700, color: NAVY, fontSize: 14 }}>Contatos</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={addContato}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: `${TEAL}15`, border: `1.5px solid ${TEAL}40`, borderRadius: 8, fontSize: 13, fontWeight: 600, color: TEAL, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              <FontAwesomeIcon icon={faPlus} style={{ fontSize: 14 }} /> Adicionar Contato
+            </button>
+          </div>
+
+          {/* Contact cards */}
+          {wd.contatos.map((ct, i) => (
+            <div key={i} style={{ marginTop: 16, border: '1px solid #e5e7eb', borderRadius: 10, padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <p style={{ margin: 0, fontWeight: 700, color: NAVY, fontSize: 13 }}>Contato {i + 1}</p>
+                <button type="button" onClick={() => removeContato(i)}
+                  style={{ background: `${PINK}15`, border: 'none', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: PINK, display: 'flex', alignItems: 'center' }}>
+                  <FontAwesomeIcon icon={faXmark} style={{ fontSize: 13 }} />
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ ...lbl, fontWeight: 500, color: '#374151', fontSize: 12 }}>
+                    <FontAwesomeIcon icon={faPhone} style={{ fontSize: 12, display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
+                    Telefone <span style={{ color: '#9ca3af', fontSize: 11 }}>(opcional)</span>
+                  </label>
+                  <input value={ct.telefone} onChange={e => setContato(i, 'telefone', e.target.value)}
+                    placeholder="(00) 00000-0000" style={{ ...inp, fontSize: 13, padding: '9px 12px' }} />
+                </div>
+                <div>
+                  <label style={{ ...lbl, fontWeight: 500, color: '#374151', fontSize: 12 }}>
+                    <FontAwesomeIcon icon={faEnvelope} style={{ fontSize: 12, display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
+                    E-mail
+                  </label>
+                  <input value={ct.email} onChange={e => setContato(i, 'email', e.target.value)}
+                    placeholder="exemplo@email.com" type="email" style={{ ...inp, fontSize: 13, padding: '9px 12px' }} />
+                </div>
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <label style={{ ...lbl, fontWeight: 500, color: '#374151', fontSize: 12 }}>
+                  <FontAwesomeIcon icon={faUser} style={{ fontSize: 12, display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
+                  Nome do Contato
+                </label>
+                <input value={ct.nomeContato} onChange={e => setContato(i, 'nomeContato', e.target.value)}
+                  placeholder="Nome do responsável" style={{ ...inp, fontSize: 13, padding: '9px 12px' }} />
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <label style={{ ...lbl, fontWeight: 500, color: '#374151', fontSize: 12 }}>Observação</label>
+                <input value={ct.observacao} onChange={e => setContato(i, 'observacao', e.target.value)}
+                  placeholder="Observações sobre o contato" style={{ ...inp, fontSize: 13, padding: '9px 12px' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  /* ══════════════════════ RENDER ══════════════════════ */
+  return (
+    <div>
+      {/* ── Header ── */}
+      <motion.div
+        initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}
+      >
+        <div>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: NAVY, margin: 0 }}>Fornecedores</h1>
+          <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>Gerencie seus fornecedores</p>
+        </div>
+        <motion.button
+          onClick={openWizard}
+          whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', backgroundColor: BLUE, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          <FontAwesomeIcon icon={faPlus} style={{ fontSize: 15 }} /> Criar Fornecedor
+        </motion.button>
+      </motion.div>
+
+      {/* ── KPI Cards ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.4 }}
+        className="kpi-grid-3"
+      >
+        {[
+          { label: 'Total de Fornecedores', value: fornecedores.length,                                                        color: NAVY,    icon: faBuilding as IconDefinition   },
+          { label: 'Com Compras',           value: fornecedores.filter(f => (f._count?.compras ?? 0) > 0).length,              color: ORANGE,  icon: faCartShopping as IconDefinition },
+          { label: 'Com NF-e',              value: fornecedores.filter(f => (f._count?.nfes ?? 0) > 0).length,                 color: '#7c3aed', icon: faFileLines as IconDefinition   },
+        ].map(({ label, value, color, icon }, i) => (
+          <motion.div
+            key={label}
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.07 + 0.1, duration: 0.4, type: 'spring', stiffness: 180 }}
+            style={{ backgroundColor: 'white', borderRadius: 14, padding: '18px 22px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `4px solid ${color}` }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ color: '#6b7280', fontSize: 12, margin: 0 }}>{label}</p>
+                <p style={{ color, fontSize: 28, fontWeight: 700, margin: '4px 0 0' }}>{value}</p>
+              </div>
+              <div style={{ backgroundColor: `${color}15`, borderRadius: 10, padding: 10 }}>
+                <FontAwesomeIcon icon={icon} style={{ fontSize: 20, color }} />
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* ── Table ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.4 }}
+        style={{ backgroundColor: 'white', borderRadius: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflow: 'hidden' }}
+      >
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <h3 style={{ margin: 0, color: NAVY, fontSize: 15, fontWeight: 600 }}>Fornecedores Cadastrados</h3>
+          <div style={{ position: 'relative', flex: 1, maxWidth: 320 }}>
+            <FontAwesomeIcon icon={faMagnifyingGlass} style={{ fontSize: 14, position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+            <input
+              value={q} onChange={e => setQ(e.target.value)}
+              placeholder="Buscar por nome, CNPJ/CPF..."
+              style={{ ...inp, paddingLeft: 36, paddingTop: 8, paddingBottom: 8, fontSize: 13 }}
+            />
+          </div>
+        </div>
+
+        {filtrados.length === 0 ? (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            style={{ padding: 64, textAlign: 'center', color: '#9ca3af' }}>
+            <FontAwesomeIcon icon={faTruck} style={{ fontSize: 40, opacity: 0.3, margin: '0 auto 12px', display: 'block' }} />
+            <p style={{ fontWeight: 600, margin: '0 0 6px' }}>Nenhum fornecedor encontrado</p>
+            <p style={{ fontSize: 13, margin: 0 }}>Clique em &quot;Criar Fornecedor&quot; para cadastrar</p>
+          </motion.div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f9fafb' }}>
+                {['Nome', 'Tipo', 'CNPJ / CPF', 'Telefone', 'E-mail', 'Compras', 'NF-e', 'Status', ''].map(h => (
+                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtrados.map((f, i) => (
+                <motion.tr
+                  key={f.id}
+                  initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.32 + i * 0.04 }}
+                  whileHover={{ backgroundColor: '#f8fffe' }}
+                  style={{ borderBottom: '1px solid #f3f4f6' }}
+                >
+                  <td style={{ padding: '13px 16px', fontSize: 14, fontWeight: 600, color: NAVY }}>{f.nome}</td>
+                  <td style={{ padding: '13px 16px' }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20, background: f.tipo === 'FISICA' ? `${TEAL}15` : `${BLUE}15`, color: f.tipo === 'FISICA' ? TEAL : BLUE }}>
+                      {f.tipo === 'FISICA' ? 'PF' : 'PJ'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '13px 16px', fontSize: 13, color: '#6b7280' }}>
+                    {f.cnpjCpf ?? <span style={{ color: '#d1d5db' }}>—</span>}
+                  </td>
+                  <td style={{ padding: '13px 16px', fontSize: 13, color: '#6b7280' }}>
+                    {(f.contatos[0]?.telefone || f.telefone)
+                      ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><FontAwesomeIcon icon={faPhone} style={{ fontSize: 12 }} />{f.contatos[0]?.telefone || f.telefone}</span>
+                      : <span style={{ color: '#d1d5db' }}>—</span>}
+                  </td>
+                  <td style={{ padding: '13px 16px', fontSize: 13, color: '#6b7280' }}>
+                    {(f.contatos[0]?.email || f.email)
+                      ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><FontAwesomeIcon icon={faEnvelope} style={{ fontSize: 12 }} />{f.contatos[0]?.email || f.email}</span>
+                      : <span style={{ color: '#d1d5db' }}>—</span>}
+                  </td>
+                  <td style={{ padding: '13px 16px' }}>
+                    <span style={{ backgroundColor: `${ORANGE}12`, color: ORANGE, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>
+                      {f._count?.compras ?? 0}
+                    </span>
+                  </td>
+                  <td style={{ padding: '13px 16px' }}>
+                    <span style={{ backgroundColor: `${NAVY}12`, color: NAVY, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>
+                      {f._count?.nfes ?? 0}
+                    </span>
+                  </td>
+                  <td style={{ padding: '13px 16px' }}>
+                    <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: f.ativo ? '#f0faf0' : '#f9fafb', color: f.ativo ? '#2d7d28' : '#6b7280' }}>
+                      {f.ativo ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '13px 16px' }}>
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                      <motion.button onClick={() => openEdit(f)} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                        style={{ background: `${NAVY}12`, border: 'none', borderRadius: 6, padding: '6px 8px', cursor: 'pointer', color: NAVY }}>
+                        <FontAwesomeIcon icon={faPencil} style={{ fontSize: 13 }} />
+                      </motion.button>
+                      <motion.button onClick={() => setConfirmDelete(f.id)} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                        style={{ background: `${PINK}12`, border: 'none', borderRadius: 6, padding: '6px 8px', cursor: 'pointer', color: PINK }}>
+                        <FontAwesomeIcon icon={faTrash} style={{ fontSize: 13 }} />
+                      </motion.button>
+                    </div>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </motion.div>
+
+      {/* ══════════════ WIZARD MODAL ══════════════ */}
+      <AnimatePresence>
+        {wizard && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={closeWizard}
+              style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 1000 }} />
+            <div className="modal-wrapper">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.94, y: 24 }}
+                animate={{ opacity: 1, scale: 1,    y: 0  }}
+                exit={{   opacity: 0, scale: 0.94, y: 24  }}
+                transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+                style={{
+                  backgroundColor: 'white', borderRadius: 16,
+                  width: '100%', maxWidth: 540,
+                  boxShadow: '0 24px 64px rgba(0,0,0,0.22)',
+                  display: 'flex', flexDirection: 'column',
+                  maxHeight: '90vh', overflow: 'hidden',
+                }}
+              >
+                <ProgressHeader
+                  title="Novo Fornecedor"
+                  sub={`Passo ${step} de 3`}
+                />
+
+                {/* Body */}
+                <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+                  {step === 1 && <Step1 />}
+                  {step === 2 && <Step2 />}
+                  {step === 3 && <Step3 />}
+
+                  {error && (
+                    <p style={{ color: PINK, fontSize: 13, margin: '14px 0 0', padding: '8px 12px', backgroundColor: `${PINK}10`, borderRadius: 8 }}>
+                      {error}
+                    </p>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div style={{ padding: '14px 24px', borderTop: '1px solid #f0f4f8' }}>
+                  {step === 1 ? (
+                    <motion.button
+                      onClick={nextStep}
+                      whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                      style={{ width: '100%', padding: '13px', backgroundColor: BLUE, color: 'white', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      Continuar
+                    </motion.button>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
+                      <motion.button
+                        onClick={prevStep}
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                        style={{ padding: '13px', border: '1.5px solid #e5e7eb', borderRadius: 10, background: 'white', fontSize: 14, fontWeight: 600, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}
+                      >
+                        Voltar
+                      </motion.button>
+                      <motion.button
+                        onClick={step === 3 ? handleFinalize : nextStep}
+                        disabled={loading}
+                        whileHover={!loading ? { scale: 1.02 } : {}}
+                        whileTap={!loading ? { scale: 0.97 } : {}}
+                        style={{ padding: '13px', backgroundColor: BLUE, color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1, fontFamily: 'inherit' }}
+                      >
+                        {step === 3 ? (loading ? 'Salvando...' : 'Finalizar Cadastro') : 'Continuar'}
+                      </motion.button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ══════════════ EDIT MODAL ══════════════ */}
+      <AnimatePresence>
+        {editModal && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={closeEdit}
+              style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 1000 }} />
+            <div className="modal-wrapper">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.93, y: 20 }}
+                animate={{ opacity: 1, scale: 1,    y: 0  }}
+                exit={{   opacity: 0, scale: 0.93, y: 20  }}
+                transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                style={{ backgroundColor: 'white', borderRadius: 16, padding: 28, width: '100%', maxWidth: 500, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
+                  <h2 style={{ fontSize: 18, fontWeight: 700, color: NAVY, margin: 0 }}>Editar Fornecedor</h2>
+                  <motion.button onClick={closeEdit} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                    style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: '#6b7280', display: 'flex' }}>
+                    <FontAwesomeIcon icon={faXmark} style={{ fontSize: 16 }} />
+                  </motion.button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {/* Tipo */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    {([
+                      { val: 'JURIDICA', label: 'Pessoa Jurídica', icon: faBuilding as IconDefinition },
+                      { val: 'FISICA',   label: 'Pessoa Física',   icon: faUser as IconDefinition  },
+                    ] as const).map(({ val, label, icon }) => (
+                      <button key={val} type="button" onClick={() => setEf(p => ({ ...p, tipo: val }))}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', border: `2px solid ${ef.tipo === val ? BLUE : '#e5e7eb'}`, borderRadius: 10, background: ef.tipo === val ? '#eff6ff' : 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 13, color: ef.tipo === val ? BLUE : '#374151' }}>
+                        <FontAwesomeIcon icon={icon} style={{ fontSize: 16, color: ef.tipo === val ? BLUE : '#9ca3af' }} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div>
+                    <label style={lbl}>Nome Fantasia *</label>
+                    <input value={ef.nome} onChange={e => setEf(p => ({ ...p, nome: e.target.value }))}
+                      placeholder="Nome da empresa" style={inp} autoFocus />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label style={lbl}>{ef.tipo === 'FISICA' ? 'CPF' : 'CNPJ'}</label>
+                      <input value={ef.cnpjCpf} onChange={e => setEf(p => ({ ...p, cnpjCpf: e.target.value }))}
+                        placeholder={ef.tipo === 'FISICA' ? '000.000.000-00' : '00.000.000/0000-00'} style={inp} />
+                    </div>
+                    <div>
+                      <label style={lbl}>Inscrição Estadual</label>
+                      <input value={ef.inscricaoEstadual} onChange={e => setEf(p => ({ ...p, inscricaoEstadual: e.target.value }))}
+                        placeholder="000.000.000.000" style={inp} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label style={lbl}>Telefone</label>
+                      <input value={ef.telefone} onChange={e => setEf(p => ({ ...p, telefone: e.target.value }))}
+                        placeholder="(00) 00000-0000" style={inp} />
+                    </div>
+                    <div>
+                      <label style={lbl}>E-mail</label>
+                      <input type="email" value={ef.email} onChange={e => setEf(p => ({ ...p, email: e.target.value }))}
+                        placeholder="email@empresa.com" style={inp} />
+                    </div>
+                  </div>
+
+                  {/* Status */}
+                  <div>
+                    <label style={lbl}>Status</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      {([{ val: true, label: 'Ativo' }, { val: false, label: 'Inativo' }] as const).map(opt => (
+                        <button key={String(opt.val)} type="button" onClick={() => setEf(p => ({ ...p, ativo: opt.val }))}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', border: `2px solid ${ef.ativo === opt.val ? (opt.val ? BLUE : PINK) : '#e5e7eb'}`, borderRadius: 10, background: ef.ativo === opt.val ? (opt.val ? '#eff6ff' : '#fff0f3') : 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 14, color: ef.ativo === opt.val ? (opt.val ? BLUE : PINK) : '#374151', transition: 'all 0.15s' }}>
+                          <span style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, background: ef.ativo === opt.val ? (opt.val ? GREEN : PINK) : '#d1d5db' }} />
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {error && (
+                  <p style={{ color: PINK, fontSize: 13, margin: '12px 0 0', padding: '8px 12px', backgroundColor: `${PINK}10`, borderRadius: 8 }}>{error}</p>
+                )}
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 22, justifyContent: 'flex-end' }}>
+                  <motion.button onClick={closeEdit} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                    style={{ padding: '10px 18px', border: '1.5px solid #e5e7eb', borderRadius: 10, background: 'white', fontSize: 14, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Cancelar
+                  </motion.button>
+                  <motion.button onClick={handleSaveEdit} disabled={loading}
+                    whileHover={!loading ? { scale: 1.03 } : {}} whileTap={!loading ? { scale: 0.97 } : {}}
+                    style={{ padding: '10px 22px', backgroundColor: BLUE, color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1, fontFamily: 'inherit' }}>
+                    {loading ? 'Salvando...' : 'Salvar'}
+                  </motion.button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ══════════════ CONFIRM DELETE ══════════════ */}
+      <AnimatePresence>
+        {confirmDelete && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setConfirmDelete(null)}
+              style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 1000 }} />
+            <div className="modal-wrapper">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.93 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.93 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                style={{ backgroundColor: 'white', borderRadius: 14, padding: 24, width: 320, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', textAlign: 'center' }}
+              >
+                <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: `${PINK}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                  <FontAwesomeIcon icon={faTrash} style={{ fontSize: 20, color: PINK }} />
+                </div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: NAVY, margin: '0 0 8px' }}>Excluir fornecedor?</h3>
+                <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 20px' }}>
+                  Somente fornecedores sem compras ou NF-e podem ser excluídos.
+                </p>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <motion.button onClick={() => setConfirmDelete(null)} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                    style={{ flex: 1, padding: '10px', border: '1.5px solid #e5e7eb', borderRadius: 10, background: 'white', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Cancelar
+                  </motion.button>
+                  <motion.button onClick={() => handleDelete(confirmDelete)} disabled={loading}
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                    style={{ flex: 1, padding: '10px', backgroundColor: PINK, color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {loading ? 'Excluindo...' : 'Excluir'}
+                  </motion.button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}

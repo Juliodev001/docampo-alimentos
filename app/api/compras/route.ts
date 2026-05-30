@@ -44,29 +44,60 @@ export async function POST(req: NextRequest) {
   if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { fornecedorId, data, categoria, centroCustoId, observacao, condicao, vencimento, formaPagamento, status, itens } = body
+  const {
+    fornecedorId: fornIdRaw,
+    descricao,          // simplified form field
+    valor,              // simplified form field
+    data,
+    categoria,
+    centroCustoId,
+    observacao,
+    condicao,
+    vencimento,
+    formaPagamento,
+    status,
+    itens,
+  } = body
 
-  const totalValor = itens.reduce((s: number, i: { total: number }) => s + i.total, 0)
+  // Resolve fornecedor — simplified form doesn't require one
+  let fornecedorId = fornIdRaw
+  if (!fornecedorId) {
+    const forn = await prisma.fornecedor.findFirst({ orderBy: { createdAt: 'asc' } })
+    if (!forn) return NextResponse.json({ error: 'Nenhum fornecedor cadastrado. Cadastre um fornecedor primeiro.' }, { status: 400 })
+    fornecedorId = forn.id
+  }
+
+  // Build items — simplified form sends valor + descricao instead of itens array
+  type RawItem = { produto: string; unidade: never; quantidade: number; valorUnit: number; total: number }
+  const resolvedItens: RawItem[] = itens ?? [{
+    produto:    descricao ?? 'Despesa',
+    unidade:    'UNIDADE' as never,
+    quantidade: 1,
+    valorUnit:  valor ?? 0,
+    total:      valor ?? 0,
+  }]
+
+  const totalValor = resolvedItens.reduce((s: number, i: RawItem) => s + i.total, 0)
 
   const compra = await prisma.compra.create({
     data: {
       fornecedorId,
-      data: new Date(data),
-      categoria,
-      centroCustoId: centroCustoId || null,
-      observacao,
-      condicao,
-      vencimento: new Date(vencimento),
-      formaPagamento,
-      status,
+      data:           new Date(data),
+      categoria:      (categoria ?? 'OUTROS') as never,
+      centroCustoId:  centroCustoId || null,
+      observacao:     observacao || descricao || null,
+      condicao:       (condicao       ?? 'A_VISTA')  as never,
+      vencimento:     new Date(vencimento ?? data),
+      formaPagamento: (formaPagamento ?? 'PIX')       as never,
+      status:         (status         ?? 'A_PAGAR')   as never,
       totalValor,
       itens: {
-        create: itens.map((i: { produto: string; unidade: string; quantidade: number; valorUnit: number; total: number }) => ({
-          produto: i.produto,
-          unidade: i.unidade,
+        create: resolvedItens.map(i => ({
+          produto:    i.produto,
+          unidade:    i.unidade,
           quantidade: i.quantidade,
-          valorUnit: i.valorUnit,
-          total: i.total,
+          valorUnit:  i.valorUnit,
+          total:      i.total,
         })),
       },
     },

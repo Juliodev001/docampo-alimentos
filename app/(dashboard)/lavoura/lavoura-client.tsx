@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { motion } from 'motion/react'
 import { useState, useEffect } from 'react'
-import { Plus } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faPlus } from '@fortawesome/free-solid-svg-icons'
 import { formatDate } from '@/lib/utils'
 
 const GREEN = '#5ab952'
@@ -575,12 +576,12 @@ export default function LavouraClient({ meses, colheitasRecentes, produtos }: Pr
         <div style={{ display: 'flex', gap: 10 }}>
           <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
             <Link href="/lavoura/colheita/nova" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', backgroundColor: GREEN, color: 'white', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
-              <Plus size={15} /> Registrar Colheita
+              <FontAwesomeIcon icon={faPlus} style={{ fontSize: 15 }} /> Registrar Colheita
             </Link>
           </motion.div>
           <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
             <Link href="/lavoura/saida/nova" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', backgroundColor: NAVY, color: 'white', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
-              <Plus size={15} /> Registrar Saída
+              <FontAwesomeIcon icon={faPlus} style={{ fontSize: 15 }} /> Registrar Saída
             </Link>
           </motion.div>
         </div>
@@ -595,7 +596,7 @@ export default function LavouraClient({ meses, colheitasRecentes, produtos }: Pr
       </motion.div>
 
       {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
+      <div className="kpi-grid-4">
         {cards.map(({ label, value, color, sub }, i) => (
           <motion.div key={label}
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}

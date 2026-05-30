@@ -23,7 +23,7 @@ import { getSession } from '@/lib/session'
 import { GET, POST } from '@/app/api/usuarios/route'
 import { NextRequest } from 'next/server'
 
-const mockSession = { userId: 'user-123', expiresAt: new Date() }
+const mockSession = { userId: 'user-123', expiresAt: new Date(), name: 'Test User', email: 'test@example.com', role: 'DONO' }
 const mockUser = {
   id: 'user-123', name: 'Admin', email: 'admin@docampo.com.br',
   role: 'DONO', ativo: true, createdAt: new Date(),

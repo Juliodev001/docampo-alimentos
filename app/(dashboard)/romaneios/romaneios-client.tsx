@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'motion/react'
-import { FileText, Plus, Search, X, Printer, Ban } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faFileLines, faPlus, faMagnifyingGlass, faXmark, faPrint, faBan } from '@fortawesome/free-solid-svg-icons'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 const GREEN = '#5ab952'
@@ -42,6 +43,16 @@ export default function RomaneiosClient({ romaneios: inicial, clientes }: { roma
   const [error, setError] = useState('')
 
   const [detalhe, setDetalhe] = useState<Romaneio | null>(null)
+
+  function imprimirRomaneio(r: Romaneio) {
+    const rows = r.itens.map(it => `<tr><td>${it.produto}</td><td>${it.quantidade} ${it.unidade}</td><td>${formatCurrency(it.valorUnit)}</td><td style="font-weight:700">${formatCurrency(it.total)}</td></tr>`).join('')
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Romaneio #${r.numero}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:24px;color:#111827}h1{font-size:18px;color:#2d3561;margin-bottom:4px}.sub{font-size:12px;color:#6b7280;margin-bottom:20px}table{width:100%;border-collapse:collapse;font-size:13px}th{background:#f3f4f6;padding:8px 10px;text-align:left;font-weight:700;color:#374151}td{padding:8px 10px;border-bottom:1px solid #f3f4f6}.total-row{font-weight:700}@media print{body{padding:0}}</style></head><body><h1>Romaneio #${r.numero}</h1><p class="sub">Data: ${formatDate(new Date(r.data))} — Cliente: ${r.cliente.nome}</p><table><thead><tr><th>Produto</th><th>Quantidade</th><th>Valor Unit.</th><th>Total</th></tr></thead><tbody>${rows}</tbody><tfoot><tr class="total-row"><td colspan="3" style="padding:10px;font-weight:700">Total</td><td style="padding:10px;font-weight:700">${formatCurrency(r.totalValor)}</td></tr></tfoot></table></body></html>`
+    const w = window.open('', '_blank')
+    if (!w) return
+    w.document.write(html)
+    w.document.close()
+    setTimeout(() => w.print(), 400)
+  }
 
   const filtrados = romaneios.filter(r => {
     const matchQ = !q || r.cliente.nome.toLowerCase().includes(q.toLowerCase()) || String(r.numero).includes(q)
@@ -106,7 +117,7 @@ export default function RomaneiosClient({ romaneios: inicial, clientes }: { roma
         </div>
         <motion.button onClick={() => setModal(true)} whileHover={{ scale: 1.03, backgroundColor: '#4aa344' }} whileTap={{ scale: 0.97 }}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', backgroundColor: GREEN, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-          <Plus size={15} /> Novo Romaneio
+          <FontAwesomeIcon icon={faPlus} style={{ fontSize: 15 }} /> Novo Romaneio
         </motion.button>
       </motion.div>
 
@@ -134,7 +145,7 @@ export default function RomaneiosClient({ romaneios: inicial, clientes }: { roma
           <div>
             <label style={lbl}>Buscar</label>
             <div style={{ position: 'relative' }}>
-              <Search size={13} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+              <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 13 }} />
               <input value={q} onChange={e => setQ(e.target.value)} placeholder="Cliente ou nº..." style={{ ...inp, paddingLeft: 34 }} />
             </div>
           </div>
@@ -154,7 +165,7 @@ export default function RomaneiosClient({ romaneios: inicial, clientes }: { roma
         </div>
         {filtrados.length === 0 ? (
           <div style={{ padding: 64, textAlign: 'center', color: '#9ca3af' }}>
-            <FileText size={40} style={{ opacity: 0.3, margin: '0 auto 12px', display: 'block' }} />
+            <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 40, opacity: 0.3, margin: '0 auto 12px', display: 'block' }} />
             <p style={{ fontWeight: 600, margin: 0 }}>Nenhum romaneio encontrado</p>
           </div>
         ) : (
@@ -189,7 +200,7 @@ export default function RomaneiosClient({ romaneios: inicial, clientes }: { roma
                         {r.status === 'EMITIDO' && (
                           <motion.button onClick={() => cancelar(r.id)} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                             style={{ background: `${PINK}12`, border: 'none', borderRadius: 6, padding: '6px 8px', cursor: 'pointer', color: PINK }}>
-                            <Ban size={13} />
+                            <FontAwesomeIcon icon={faBan} style={{ fontSize: 13 }} />
                           </motion.button>
                         )}
                       </div>
@@ -216,7 +227,7 @@ export default function RomaneiosClient({ romaneios: inicial, clientes }: { roma
                 <h2 style={{ fontSize: 18, fontWeight: 700, color: NAVY, margin: 0 }}>Novo Romaneio</h2>
                 <motion.button onClick={() => setModal(false)} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                   style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: '#6b7280' }}>
-                  <X size={16} />
+                  <FontAwesomeIcon icon={faXmark} style={{ fontSize: 16 }} />
                 </motion.button>
               </div>
 
@@ -305,7 +316,7 @@ export default function RomaneiosClient({ romaneios: inicial, clientes }: { roma
                 </div>
                 <motion.button onClick={() => setDetalhe(null)} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                   style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: '#6b7280' }}>
-                  <X size={16} />
+                  <FontAwesomeIcon icon={faXmark} style={{ fontSize: 16 }} />
                 </motion.button>
               </div>
               <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
@@ -346,14 +357,18 @@ export default function RomaneiosClient({ romaneios: inicial, clientes }: { roma
                   </div>
                 </div>
               </div>
-              {detalhe.status === 'EMITIDO' && (
-                <div style={{ padding: '16px 24px', borderTop: '1px solid #f3f4f6' }}>
+              <div style={{ padding: '16px 24px', borderTop: '1px solid #f3f4f6', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <motion.button onClick={() => imprimirRomaneio(detalhe)} whileHover={{ scale: 1.02, backgroundColor: '#f3f4f6' }} whileTap={{ scale: 0.97 }}
+                  style={{ width: '100%', padding: '10px', backgroundColor: '#fff', color: NAVY, border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <FontAwesomeIcon icon={faPrint} style={{ fontSize: 14 }} /> Imprimir / PDF
+                </motion.button>
+                {detalhe.status === 'EMITIDO' && (
                   <motion.button onClick={() => cancelar(detalhe.id)} whileHover={{ scale: 1.02, backgroundColor: '#c91845' }} whileTap={{ scale: 0.97 }}
                     style={{ width: '100%', padding: '10px', backgroundColor: PINK, color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                    <Ban size={14} /> Cancelar Romaneio
+                    <FontAwesomeIcon icon={faBan} style={{ fontSize: 14 }} /> Cancelar Romaneio
                   </motion.button>
-                </div>
-              )}
+                )}
+              </div>
             </motion.div>
           </>
         )}

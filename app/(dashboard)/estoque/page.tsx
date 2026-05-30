@@ -1,104 +1,66 @@
 import { prisma } from '@/lib/prisma'
 import EstoqueClient from './estoque-client'
 
-export type EntradaHistorico = {
-  data: string
-  quantidade: number
-  descarte: number
-  preco: number
-  total: number
+export type MovimentoItem = {
+  id: string
+  tipo: string
+  sku: string | null
+  produto: string
+  produtoId: string
+  qtd: number
+  dataHora: string
+  motivo: string | null
 }
 
-export type ProdutoEstoque = {
-  produto: { id: string; nome: string; unidade: string; categoria: string | null }
-  totalQtd: number
-  totalDescarte: number
-  totalEntradas: number
-  mediaPreco: number
-  precoMin: number
-  precoMax: number
-  ultimoPreco: number
-  trend: 'up' | 'down' | 'stable'
-  historicoPrecos: number[]
-  ultimaColheita: string | null
-  historico: EntradaHistorico[]
+export type KpisMovimento = {
+  balanco: number
+  entrada: number
+  saida: number
+  ajuste: number
+  devolucao: number
+  perda: number
+  transferencia: number
 }
+
+export type ProdutoCadastrado = { id: string; nome: string; sku: string | null; unidade: string }
 
 export default async function EstoquePage() {
-  const colheitas = await prisma.colheitaDiaria.findMany({
-    include: { produto: true },
-    orderBy: { data: 'asc' },
-  })
+  const [entradas, produtos] = await Promise.all([
+    prisma.entradaEstoque.findMany({
+      include: { produto: { select: { nome: true, sku: true } } },
+      orderBy: { data: 'desc' },
+    }),
+    prisma.produto.findMany({ where: { ativo: true }, orderBy: { nome: 'asc' } }),
+  ])
 
-  const map = new Map<string, {
-    produto: { id: string; nome: string; unidade: string; categoria: string | null }
-    entradas: { data: Date; quantidade: number; descarte: number; preco: number }[]
-  }>()
+  const movimentos: MovimentoItem[] = entradas.map(e => ({
+    id:       e.id,
+    tipo:     'Entrada',
+    sku:      e.produto.sku,
+    produto:  e.produto.nome,
+    produtoId: e.produtoId,
+    qtd:      e.quantidade,
+    dataHora: e.data.toISOString(),
+    motivo:   e.observacao,
+  }))
 
-  for (const c of colheitas) {
-    if (!map.has(c.produtoId)) {
-      map.set(c.produtoId, {
-        produto: {
-          id: c.produto.id,
-          nome: c.produto.nome,
-          unidade: c.produto.unidade,
-          categoria: c.produto.categoria,
-        },
-        entradas: [],
-      })
-    }
-    map.get(c.produtoId)!.entradas.push({
-      data: c.data,
-      quantidade: c.quantidadeTotal,
-      descarte: c.descarte,
-      preco: c.preco,
-    })
+  const totalEntrada = entradas.reduce((s, e) => s + e.quantidade, 0)
+
+  const kpis: KpisMovimento = {
+    balanco:      totalEntrada,
+    entrada:      totalEntrada,
+    saida:        0,
+    ajuste:       0,
+    devolucao:    0,
+    perda:        0,
+    transferencia: 0,
   }
 
-  const produtos: ProdutoEstoque[] = []
-
-  for (const [, { produto, entradas }] of map) {
-    const liquidas = entradas.map(e => ({ ...e, liquido: e.quantidade - e.descarte }))
-    const totalQtd = liquidas.reduce((s, e) => s + e.liquido, 0)
-    const totalDescarte = liquidas.reduce((s, e) => s + e.descarte, 0)
-    const totalValor = liquidas.reduce((s, e) => s + e.liquido * e.preco, 0)
-    const mediaPreco = totalQtd > 0 ? totalValor / totalQtd : 0
-
-    const comPreco = liquidas.filter(e => e.preco > 0)
-    const precoMin = comPreco.length ? Math.min(...comPreco.map(e => e.preco)) : 0
-    const precoMax = comPreco.length ? Math.max(...comPreco.map(e => e.preco)) : 0
-    const ultimoPreco = liquidas[liquidas.length - 1]?.preco ?? 0
-    const trend: 'up' | 'down' | 'stable' =
-      ultimoPreco > mediaPreco * 1.02 ? 'up'
-      : ultimoPreco < mediaPreco * 0.98 ? 'down'
-      : 'stable'
-
-    produtos.push({
-      produto,
-      totalQtd,
-      totalDescarte,
-      totalEntradas: entradas.length,
-      mediaPreco,
-      precoMin,
-      precoMax,
-      ultimoPreco,
-      trend,
-      historicoPrecos: liquidas.map(e => e.preco),
-      ultimaColheita: entradas[entradas.length - 1]?.data?.toISOString() ?? null,
-      historico: liquidas
-        .slice(-20)
-        .reverse()
-        .map(e => ({
-          data: e.data.toISOString(),
-          quantidade: e.liquido,
-          descarte: e.descarte,
-          preco: e.preco,
-          total: e.liquido * e.preco,
-        })),
-    })
-  }
-
-  produtos.sort((a, b) => b.totalQtd - a.totalQtd)
-
-  return <EstoqueClient produtos={produtos} />
+  return (
+    <EstoqueClient
+      movimentos={movimentos}
+      kpis={kpis}
+      produtosCadastrados={produtos.map(p => ({ id: p.id, nome: p.nome, sku: p.sku, unidade: p.unidade }))}
+    />
+  )
 }

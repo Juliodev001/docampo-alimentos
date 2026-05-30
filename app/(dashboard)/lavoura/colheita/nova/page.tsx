@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'motion/react'
-import { ChevronLeft, AlertCircle } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faChevronLeft, faCircleExclamation } from '@fortawesome/free-solid-svg-icons'
 
 const GREEN = '#5ab952'
 const NAVY = '#2d3561'
@@ -88,7 +89,7 @@ export default function NovaColheita() {
         style={{ marginBottom: 28 }}
       >
         <Link href="/lavoura/colheita" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#6b7280', fontSize: 13, textDecoration: 'none', marginBottom: 8 }}>
-          <ChevronLeft size={14} /> Colheitas
+          <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 14 }} /> Colheitas
         </Link>
         <h1 style={{ fontSize: 26, fontWeight: 700, color: NAVY, margin: 0 }}>Registrar Colheita</h1>
         <p style={{ color: '#6b7280', fontSize: 13, marginTop: 4 }}>A divisão é calculada automaticamente conforme o cadastro do produtor</p>
@@ -190,7 +191,7 @@ export default function NovaColheita() {
               {error && (
                 <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                   style={{ display: 'flex', alignItems: 'center', gap: 8, color: PINK, fontSize: 13, backgroundColor: '#fff0f3', padding: '10px 14px', borderRadius: 8, border: `1px solid ${PINK}30` }}>
-                  <AlertCircle size={14} /> {error}
+                  <FontAwesomeIcon icon={faCircleExclamation} style={{ fontSize: 14 }} /> {error}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -235,7 +236,7 @@ export default function NovaColheita() {
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                 style={{ backgroundColor: '#fffbeb', borderRadius: 12, padding: '16px 20px', border: '1.5px solid #fcd34d', display: 'flex', alignItems: 'center', gap: 10 }}
               >
-                <AlertCircle size={16} color="#d97706" />
+                <FontAwesomeIcon icon={faCircleExclamation} style={{ fontSize: 16, color: '#d97706' }} />
                 <p style={{ fontSize: 13, color: '#92400e', margin: 0 }}>Selecione o produtor para calcular a divisão</p>
               </motion.div>
             ) : (

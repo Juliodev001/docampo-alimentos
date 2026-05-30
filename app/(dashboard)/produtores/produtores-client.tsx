@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import Link from 'next/link'
-import { Users, Plus, Phone, ChevronRight, Trash2 } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faUsers, faPlus, faPhone, faChevronRight, faTrash } from '@fortawesome/free-solid-svg-icons'
 import { formatCPF } from '@/lib/utils'
 import PageSkeleton from '@/components/page-skeleton'
 
@@ -53,7 +54,7 @@ export default function ProdutoresClient() {
         </div>
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
           <Link href="/produtores/novo" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', backgroundColor: GREEN, color: 'white', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
-            <Plus size={15} /> Novo Produtor
+            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 15 }} /> Novo Produtor
           </Link>
         </motion.div>
       </motion.div>
@@ -63,7 +64,7 @@ export default function ProdutoresClient() {
           initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
           style={{ backgroundColor: 'white', borderRadius: 14, padding: 64, textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
         >
-          <Users size={48} style={{ color: '#d1d5db', margin: '0 auto 16px', display: 'block' }} />
+          <FontAwesomeIcon icon={faUsers} style={{ fontSize: 48, color: '#d1d5db', margin: '0 auto 16px', display: 'block' }} />
           <p style={{ fontWeight: 600, color: '#6b7280', margin: '0 0 6px' }}>Nenhum produtor cadastrado</p>
           <Link href="/produtores/novo" style={{ color: GREEN, fontSize: 13 }}>Cadastrar agora →</Link>
         </motion.div>
@@ -86,7 +87,7 @@ export default function ProdutoresClient() {
                         <p style={{ color: '#6b7280', fontSize: 13, marginTop: 4 }}>CPF/CNPJ: {formatCPF(p.cpf)}</p>
                         {p.telefone && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                            <Phone size={12} color="#9ca3af" />
+                            <FontAwesomeIcon icon={faPhone} style={{ fontSize: 12, color: '#9ca3af' }} />
                             <p style={{ color: '#6b7280', fontSize: 13, margin: 0 }}>{p.telefone}</p>
                           </div>
                         )}
@@ -104,9 +105,9 @@ export default function ProdutoresClient() {
                             disabled={deletingId === p.id}
                             style={{ background: 'none', border: `1px solid ${PINK}30`, borderRadius: 8, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: PINK, opacity: deletingId === p.id ? 0.5 : 1 }}
                           >
-                            <Trash2 size={13} />
+                            <FontAwesomeIcon icon={faTrash} style={{ fontSize: 13 }} />
                           </motion.button>
-                          <ChevronRight size={16} color="#9ca3af" />
+                          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 16, color: '#9ca3af' }} />
                         </div>
                       </div>
                     </div>

@@ -2,7 +2,9 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import Link from 'next/link'
-import { Receipt, Plus, CheckCircle, Clock } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faReceipt, faPlus, faCircleCheck, faClock } from '@fortawesome/free-solid-svg-icons'
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import PageSkeleton from '@/components/page-skeleton'
 
 const GREEN = '#5ab952'
@@ -51,8 +53,8 @@ export default function PagamentoClient() {
   const pagos = fechamentos.filter(f => f.status === 'PAGO').length
 
   const cards = [
-    { label: 'Pendentes', value: pendentes, color: ORANGE, icon: Clock },
-    { label: 'Pagos', value: pagos, color: GREEN, icon: CheckCircle },
+    { label: 'Pendentes', value: pendentes, color: ORANGE, icon: faClock as IconDefinition },
+    { label: 'Pagos', value: pagos, color: GREEN, icon: faCircleCheck as IconDefinition },
   ]
 
   return (
@@ -68,13 +70,13 @@ export default function PagamentoClient() {
         </div>
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
           <Link href="/lavoura/pagamento/novo" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', backgroundColor: GREEN, color: 'white', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
-            <Plus size={15} /> Novo Fechamento
+            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 15 }} /> Novo Fechamento
           </Link>
         </motion.div>
       </motion.div>
 
       <div className="stats-grid-2" style={{ marginBottom: 24 }}>
-        {cards.map(({ label, value, color, icon: Icon }, i) => (
+        {cards.map(({ label, value, color, icon }, i) => (
           <motion.div
             key={label}
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -88,7 +90,7 @@ export default function PagamentoClient() {
                 <p style={{ color, fontSize: 32, fontWeight: 700, margin: '6px 0 0' }}>{value}</p>
               </div>
               <div style={{ backgroundColor: `${color}15`, borderRadius: 10, padding: 10 }}>
-                <Icon size={20} color={color} />
+                <FontAwesomeIcon icon={icon} style={{ fontSize: 20, color }} />
               </div>
             </div>
           </motion.div>
@@ -118,7 +120,7 @@ export default function PagamentoClient() {
       >
         {fechamentos.length === 0 ? (
           <div style={{ padding: 64, textAlign: 'center', color: '#9ca3af' }}>
-            <Receipt size={40} style={{ opacity: 0.3, margin: '0 auto 12px', display: 'block' }} />
+            <FontAwesomeIcon icon={faReceipt} style={{ fontSize: 40, opacity: 0.3, margin: '0 auto 12px', display: 'block' }} />
             <p style={{ fontWeight: 600, margin: '0 0 6px' }}>Nenhum fechamento encontrado</p>
             <Link href="/lavoura/pagamento/novo" style={{ color: GREEN, fontSize: 13 }}>Criar fechamento →</Link>
           </div>

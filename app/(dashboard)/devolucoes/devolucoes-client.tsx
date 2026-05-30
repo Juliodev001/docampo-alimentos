@@ -1,7 +1,9 @@
 'use client'
 import { motion } from 'motion/react'
 import Link from 'next/link'
-import { RotateCcw, DollarSign, Clock, CheckCircle, Plus, FileText } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faRotateLeft, faDollarSign, faClock, faCircleCheck, faPlus, faFileLines } from '@fortawesome/free-solid-svg-icons'
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 const GREEN = '#5ab952'
@@ -20,10 +22,10 @@ export default function DevolucoesClient({ devolucoes, total, totalValor, penden
   devolucoes: Devolucao[]; total: number; totalValor: number; pendentes: number; acertadas: number
 }) {
   const cards = [
-    { label: 'Total de devoluções', value: total, display: String(total), color: NAVY, icon: RotateCcw },
-    { label: 'Valor total devolvido', value: totalValor, display: formatCurrency(totalValor), color: PINK, icon: DollarSign },
-    { label: 'Pendentes de acerto', value: pendentes, display: String(pendentes), color: ORANGE, icon: Clock },
-    { label: 'Já acertadas', value: acertadas, display: String(acertadas), color: GREEN, icon: CheckCircle },
+    { label: 'Total de devoluções', value: total, display: String(total), color: NAVY, icon: faRotateLeft as IconDefinition },
+    { label: 'Valor total devolvido', value: totalValor, display: formatCurrency(totalValor), color: PINK, icon: faDollarSign as IconDefinition },
+    { label: 'Pendentes de acerto', value: pendentes, display: String(pendentes), color: ORANGE, icon: faClock as IconDefinition },
+    { label: 'Já acertadas', value: acertadas, display: String(acertadas), color: GREEN, icon: faCircleCheck as IconDefinition },
   ]
 
   return (
@@ -38,13 +40,13 @@ export default function DevolucoesClient({ devolucoes, total, totalValor, penden
         </div>
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
           <Link href="/devolucoes/nova" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', backgroundColor: GREEN, color: 'white', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
-            <Plus size={15} /> Registrar Devolução
+            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 15 }} /> Registrar Devolução
           </Link>
         </motion.div>
       </motion.div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
-        {cards.map(({ label, display, color, icon: Icon }, i) => (
+      <div className="kpi-grid-4">
+        {cards.map(({ label, display, color, icon }, i) => (
           <motion.div
             key={label}
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -61,7 +63,7 @@ export default function DevolucoesClient({ devolucoes, total, totalValor, penden
                 >{display}</motion.p>
               </div>
               <div style={{ backgroundColor: `${color}15`, borderRadius: 10, padding: 9 }}>
-                <Icon size={18} color={color} />
+                <FontAwesomeIcon icon={icon} style={{ fontSize: 18, color }} />
               </div>
             </div>
           </motion.div>
@@ -74,7 +76,7 @@ export default function DevolucoesClient({ devolucoes, total, totalValor, penden
       >
         <div style={{ padding: '18px 22px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <RotateCcw size={16} color={PINK} />
+            <FontAwesomeIcon icon={faRotateLeft} style={{ fontSize: 16, color: PINK }} />
             <h3 style={{ margin: 0, color: NAVY, fontSize: 15, fontWeight: 600 }}>Notas de devolução</h3>
           </div>
           <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.5, type: 'spring', stiffness: 400 }}
@@ -85,7 +87,7 @@ export default function DevolucoesClient({ devolucoes, total, totalValor, penden
         {devolucoes.length === 0 ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
             style={{ padding: 64, textAlign: 'center', color: '#9ca3af' }}>
-            <FileText size={40} style={{ opacity: 0.3, margin: '0 auto 12px', display: 'block' }} />
+            <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 40, opacity: 0.3, margin: '0 auto 12px', display: 'block' }} />
             <p style={{ fontWeight: 600, margin: 0 }}>Nenhuma devolução encontrada</p>
           </motion.div>
         ) : (

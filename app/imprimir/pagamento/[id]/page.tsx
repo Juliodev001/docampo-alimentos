@@ -158,7 +158,7 @@ export default function ImprimirPagamento() {
               <tbody>
                 {valesEmbalagem > 0 && (
                   <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '8px 14px', fontSize: 12, color: '#6b7280' }}>Vales Embalagem</td>
+                    <td style={{ padding: '8px 14px', fontSize: 12, color: '#6b7280' }}>Caixas e Bandeja</td>
                     <td style={{ padding: '8px 14px', fontSize: 12, color: PINK, textAlign: 'right' }}>- {fmtBRL(valesEmbalagem)}</td>
                   </tr>
                 )}
