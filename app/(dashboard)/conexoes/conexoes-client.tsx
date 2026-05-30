@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'motion/react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faWifi, faWifiSlash, faArrowsRotate, faPowerOff, faMobileScreenButton, faCircleCheck } from '@fortawesome/free-solid-svg-icons'
+import { faWifi, faXmark, faArrowsRotate, faPowerOff, faMobileScreenButton, faCircleCheck } from '@fortawesome/free-solid-svg-icons'
 
 const GREEN = '#5ab952'
 const NAVY = '#2d3561'
