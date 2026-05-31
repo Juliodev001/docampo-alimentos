@@ -2,14 +2,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 
-const GREEN = '#5ab952'
-const NAVY = '#2d3561'
-const PINK = '#e8255a'
-const ORANGE = '#e87320'
-
 type Produto = { id: string; nome: string }
 type Parceiro = { nome: string; percentual: number }
-type Produtor = { nome: string; cpf: string | null; parceiros: Parceiro[] }
+type Produtor = { nome: string; cpf: string | null; codigo: string | null; parceiros: Parceiro[] }
 type Colheita = {
   id: string; data: string; produto: Produto
   quantidadeTotal: number; preco: number; qualidade: string | null
@@ -23,7 +18,7 @@ type Fechamento = {
   colheitas: Colheita[]
 }
 
-function fmtBRL(v: number) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
+function fmtN(v: number) { return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString('pt-BR') }
 
 export default function ImprimirPagamento() {
@@ -32,9 +27,7 @@ export default function ImprimirPagamento() {
   const printed = useRef(false)
 
   useEffect(() => {
-    fetch(`/api/fechamento/${id}`)
-      .then(r => r.json())
-      .then(data => setFechamento(data))
+    fetch(`/api/fechamento/${id}`).then(r => r.json()).then(setFechamento)
   }, [id])
 
   useEffect(() => {
@@ -44,218 +37,210 @@ export default function ImprimirPagamento() {
     }
   }, [fechamento])
 
-  if (!fechamento) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'Arial, sans-serif', color: '#6b7280' }}>
-        Carregando documento...
-      </div>
-    )
-  }
+  if (!fechamento) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'Arial, sans-serif', color: '#666' }}>
+      Carregando...
+    </div>
+  )
 
   const { produtor, colheitas, dataInicio, dataFim, dataPagamento, combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores } = fechamento
 
   const totalParceirosPct = produtor.parceiros.reduce((s, p) => s + p.percentual, 0)
   const percProdutor = Math.max(0, 100 - totalParceirosPct)
-  const fator = percProdutor / 100
 
-  const totalFaturaBruto = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
-  const totalFatura = totalFaturaBruto * fator
-  const dedCombustivel = combustivel * fator
-  const dedBandeja = bandejaEmbalagem * fator
-  const dedValesDinheiro = valesDinheiro * fator
-  const dedCreditos = creditos * fator
-  const dedDebitos = debitosAnteriores * fator
-  const totalDeducoes = dedCombustivel + dedBandeja + dedValesDinheiro + dedCreditos + dedDebitos
-  const aReceber = totalFatura - totalDeducoes
+  const totalBruto = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
+  const totalQtd   = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
+  const totalDed   = combustivel + bandejaEmbalagem + valesDinheiro + creditos + debitosAnteriores
+  const valorLiquido = totalBruto - totalDed
+  const aReceberProdutor = valorLiquido * (percProdutor / 100)
 
-  const td: React.CSSProperties = { padding: '7px 10px', fontSize: 12, borderBottom: '1px solid #e5e7eb', color: '#374151' }
-  const th: React.CSSProperties = { padding: '8px 10px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#6b7280', backgroundColor: '#f9fafb', textAlign: 'left' }
+  const B: React.CSSProperties = { border: '1px solid #000' }
+  const cell: React.CSSProperties = { ...B, padding: '3px 6px', fontSize: 11 }
+  const hd: React.CSSProperties = { ...B, padding: '4px 6px', fontSize: 11, fontWeight: 700, backgroundColor: '#f0f0f0', textAlign: 'center' as const }
 
   return (
     <>
       <style>{`
-        @page { margin: 14mm; size: A4; }
-        body { margin: 0; font-family: Arial, sans-serif; }
+        @page { margin: 12mm 14mm; size: A4; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; background: #fff; color: #000; }
         @media print {
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .no-print { display: none !important; }
         }
       `}</style>
 
-      <div style={{ maxWidth: 760, margin: '0 auto', padding: '24px 0', fontFamily: 'Arial, sans-serif' }}>
+      <div style={{ maxWidth: 750, margin: '0 auto', padding: '20px 0', fontFamily: 'Arial, sans-serif', fontSize: 12 }}>
 
-        {/* Cabeçalho */}
-        <div style={{ borderBottom: `3px solid ${NAVY}`, paddingBottom: 14, marginBottom: 18 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${GREEN}, #3a8435)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🍓</div>
-                <div>
-                  <span style={{ color: PINK, fontSize: 16, fontWeight: 800, fontStyle: 'italic' }}>do campo </span>
-                  <span style={{ color: GREEN, fontSize: 16, fontWeight: 800, fontStyle: 'italic' }}>Alimentos</span>
-                </div>
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <h1 style={{ fontSize: 17, fontWeight: 800, color: NAVY, margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>Pagamento de Produtor</h1>
-              <p style={{ fontSize: 11, color: '#6b7280', margin: '4px 0 0' }}>
-                Período: {fmtDate(dataInicio)} a {fmtDate(dataFim)}
-              </p>
-              <p style={{ fontSize: 11, color: '#6b7280', margin: '2px 0 0' }}>
-                Data Pagamento: {fmtDate(dataPagamento)}
-              </p>
-            </div>
+        {/* Botão imprimir - só na tela */}
+        <div className="no-print" style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+          <button onClick={() => window.print()} style={{ padding: '8px 20px', background: '#2d3561', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            🖨️ Imprimir / PDF
+          </button>
+          <button onClick={() => window.close()} style={{ padding: '8px 16px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
+            Fechar
+          </button>
+        </div>
+
+        {/* Título */}
+        <div style={{ textAlign: 'center', marginBottom: 10 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, textDecoration: 'underline', textTransform: 'uppercase' }}>
+            Pagamento de Produtores
           </div>
+        </div>
+
+        {/* Período e data pagamento */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 11 }}>
+          <span>Período de <strong>{fmtDate(dataInicio)}</strong> a <strong>{fmtDate(dataFim)}</strong></span>
+          <span>Pagamento em <strong>{fmtDate(dataPagamento)}</strong></span>
         </div>
 
         {/* Dados do produtor */}
-        <div style={{ backgroundColor: '#f8faff', borderRadius: 8, padding: '12px 16px', marginBottom: 18, border: '1px solid #e0e7ff' }}>
-          <p style={{ fontSize: 10, color: '#6b7280', margin: '0 0 4px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Produtor</p>
-          <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
-            <div>
-              <span style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{produtor.nome}</span>
-            </div>
-            {produtor.cpf && (
-              <div>
-                <span style={{ fontSize: 12, color: '#6b7280' }}>CPF: </span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{produtor.cpf}</span>
-              </div>
-            )}
-            <div style={{ marginLeft: 'auto' }}>
-              <span style={{ fontSize: 12, color: '#6b7280' }}>Participação: </span>
-              <span style={{ fontSize: 14, fontWeight: 800, color: GREEN }}>{percProdutor.toFixed(0)}%</span>
-            </div>
-          </div>
-        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
+          <tbody>
+            <tr>
+              <td style={{ ...cell, width: '50%' }}>
+                <strong>Produtor:</strong> {produtor.codigo ? `${produtor.codigo} — ` : ''}{produtor.nome}
+              </td>
+              <td style={{ ...cell, width: '30%' }}>
+                <strong>CPF / CNPJ:</strong> {produtor.cpf ?? ''}
+              </td>
+              <td style={{ ...cell, width: '20%' }}>
+                <strong>Part.:</strong> {percProdutor.toFixed(0)}%
+              </td>
+            </tr>
+            <tr>
+              <td style={{ ...cell }} colSpan={3}><strong>Região:</strong></td>
+            </tr>
+          </tbody>
+        </table>
 
         {/* Tabela de colheitas */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
           <thead>
             <tr>
-              {['Data', 'Nº Doc', 'Produto / Qualidade', 'Qtd.', 'Descarte', 'Líquido', 'Preço/cx', 'Sub-total Bruto', `Parte (${percProdutor.toFixed(0)}%)`].map(h => (
-                <th key={h} style={{ ...th, textAlign: h.startsWith('Sub') || h.startsWith('Parte') ? 'right' : 'left' }}>{h}</th>
-              ))}
+              <th style={hd}>Data</th>
+              <th style={hd}>Nº Doc.</th>
+              <th style={{ ...hd, textAlign: 'right' as const }}>Quant.</th>
+              <th style={hd}>Produto / Qualidade</th>
+              <th style={{ ...hd, textAlign: 'right' as const }}>Preço</th>
+              <th style={{ ...hd, textAlign: 'right' as const }}>Sub-total</th>
+              <th style={{ ...hd, textAlign: 'right' as const }}>Descarte</th>
             </tr>
           </thead>
           <tbody>
             {colheitas.map(c => {
               const liquido = c.quantidadeTotal - c.descarte
-              const subBruto = liquido * c.preco
-              const subParte = subBruto * fator
+              const sub = liquido * c.preco
               return (
                 <tr key={c.id}>
-                  <td style={td}>{fmtDate(c.data)}</td>
-                  <td style={td}>{c.nrDoc ?? '—'}</td>
-                  <td style={{ ...td, fontWeight: 600, color: NAVY }}>
-                    {c.produto.nome}
-                    {c.qualidade && <span style={{ fontSize: 10, color: ORANGE, marginLeft: 5, fontWeight: 700 }}>{c.qualidade}</span>}
-                  </td>
-                  <td style={td}>{c.quantidadeTotal.toFixed(1)}</td>
-                  <td style={{ ...td, color: PINK }}>{c.descarte > 0 ? c.descarte.toFixed(1) : '—'}</td>
-                  <td style={{ ...td, fontWeight: 600 }}>{liquido.toFixed(1)}</td>
-                  <td style={td}>{fmtBRL(c.preco)}</td>
-                  <td style={{ ...td, textAlign: 'right', color: '#6b7280' }}>{fmtBRL(subBruto)}</td>
-                  <td style={{ ...td, fontWeight: 700, color: GREEN, textAlign: 'right' }}>{fmtBRL(subParte)}</td>
+                  <td style={cell}>{fmtDate(c.data)}</td>
+                  <td style={{ ...cell, textAlign: 'center' as const }}>{c.nrDoc ?? '0000'}</td>
+                  <td style={{ ...cell, textAlign: 'right' as const }}>{liquido.toFixed(0)}</td>
+                  <td style={cell}>{c.produto.nome}{c.qualidade ? ` — ${c.qualidade}` : ''}</td>
+                  <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(c.preco)}</td>
+                  <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(sub)}</td>
+                  <td style={{ ...cell, textAlign: 'right' as const }}>{c.descarte > 0 ? c.descarte.toFixed(0) : '0'}</td>
                 </tr>
               )
             })}
           </tbody>
-          <tfoot>
-            <tr style={{ borderTop: '2px solid #d1d5db', backgroundColor: '#f9fafb' }}>
-              <td colSpan={7} style={{ padding: '10px', fontSize: 12, fontWeight: 700, color: NAVY }}>Total Bruto</td>
-              <td style={{ padding: '10px', fontSize: 13, fontWeight: 700, color: '#6b7280', textAlign: 'right' }}>{fmtBRL(totalFaturaBruto)}</td>
-              <td style={{ padding: '10px', fontSize: 14, fontWeight: 800, color: GREEN, textAlign: 'right' }}>{fmtBRL(totalFatura)}</td>
-            </tr>
-          </tfoot>
         </table>
 
-        {/* Resumo */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{ width: 380, border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        {/* Resumo + Meeiro lado a lado */}
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+
+          {/* Resumo financeiro */}
+          <table style={{ borderCollapse: 'collapse', minWidth: 320 }}>
+            <tbody>
+              <tr>
+                <td style={{ ...cell, fontWeight: 700, textAlign: 'right' as const }}>Total</td>
+                <td style={{ ...cell, textAlign: 'right' as const, width: 100 }}>{fmtN(totalQtd)}</td>
+              </tr>
+              <tr>
+                <td style={{ ...cell }}>Faturas</td>
+                <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(totalBruto)}</td>
+              </tr>
+              <tr>
+                <td style={{ ...cell }}>Vales de Embalagens e Outros</td>
+                <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(bandejaEmbalagem)}</td>
+              </tr>
+              <tr>
+                <td style={{ ...cell }}>Combustível</td>
+                <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(combustivel)}</td>
+              </tr>
+              <tr>
+                <td style={{ ...cell }}>Vales de Dinheiro</td>
+                <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(valesDinheiro)}</td>
+              </tr>
+              <tr>
+                <td style={{ ...cell }}>Créditos (Coleta e Filmagem)</td>
+                <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(creditos)}</td>
+              </tr>
+              <tr>
+                <td style={{ ...cell }}>Débitos Anteriores</td>
+                <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(debitosAnteriores)}</td>
+              </tr>
+              {totalDed > 0 && (
+                <tr>
+                  <td style={{ ...cell, fontSize: 10, color: '#555' }}>Valor Líquido Total</td>
+                  <td style={{ ...cell, textAlign: 'right' as const, fontSize: 10, color: '#555' }}>{fmtN(valorLiquido)}</td>
+                </tr>
+              )}
+              <tr>
+                <td style={{ ...cell, fontWeight: 700, fontSize: 13 }}>
+                  A Receber {percProdutor < 100 ? `(${percProdutor.toFixed(0)}%)` : ''}
+                </td>
+                <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 800, fontSize: 14 }}>
+                  {fmtN(aReceberProdutor)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Tabela do meeiro — só aparece se tiver parceiros */}
+          {produtor.parceiros.length > 0 && (
+            <table style={{ borderCollapse: 'collapse', flex: 1 }}>
+              <thead>
+                <tr>
+                  <th style={hd}>Meeiro</th>
+                  <th style={{ ...hd, textAlign: 'right' as const }}>%</th>
+                  <th style={{ ...hd, textAlign: 'right' as const }}>Valor Meeiro</th>
+                </tr>
+              </thead>
               <tbody>
-                {/* Insumos */}
-                {(combustivel > 0 || bandejaEmbalagem > 0) && (
-                  <tr>
-                    <td colSpan={2} style={{ padding: '7px 14px 2px', fontSize: 10, fontWeight: 700, color: ORANGE, textTransform: 'uppercase', letterSpacing: 0.8, backgroundColor: '#fff7ed' }}>
-                      Insumos ({percProdutor.toFixed(0)}%)
+                {produtor.parceiros.map(p => (
+                  <tr key={p.nome}>
+                    <td style={cell}>{p.nome}</td>
+                    <td style={{ ...cell, textAlign: 'right' as const }}>{p.percentual.toFixed(0)}%</td>
+                    <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 700 }}>
+                      {fmtN(valorLiquido * p.percentual / 100)}
                     </td>
                   </tr>
-                )}
-                {combustivel > 0 && (
-                  <tr style={{ borderBottom: '1px solid #f3f4f6', backgroundColor: '#fff7ed' }}>
-                    <td style={{ padding: '6px 14px', fontSize: 12, color: '#6b7280' }}>
-                      Combustível
-                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(combustivel)} × {percProdutor.toFixed(0)}%)</span>
-                    </td>
-                    <td style={{ padding: '6px 14px', fontSize: 12, color: ORANGE, textAlign: 'right' }}>- {fmtBRL(dedCombustivel)}</td>
-                  </tr>
-                )}
-                {bandejaEmbalagem > 0 && (
-                  <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#fff7ed' }}>
-                    <td style={{ padding: '6px 14px', fontSize: 12, color: '#6b7280' }}>
-                      Bandeja e Embalagens
-                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(bandejaEmbalagem)} × {percProdutor.toFixed(0)}%)</span>
-                    </td>
-                    <td style={{ padding: '6px 14px', fontSize: 12, color: ORANGE, textAlign: 'right' }}>- {fmtBRL(dedBandeja)}</td>
-                  </tr>
-                )}
-                {/* Deduções */}
-                {(valesDinheiro > 0 || creditos > 0 || debitosAnteriores > 0) && (
-                  <tr>
-                    <td colSpan={2} style={{ padding: '7px 14px 2px', fontSize: 10, fontWeight: 700, color: PINK, textTransform: 'uppercase', letterSpacing: 0.8, backgroundColor: '#fff0f3' }}>
-                      Deduções ({percProdutor.toFixed(0)}%)
-                    </td>
-                  </tr>
-                )}
-                {valesDinheiro > 0 && (
-                  <tr style={{ borderBottom: '1px solid #f3f4f6', backgroundColor: '#fff0f3' }}>
-                    <td style={{ padding: '6px 14px', fontSize: 12, color: '#6b7280' }}>
-                      Vales Dinheiro
-                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(valesDinheiro)} × {percProdutor.toFixed(0)}%)</span>
-                    </td>
-                    <td style={{ padding: '6px 14px', fontSize: 12, color: PINK, textAlign: 'right' }}>- {fmtBRL(dedValesDinheiro)}</td>
-                  </tr>
-                )}
-                {creditos > 0 && (
-                  <tr style={{ borderBottom: '1px solid #f3f4f6', backgroundColor: '#fff0f3' }}>
-                    <td style={{ padding: '6px 14px', fontSize: 12, color: '#6b7280' }}>
-                      Créditos (Coleta e Filmagem)
-                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(creditos)} × {percProdutor.toFixed(0)}%)</span>
-                    </td>
-                    <td style={{ padding: '6px 14px', fontSize: 12, color: PINK, textAlign: 'right' }}>- {fmtBRL(dedCreditos)}</td>
-                  </tr>
-                )}
-                {debitosAnteriores > 0 && (
-                  <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#fff0f3' }}>
-                    <td style={{ padding: '6px 14px', fontSize: 12, color: '#6b7280' }}>
-                      Débitos Anteriores
-                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(debitosAnteriores)} × {percProdutor.toFixed(0)}%)</span>
-                    </td>
-                    <td style={{ padding: '6px 14px', fontSize: 12, color: PINK, textAlign: 'right' }}>- {fmtBRL(dedDebitos)}</td>
-                  </tr>
-                )}
-                <tr style={{ backgroundColor: `${GREEN}15` }}>
-                  <td style={{ padding: '12px 14px', fontSize: 14, fontWeight: 800, color: NAVY }}>A Receber</td>
-                  <td style={{ padding: '12px 14px', fontSize: 18, fontWeight: 800, color: aReceber >= 0 ? GREEN : PINK, textAlign: 'right' }}>{fmtBRL(aReceber)}</td>
+                ))}
+                <tr>
+                  <td style={{ ...cell, fontWeight: 700 }} colSpan={2}>Total Meeiros</td>
+                  <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 800 }}>
+                    {fmtN(valorLiquido * totalParceirosPct / 100)}
+                  </td>
                 </tr>
               </tbody>
             </table>
-          </div>
+          )}
         </div>
 
         {/* Assinaturas */}
         <div style={{ marginTop: 48, display: 'flex', justifyContent: 'space-between' }}>
           <div style={{ textAlign: 'center', width: 200 }}>
-            <div style={{ borderTop: '1px solid #374151', paddingTop: 6 }}>
-              <p style={{ fontSize: 11, color: '#6b7280', margin: 0 }}>Assinatura do Produtor</p>
-              <p style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0 0' }}>{produtor.nome}</p>
+            <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>
+              <p style={{ fontSize: 10, margin: 0 }}>Assinatura do Produtor</p>
+              <p style={{ fontSize: 10, margin: '2px 0 0', color: '#555' }}>{produtor.nome}</p>
             </div>
           </div>
           <div style={{ textAlign: 'center', width: 200 }}>
-            <div style={{ borderTop: '1px solid #374151', paddingTop: 6 }}>
-              <p style={{ fontSize: 11, color: '#6b7280', margin: 0 }}>Responsável pela Empresa</p>
-              <p style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0 0' }}>Do Campo Alimentos</p>
+            <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>
+              <p style={{ fontSize: 10, margin: 0 }}>Responsável pela Empresa</p>
+              <p style={{ fontSize: 10, margin: '2px 0 0', color: '#555' }}>Do Campo Alimentos</p>
             </div>
           </div>
         </div>

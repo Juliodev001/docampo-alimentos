@@ -9,11 +9,14 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const produtorId = searchParams.get('produtorId')
   const rocaId = searchParams.get('rocaId')
+  const inicio = searchParams.get('inicio')
+  const fim = searchParams.get('fim')
 
   const items = await prisma.lancamentoCusto.findMany({
     where: {
       ...(produtorId && { produtorId }),
       ...(rocaId && { rocaId }),
+      ...(inicio && fim && { data: { gte: new Date(inicio), lte: new Date(fim + 'T23:59:59') } }),
     },
     orderBy: { data: 'desc' },
   })

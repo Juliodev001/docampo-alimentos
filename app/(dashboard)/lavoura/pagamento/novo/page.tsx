@@ -50,14 +50,56 @@ export default function NovoFechamento() {
       .then(d => { if (d.valor) setValorEmbalagem(d.valor) })
   }, [])
 
+  // Ao selecionar produtor: detecta período em aberto e já busca colheitas
+  useEffect(() => {
+    if (!produtorId) return
+    const hoje = new Date().toISOString().slice(0, 10)
+    fetch(`/api/fechamento?produtorId=${encodeURIComponent(produtorId)}`)
+      .then(r => r.json())
+      .then((fechamentos: { dataFim: string }[]) => {
+        let inicio: string
+        if (Array.isArray(fechamentos) && fechamentos.length > 0) {
+          const lastFim = new Date(fechamentos.sort((a, b) => new Date(b.dataFim).getTime() - new Date(a.dataFim).getTime())[0].dataFim)
+          lastFim.setUTCDate(lastFim.getUTCDate() + 1)
+          inicio = lastFim.toISOString().slice(0, 10)
+        } else {
+          inicio = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
+        }
+        setDataInicio(inicio)
+        setDataFim(hoje)
+      })
+  }, [produtorId])
+
+  useEffect(() => {
+    if (produtorId && dataInicio && dataFim) buscarColheitas()
+  }, [produtorId, dataInicio, dataFim]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const buscarColheitas = useCallback(async () => {
     if (!produtorId || !dataInicio || !dataFim) return
     setBuscando(true)
     setBuscado(false)
     try {
-      const res = await fetch(`/api/colheita?produtorId=${encodeURIComponent(produtorId)}&inicio=${encodeURIComponent(dataInicio)}&fim=${encodeURIComponent(dataFim)}`)
-      const data = await res.json()
-      setColheitas(Array.isArray(data) ? data : [])
+      const [colheitasRes, lancamentosRes] = await Promise.all([
+        fetch(`/api/colheita?produtorId=${encodeURIComponent(produtorId)}&inicio=${encodeURIComponent(dataInicio)}&fim=${encodeURIComponent(dataFim)}`),
+        fetch(`/api/lancamento-custo?produtorId=${encodeURIComponent(produtorId)}&inicio=${encodeURIComponent(dataInicio)}&fim=${encodeURIComponent(dataFim)}`),
+      ])
+      const colheitasData = await colheitasRes.json()
+      const lancamentosData = await lancamentosRes.json()
+      const lista = Array.isArray(colheitasData) ? colheitasData : []
+      setColheitas(lista)
+      if (Array.isArray(lancamentosData) && lancamentosData.length > 0) {
+        const totalComb    = lancamentosData.reduce((s: number, l: { combustivel: number }) => s + l.combustivel, 0)
+        const totalBandeja = lancamentosData.reduce((s: number, l: { bandejaEmbalagem: number }) => s + l.bandejaEmbalagem, 0)
+        const totalVales   = lancamentosData.reduce((s: number, l: { valesDinheiro: number }) => s + l.valesDinheiro, 0)
+        const totalCred    = lancamentosData.reduce((s: number, l: { creditos: number }) => s + l.creditos, 0)
+        const totalDeb     = lancamentosData.reduce((s: number, l: { debitosAnteriores: number }) => s + l.debitosAnteriores, 0)
+        const cx = lista.reduce((s: number, c: { quantidadeTotal: number; descarte: number }) => s + (c.quantidadeTotal - c.descarte), 0)
+        setCombustivel(totalComb.toFixed(2))
+        setValorEmbalagem(cx > 0 && totalBandeja > 0 ? (totalBandeja / cx).toFixed(2) : '0')
+        setValesDinheiro(totalVales.toFixed(2))
+        setCreditos(totalCred.toFixed(2))
+        setDebitosAnteriores(totalDeb.toFixed(2))
+      }
     } catch {
       setColheitas([])
     } finally {
@@ -229,10 +271,29 @@ export default function NovoFechamento() {
                   <span style={{ fontSize: 13, color: '#6b7280' }}>Total Deduções</span>
                   <span style={{ fontSize: 13, fontWeight: 600, color: PINK }}>- {fmtBRL(totalDeducoes - totalInsumos)}</span>
                 </div>
-                <div style={{ borderTop: '1px solid #e0e7ff', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>A Receber</span>
+                <div style={{ borderTop: '1px solid #e0e7ff', paddingTop: 8, display: 'flex', justifyContent: 'space-between', marginBottom: produtorSelecionado && produtorSelecionado.parceiros.length > 0 ? 10 : 0 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Valor Líquido Total</span>
                   <span style={{ fontSize: 18, fontWeight: 800, color: aReceber >= 0 ? GREEN : PINK }}>{fmtBRL(aReceber)}</span>
                 </div>
+                {produtorSelecionado && produtorSelecionado.parceiros.length > 0 && (() => {
+                  const totalPercMeeiro = produtorSelecionado.parceiros.reduce((s, p) => s + p.percentual, 0)
+                  const percProdutor = 100 - totalPercMeeiro
+                  return (
+                    <>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: 6, borderTop: '1px solid #e0e7ff', paddingTop: 8 }}>Divisão por Participante</div>
+                      {produtorSelecionado.parceiros.map(p => (
+                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 13, color: '#7c3aed' }}>{p.nome} ({p.percentual}%)</span>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: '#7c3aed' }}>{fmtBRL(aReceber * p.percentual / 100)}</span>
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6, borderTop: '1px solid #e0e7ff', marginTop: 2 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{produtorSelecionado.nome} ({percProdutor}%)</span>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: GREEN }}>{fmtBRL(aReceber * percProdutor / 100)}</span>
+                      </div>
+                    </>
+                  )
+                })()}
               </div>
             </div>
           </motion.div>

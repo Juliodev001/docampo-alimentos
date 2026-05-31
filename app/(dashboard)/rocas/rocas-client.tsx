@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'motion/react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPlus, faXmark, faPenToSquare, faTrash, faChevronRight, faLeaf, faCalendarDays, faClipboardList, faBox, faCircleCheck, faChartBar, faUsers, faArrowTrendUp, faDollarSign, faFileLines, faArrowRight, faArrowUpRightFromSquare, faChevronDown, faMagnifyingGlass, faFilter, faEllipsisH } from '@fortawesome/free-solid-svg-icons'
@@ -81,6 +82,7 @@ const UNIDADES = ['CAIXA', 'KG', 'UNIDADE', 'SACO', 'LITRO', 'DUZIA', 'FARDO']
 const fmtDate     = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—'
 const fmtCurrency = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtNum      = (v: number, dec = 1) => v.toLocaleString('pt-BR', { maximumFractionDigits: dec })
+const since       = (iso: string) => { const d = new Date(iso); d.setUTCDate(d.getUTCDate() + 1); return d.toLocaleDateString('pt-BR') }
 
 const inputStyle: React.CSSProperties = {
   width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 8,
@@ -93,7 +95,7 @@ const emptyProdutorForm = { codigo: '', nome: '', tipo: 'FISICA', cpf: '', cnpj:
 const emptyMeeiroForm   = { codigo: '', produtorId: '', nome: '', nomeFantasia: '', cpf: '', chavePix: '', percentual: '40', valorEmba: '1.2', endereco: '', telefone: '' }
 const emptyProdutoForm  = { nome: '', sku: '', unidade: 'CAIXA', preco: '', estoqueMinimo: '', ondeCadastrar: 'catalogo', produtorId: '' }
 const emptyLancForm     = { produtorId: '', data: new Date().toISOString().split('T')[0], rocaId: '', meeiroIds: [] as string[], produtoId: '', quantidade: '', preco: '', combustivel: '0', bandejaEmbalagem: '0', valesDinheiro: '0', creditos: '0', debitosAnteriores: '0' }
-const emptyFechForm     = { produtorId: '', dataInicio: '', dataFim: '', dataPagamento: new Date().toISOString().slice(0,10), bandejaEmbalagem: '0', valesDinheiro: '0', creditos: '0', debitosAnteriores: '0' }
+const emptyFechForm     = { produtorId: '', dataInicio: '', dataFim: '', dataPagamento: new Date().toISOString().slice(0,10), combustivel: '0', bandejaEmbalagem: '0', valesDinheiro: '0', creditos: '0', debitosAnteriores: '0' }
 
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -161,7 +163,7 @@ type PagamentoMeeiroRecord = {
 type FechamentoRecord = {
   id: string; produtorId: string; produtorNome: string
   dataInicio: string; dataFim: string; dataPagamento: string
-  bandejaEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number
+  combustivel: number; bandejaEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number
   status: string; createdAt: string
 }
 
@@ -179,6 +181,8 @@ export default function RocasClient({
   pagamentosMeeiro: PagamentoMeeiroRecord[]; fechamentos: FechamentoRecord[]; custos: LancamentoCustoRecord[]
 }) {
   const toast = useToast()
+  const router = useRouter()
+
   const [rocas, setRocas]                       = useState<Roca[]>(initialRocas)
   const [colheitas, setColheitas]               = useState<Colheita[]>(initialColheitas)
   const [produtoresState, setProdutoresState]   = useState<Produtor[]>(produtores)
@@ -275,8 +279,82 @@ export default function RocasClient({
   const [fechError, setFechError]                     = useState('')
   const [deleteFechTarget, setDeleteFechTarget]       = useState<FechamentoRecord | null>(null)
   const [deletingFech, setDeletingFech]               = useState(false)
+  const [fechAjustar, setFechAjustar]                 = useState(false)
   const [fechProdutorFilter, setFechProdutorFilter]   = useState('')
   const [fechStatusFilter, setFechStatusFilter]       = useState<'TODOS' | 'PENDENTE' | 'PAGO'>('TODOS')
+  const [fechMenuId, setFechMenuId]                   = useState<string | null>(null)
+  const [fechMenuPos, setFechMenuPos]                 = useState({ top: 0, right: 0 })
+
+  // Auto-refresh: só quando o usuário volta para esta aba do navegador
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') router.refresh() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [router])
+
+  // Sincroniza os estados principais quando o servidor retorna dados novos
+  useEffect(() => { setColheitas(initialColheitas) }, [initialColheitas])
+  useEffect(() => { setCustosState(initialCustos) }, [initialCustos])
+  useEffect(() => { setFechamentosState(initialFechamentos ?? []) }, [initialFechamentos])
+
+  // Ao selecionar produtor: auto-preenche datas (a partir do último fechamento) e custos dos lançamentos
+  useEffect(() => {
+    if (!fechForm.produtorId) return
+    const today = new Date().toISOString().slice(0, 10)
+    const prodFechs = fechamentosState
+      .filter(f => f.produtorId === fechForm.produtorId)
+      .sort((a, b) => new Date(b.dataFim).getTime() - new Date(a.dataFim).getTime())
+    let dataInicio: string
+    if (prodFechs.length > 0) {
+      const lastFim = new Date(prodFechs[0].dataFim)
+      lastFim.setUTCDate(lastFim.getUTCDate() + 1)
+      dataInicio = lastFim.toISOString().slice(0, 10)
+    } else {
+      const prodCustos = custosState.filter(c => c.produtorId === fechForm.produtorId)
+      if (prodCustos.length > 0) {
+        dataInicio = [...prodCustos].sort((a, b) => a.data.localeCompare(b.data))[0].data.slice(0, 10)
+      } else {
+        dataInicio = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
+      }
+    }
+    const inicio = new Date(dataInicio)
+    const fim = new Date(today + 'T23:59:59')
+    const relevantes = custosState.filter(c =>
+      c.produtorId === fechForm.produtorId &&
+      new Date(c.data) >= inicio &&
+      new Date(c.data) <= fim
+    )
+    setFechForm(f => ({
+      ...f,
+      dataInicio,
+      dataFim: today,
+      combustivel:       relevantes.reduce((s, c) => s + c.combustivel, 0).toFixed(2),
+      bandejaEmbalagem:  relevantes.reduce((s, c) => s + c.bandejaEmbalagem, 0).toFixed(2),
+      valesDinheiro:     relevantes.reduce((s, c) => s + c.valesDinheiro, 0).toFixed(2),
+      creditos:          relevantes.reduce((s, c) => s + c.creditos, 0).toFixed(2),
+      debitosAnteriores: relevantes.reduce((s, c) => s + c.debitosAnteriores, 0).toFixed(2),
+    }))
+  }, [fechForm.produtorId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Se o usuário ajustar as datas manualmente, recalcula os custos
+  useEffect(() => {
+    if (!fechForm.produtorId || !fechForm.dataInicio || !fechForm.dataFim) return
+    const inicio = new Date(fechForm.dataInicio)
+    const fim = new Date(fechForm.dataFim + 'T23:59:59')
+    const relevantes = custosState.filter(c =>
+      c.produtorId === fechForm.produtorId &&
+      new Date(c.data) >= inicio &&
+      new Date(c.data) <= fim
+    )
+    setFechForm(f => ({
+      ...f,
+      combustivel:       relevantes.reduce((s, c) => s + c.combustivel, 0).toFixed(2),
+      bandejaEmbalagem:  relevantes.reduce((s, c) => s + c.bandejaEmbalagem, 0).toFixed(2),
+      valesDinheiro:     relevantes.reduce((s, c) => s + c.valesDinheiro, 0).toFixed(2),
+      creditos:          relevantes.reduce((s, c) => s + c.creditos, 0).toFixed(2),
+      debitosAnteriores: relevantes.reduce((s, c) => s + c.debitosAnteriores, 0).toFixed(2),
+    }))
+  }, [fechForm.dataInicio, fechForm.dataFim]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const produtoresAtivos = produtoresState.length
   const rocasAtivas      = rocas.filter(r => r.status === 'ATIVA').length
@@ -569,7 +647,7 @@ export default function RocasClient({
               percParceiro, percDono: 100 - percParceiro,
             }),
           })
-          if (!res.ok) throw new Error()
+          if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err?.error ?? `HTTP ${res.status}`) }
           const c = await res.json()
           const roca = rocas.find(r => r.id === lancForm.rocaId)
           novos.push({
@@ -606,7 +684,7 @@ export default function RocasClient({
       if (custoRes.ok) { const c = await custoRes.json(); setCustosState(prev => [c, ...prev]) }
       toast.success('Lançamentos registrados', `${novos.length} item(ns)`)
       setShowLancModal(false)
-    } catch { setLancError('Erro'); toast.error('Erro') } finally { setSavingLanc(false) }
+    } catch (err) { const msg = err instanceof Error ? err.message : 'Erro desconhecido'; setLancError(`Erro: ${msg}`); toast.error('Erro ao salvar lançamento', msg) } finally { setSavingLanc(false) }
   }
 
   async function handleDeleteLanc(id: string) {
@@ -1516,6 +1594,17 @@ export default function RocasClient({
           return true
         })
 
+        // Produtores com lançamentos em aberto (após último fechamento)
+        const pendentes = produtoresState.map(prod => {
+          const ultFech = fechamentosState
+            .filter(f => f.produtorId === prod.id)
+            .sort((a, b) => new Date(b.dataFim).getTime() - new Date(a.dataFim).getTime())[0]
+          const desde = ultFech ? new Date(new Date(ultFech.dataFim).getTime() + 86400000) : new Date(0)
+          const abertas = colheitas.filter(c => c.produtorId === prod.id && new Date(c.data) >= desde)
+          const bruto = abertas.reduce((s, c) => s + c.quantidadeTotal * c.preco, 0)
+          return { prod, abertas, bruto, desde: ultFech ? since(ultFech.dataFim) : 'sempre' }
+        }).filter(x => x.abertas.length > 0)
+
         async function handleSaveFech() {
           if (!fechForm.produtorId) { setFechError('Produtor é obrigatório'); return }
           if (!fechForm.dataInicio || !fechForm.dataFim) { setFechError('Período é obrigatório'); return }
@@ -1530,6 +1619,7 @@ export default function RocasClient({
                 dataInicio: fechForm.dataInicio,
                 dataFim: fechForm.dataFim,
                 dataPagamento: fechForm.dataPagamento,
+                combustivel: Number(fechForm.combustivel) || 0,
                 bandejaEmbalagem: Number(fechForm.bandejaEmbalagem) || 0,
                 valesDinheiro: Number(fechForm.valesDinheiro) || 0,
                 creditos: Number(fechForm.creditos) || 0,
@@ -1543,7 +1633,7 @@ export default function RocasClient({
               id: saved.id, produtorId: saved.produtorId,
               produtorNome: produtor?.nome ?? saved.produtor?.nome ?? '',
               dataInicio: saved.dataInicio, dataFim: saved.dataFim, dataPagamento: saved.dataPagamento,
-              bandejaEmbalagem: saved.bandejaEmbalagem, valesDinheiro: saved.valesDinheiro,
+              combustivel: saved.combustivel, bandejaEmbalagem: saved.bandejaEmbalagem, valesDinheiro: saved.valesDinheiro,
               creditos: saved.creditos, debitosAnteriores: saved.debitosAnteriores,
               status: saved.status, createdAt: saved.createdAt,
             }
@@ -1581,6 +1671,39 @@ export default function RocasClient({
 
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+            {/* Lançamentos em aberto */}
+            {pendentes.length > 0 && (
+              <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.07)', padding: '16px 20px' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: ORANGE, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>⚠️</span> Lançamentos em aberto (sem fechamento)
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {pendentes.map(({ prod, abertas, bruto, desde }) => (
+                    <div key={prod.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: ORANGE + '0d', borderRadius: 8, padding: '10px 14px', border: `1px solid ${ORANGE}30` }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{prod.nome}</div>
+                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                          {abertas.length} lançamento(s) desde <strong>{desde}</strong>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 11, color: '#6b7280' }}>Bruto em aberto</div>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: ORANGE }}>{fmtCurrency(bruto)}</div>
+                        </div>
+                        <button
+                          onClick={() => { setFechError(''); setFechForm({ ...emptyFechForm, produtorId: prod.id }); setFechAjustar(false); setShowFechModal(true) }}
+                          style={{ background: NAVY, color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          + Fechar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Summary cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
               <div style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', borderLeft: `3px solid ${NAVY}` }}>
@@ -1652,18 +1775,13 @@ export default function RocasClient({
                         </span>
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-                          {f.status === 'PENDENTE' && (
-                            <button onClick={() => handleMarcarPago(f.id)} title="Marcar como pago"
-                              style={{ background: GREEN + '18', border: 'none', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', color: GREEN, fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
-                              <FontAwesomeIcon icon={faCircleCheck} />Pagar
-                            </button>
-                          )}
-                          <button onClick={() => setDeleteFechTarget(f)}
-                            style={{ background: PINK + '14', border: 'none', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: PINK }}>
-                            <FontAwesomeIcon icon={faTrash} style={{ fontSize: 12 }} />
-                          </button>
-                        </div>
+                        <button onClick={e => {
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                          setFechMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+                          setFechMenuId(fechMenuId === f.id ? null : f.id)
+                        }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 4 }}>
+                          <FontAwesomeIcon icon={faEllipsisH} style={{ fontSize: 16 }} />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -1729,32 +1847,112 @@ export default function RocasClient({
                       <button onClick={() => setShowFechModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4 }}><FontAwesomeIcon icon={faXmark} style={{ fontSize: 18 }} /></button>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      {/* Produtor */}
                       <FormField label="Produtor *">
-                        <select style={inputStyle} value={fechForm.produtorId} onChange={e => setFechForm(f => ({ ...f, produtorId: e.target.value }))}>
+                        <select style={inputStyle} value={fechForm.produtorId} onChange={e => { setFechForm(f => ({ ...f, produtorId: e.target.value })); setFechAjustar(false) }}>
                           <option value="">Selecione o produtor</option>
                           {produtoresState.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                         </select>
                       </FormField>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                        <FormField label="Data Início *"><input type="date" style={inputStyle} value={fechForm.dataInicio} onChange={e => setFechForm(f => ({ ...f, dataInicio: e.target.value }))} /></FormField>
-                        <FormField label="Data Fim *"><input type="date" style={inputStyle} value={fechForm.dataFim} onChange={e => setFechForm(f => ({ ...f, dataFim: e.target.value }))} /></FormField>
-                      </div>
-                      <FormField label="Data de Pagamento *">
-                        <input type="date" style={inputStyle} value={fechForm.dataPagamento} onChange={e => setFechForm(f => ({ ...f, dataPagamento: e.target.value }))} />
-                      </FormField>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                        <FormField label="Vales Embalagem (R$)"><input type="number" min="0" step="0.01" style={inputStyle} value={fechForm.bandejaEmbalagem} onChange={e => setFechForm(f => ({ ...f, bandejaEmbalagem: e.target.value }))} /></FormField>
-                        <FormField label="Vales Dinheiro (R$)"><input type="number" min="0" step="0.01" style={inputStyle} value={fechForm.valesDinheiro} onChange={e => setFechForm(f => ({ ...f, valesDinheiro: e.target.value }))} /></FormField>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                        <FormField label="Créditos (R$)"><input type="number" min="0" step="0.01" style={inputStyle} value={fechForm.creditos} onChange={e => setFechForm(f => ({ ...f, creditos: e.target.value }))} /></FormField>
-                        <FormField label="Débitos Anteriores (R$)"><input type="number" min="0" step="0.01" style={inputStyle} value={fechForm.debitosAnteriores} onChange={e => setFechForm(f => ({ ...f, debitosAnteriores: e.target.value }))} /></FormField>
-                      </div>
+
+                      {fechForm.produtorId && fechForm.dataInicio && (() => {
+                        const prod = produtoresState.find(p => p.id === fechForm.produtorId)
+                        if (!prod) return null
+                        const inicio = new Date(fechForm.dataInicio)
+                        const fim = new Date((fechForm.dataFim || fechForm.dataInicio) + 'T23:59:59')
+                        const cx = colheitas.filter(c => c.produtorId === fechForm.produtorId && new Date(c.data) >= inicio && new Date(c.data) <= fim)
+                        const bruto = cx.reduce((s, c) => s + c.quantidadeTotal * c.preco, 0)
+                        const ded = (parseFloat(fechForm.combustivel)||0) + (parseFloat(fechForm.bandejaEmbalagem)||0) + (parseFloat(fechForm.valesDinheiro)||0) + (parseFloat(fechForm.creditos)||0) + (parseFloat(fechForm.debitosAnteriores)||0)
+                        const liquido = bruto - ded
+                        const totalPercMeeiro = prod.parceiros.reduce((s, p) => s + p.percentual, 0)
+                        const percProdutor = 100 - totalPercMeeiro
+                        return (
+                          <>
+                            {/* Período detectado */}
+                            <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 10, padding: '10px 14px' }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#059669', textTransform: 'uppercase', marginBottom: 4 }}>Período em aberto detectado</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                <div>
+                                  <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}>Início</div>
+                                  <input type="date" style={{ ...inputStyle, fontSize: 13 }} value={fechForm.dataInicio} onChange={e => setFechForm(f => ({ ...f, dataInicio: e.target.value }))} />
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}>Fim</div>
+                                  <input type="date" style={{ ...inputStyle, fontSize: 13 }} value={fechForm.dataFim} onChange={e => setFechForm(f => ({ ...f, dataFim: e.target.value }))} />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Data pagamento */}
+                            <FormField label="Data de Pagamento *">
+                              <input type="date" style={inputStyle} value={fechForm.dataPagamento} onChange={e => setFechForm(f => ({ ...f, dataPagamento: e.target.value }))} />
+                            </FormField>
+
+                            {/* Resumo financeiro */}
+                            <div style={{ background: '#f8faff', borderRadius: 10, padding: '14px 16px', border: '1.5px solid #e0e7ff', fontSize: 13 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                                <span style={{ color: '#6b7280' }}>Total Bruto ({cx.length} colheitas)</span>
+                                <span style={{ fontWeight: 600, color: NAVY }}>{fmtCurrency(bruto)}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                                <span style={{ color: '#6b7280' }}>
+                                  Deduções
+                                  <button onClick={() => setFechAjustar(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: NAVY, marginLeft: 6, textDecoration: 'underline', padding: 0 }}>
+                                    {fechAjustar ? 'ocultar' : 'ajustar'}
+                                  </button>
+                                </span>
+                                <span style={{ fontWeight: 600, color: PINK }}>- {fmtCurrency(ded)}</span>
+                              </div>
+
+                              {/* Campos de ajuste colapsáveis */}
+                              {fechAjustar && (
+                                <div style={{ background: '#fff', borderRadius: 8, padding: '10px 12px', border: '1px solid #e0e7ff', marginBottom: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                  {[
+                                    { label: 'Combustível', key: 'combustivel' as const },
+                                    { label: 'Bandeja/Embalagem', key: 'bandejaEmbalagem' as const },
+                                    { label: 'Vales Dinheiro', key: 'valesDinheiro' as const },
+                                    { label: 'Créditos', key: 'creditos' as const },
+                                    { label: 'Débitos Anteriores', key: 'debitosAnteriores' as const },
+                                  ].map(({ label, key }) => (
+                                    <div key={key}>
+                                      <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 3 }}>{label}</div>
+                                      <input type="number" min="0" step="0.01" style={{ ...inputStyle, fontSize: 13, padding: '7px 10px' }}
+                                        value={fechForm[key]} onChange={e => setFechForm(f => ({ ...f, [key]: e.target.value }))} />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid #e0e7ff' }}>
+                                <span style={{ fontWeight: 700, color: NAVY }}>Valor Líquido Total</span>
+                                <span style={{ fontWeight: 800, fontSize: 15, color: liquido >= 0 ? GREEN : PINK }}>{fmtCurrency(liquido)}</span>
+                              </div>
+
+                              {prod.parceiros.length > 0 && (
+                                <>
+                                  <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', margin: '10px 0 6px' }}>Divisão</div>
+                                  {prod.parceiros.map(p => (
+                                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                      <span style={{ color: '#7c3aed' }}>{p.nome} ({p.percentual}%)</span>
+                                      <span style={{ fontWeight: 600, color: '#7c3aed' }}>{fmtCurrency(liquido * p.percentual / 100)}</span>
+                                    </div>
+                                  ))}
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6, borderTop: '1px solid #e0e7ff', marginTop: 2 }}>
+                                    <span style={{ fontWeight: 700, color: NAVY }}>{prod.nome} ({percProdutor}%)</span>
+                                    <span style={{ fontWeight: 700, color: GREEN }}>{fmtCurrency(liquido * percProdutor / 100)}</span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </>
+                        )
+                      })()}
+
                       {fechError && <div style={{ color: PINK, fontSize: 13 }}>{fechError}</div>}
                       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
                         <button onClick={() => setShowFechModal(false)} style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>Cancelar</button>
-                        <button onClick={handleSaveFech} disabled={savingFech}
-                          style={{ background: NAVY, color: '#fff', border: 'none', borderRadius: 8, padding: '9px 20px', fontSize: 13, fontWeight: 600, cursor: savingFech ? 'not-allowed' : 'pointer', opacity: savingFech ? 0.7 : 1 }}>
+                        <button onClick={handleSaveFech} disabled={savingFech || !fechForm.produtorId}
+                          style={{ background: NAVY, color: '#fff', border: 'none', borderRadius: 8, padding: '9px 20px', fontSize: 13, fontWeight: 600, cursor: (savingFech || !fechForm.produtorId) ? 'not-allowed' : 'pointer', opacity: (savingFech || !fechForm.produtorId) ? 0.5 : 1 }}>
                           {savingFech ? 'Salvando...' : 'Criar Fechamento'}
                         </button>
                       </div>
@@ -1910,6 +2108,10 @@ export default function RocasClient({
               style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 16px', fontSize: 13, color: '#374151', background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid #f3f4f6' }}>
               ✏️ Editar
             </button>
+            <button onClick={() => { setPagarMenuId(null); window.open(`/imprimir/meeiro/${pagarMenuId}`, '_blank') }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 16px', fontSize: 13, color: '#374151', background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid #f3f4f6' }}>
+              📄 PDF
+            </button>
             {(() => {
               const item = pagamentosMeeiros.find(m => m.id === pagarMenuId)
               return item ? (
@@ -1923,6 +2125,44 @@ export default function RocasClient({
         </>
       )}
 
+      {/* DROPDOWN AÇÕES FECHAMENTO */}
+      {fechMenuId && (
+        <>
+          <div onClick={() => setFechMenuId(null)} style={{ position: 'fixed', inset: 0, zIndex: 49 }} />
+          <div style={{ position: 'fixed', top: fechMenuPos.top, right: fechMenuPos.right, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.14)', zIndex: 50, minWidth: 140, overflow: 'hidden' }}>
+            {(() => {
+              const f = fechamentosState.find(x => x.id === fechMenuId)
+              if (!f) return null
+              return (
+                <>
+                  <button onClick={() => { setFechMenuId(null); window.open(`/imprimir/pagamento/${f.id}`, '_blank') }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 16px', fontSize: 13, color: '#374151', background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid #f3f4f6' }}>
+                    📄 PDF
+                  </button>
+                  {f.status === 'PENDENTE' && (
+                    <button onClick={async () => {
+                      setFechMenuId(null)
+                      try {
+                        const res = await fetch(`/api/fechamento/${f.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'PAGO' }) })
+                        if (!res.ok) throw new Error()
+                        setFechamentosState(prev => prev.map(x => x.id === f.id ? { ...x, status: 'PAGO' } : x))
+                        toast.success('Marcado como pago')
+                      } catch { toast.error('Erro ao atualizar') }
+                    }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 16px', fontSize: 13, color: GREEN, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, borderBottom: '1px solid #f3f4f6' }}>
+                      ✅ Marcar pago
+                    </button>
+                  )}
+                  <button onClick={() => { setFechMenuId(null); setDeleteFechTarget(f) }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 16px', fontSize: 13, color: PINK, background: 'none', border: 'none', cursor: 'pointer' }}>
+                    🗑️ Excluir
+                  </button>
+                </>
+              )
+            })()}
+          </div>
+        </>
+      )}
+
       {/* MODAL PAGAMENTO MEEIRO */}
       <AnimatePresence>
         {pagarModal && (
@@ -1930,99 +2170,83 @@ export default function RocasClient({
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={{ opacity: 0 }} onClick={() => setPagarModal(null)}
               style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 60 }} />
             <motion.div initial={{ opacity: 0, scale: 0.96, x: '-50%', y: '-50%' }} animate={{ opacity: 1, scale: 1, x: '-50%', y: '-50%' }} exit={{ opacity: 0, scale: 0.96, x: '-50%', y: '-50%' }}
-              style={{ position: 'fixed', top: '50%', left: '50%', background: '#fff', borderRadius: 16, width: 580, maxWidth: '95vw', zIndex: 70, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', maxHeight: '92vh', overflowY: 'auto' }}>
-              <div style={{ padding: '28px 28px 0' }}>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: NAVY, margin: '0 0 4px' }}>Registrar pagamento</h2>
-                <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 20px' }}>Pagamento para <strong>{pagarModal.nome}</strong></p>
+              style={{ position: 'fixed', top: '50%', left: '50%', background: '#fff', borderRadius: 16, width: 440, maxWidth: '95vw', zIndex: 70, boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
 
-                {/* Resumo financeiro */}
-                <div style={{ border: '1.5px solid #e5e7eb', borderRadius: 12, padding: 20, marginBottom: 20 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <span style={{ fontSize: 13, color: '#6b7280' }}>Chave PIX</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13, color: NAVY, fontWeight: 500 }}>{pagarModal.chavePix ?? '—'}</span>
-                      {pagarModal.chavePix && (
-                        <button onClick={() => navigator.clipboard.writeText(pagarModal.chavePix!)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: BLUE, fontSize: 12, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          📋 Copiar
-                        </button>
-                      )}
-                    </div>
+              {/* Header com valor em destaque */}
+              <div style={{ padding: '24px 24px 20px', borderBottom: '1px solid #f3f4f6' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Pagamento para</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: NAVY }}>{pagarModal.nome}</div>
                   </div>
-                  <div style={{ height: 1, background: '#f3f4f6', margin: '12px 0' }} />
-                  {[
-                    { label: 'Valor total a receber (repasse)', valor: pagarModal.valorReceber, bold: false },
-                    { label: 'Vale de embalagem (desconto)', valor: -pagarModal.descEmprestimo, bold: false },
-                    { label: 'Emprést aberto', valor: pagarModal.emprestimo, bold: false },
-                  ].map(row => (
-                    <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <span style={{ fontSize: 13, color: BLUE }}>{row.label}</span>
-                      <span style={{ fontSize: 13, color: NAVY, fontWeight: row.bold ? 700 : 400 }}>{fmtCurrency(Math.abs(row.valor))}</span>
-                    </div>
-                  ))}
-                  <div style={{ height: 1, background: '#f3f4f6', margin: '12px 0' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 14, color: BLUE, fontWeight: 600 }}>Valor líquido a pagar ao meeiro</span>
-                    <span style={{ fontSize: 16, color: NAVY, fontWeight: 700 }}>{fmtCurrency(pagarModal.valorFinal)}</span>
-                  </div>
-                </div>
-
-                {/* Forma de pagamento */}
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 6 }}>Forma de pagamento</label>
-                  <select value={pagarFormaPag} onChange={e => setPagarFormaPag(e.target.value)} style={inputStyle}>
-                    {['PIX', 'Dinheiro', 'Transferência', 'Cheque', 'Outro'].map(f => <option key={f}>{f}</option>)}
-                  </select>
-                </div>
-
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 6 }}>Conta ou caixa utilizado (opcional)</label>
-                  <input value={pagarConta} onChange={e => setPagarConta(e.target.value)} placeholder="Ex: Caixa Geral" style={inputStyle} />
-                </div>
-
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 6 }}>Data do pagamento</label>
-                  <input type="date" value={pagarData} onChange={e => setPagarData(e.target.value)} style={inputStyle} />
-                </div>
-
-                <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 6 }}>Observação (opcional)</label>
-                  <textarea value={pagarObs} onChange={e => setPagarObs(e.target.value)} placeholder="Observação" rows={3}
-                    style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }} />
-                </div>
-
-                {/* Gerar relatório sem pagar */}
-                <div style={{ background: '#fff8ed', border: '1.5px solid #fed7aa', borderRadius: 10, padding: '16px 18px', marginBottom: 24 }}>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: '#92400e', margin: '0 0 6px' }}>Gerar relatório sem pagar</p>
-                  <p style={{ fontSize: 13, color: '#78350f', margin: '0 0 14px' }}>
-                    Baixa o PDF do meeiro (mesmos filtros de período e roças da aba) e registra no histórico como <strong>pendente</strong> até você confirmar o pagamento abaixo.
-                  </p>
-                  <button onClick={() => gerarRelatorioMeeiro(pagarModal.id, pagarModal.nome)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1.5px solid #fed7aa', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, color: '#92400e', cursor: 'pointer' }}>
-                    📄 Gerar relatório sem pagar
+                  <button onClick={() => setPagarModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4 }}>
+                    <FontAwesomeIcon icon={faXmark} style={{ fontSize: 18 }} />
                   </button>
+                </div>
+
+                {/* Valor + PIX */}
+                <div style={{ marginTop: 16, background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 12, padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#059669', fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>Valor a pagar</div>
+                    <div style={{ fontSize: 26, fontWeight: 800, color: GREEN }}>{fmtCurrency(pagarModal.valorFinal)}</div>
+                  </div>
+                  {pagarModal.chavePix && (
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Chave PIX</div>
+                      <div style={{ fontSize: 13, color: NAVY, fontWeight: 500, marginBottom: 4 }}>{pagarModal.chavePix}</div>
+                      <button onClick={() => navigator.clipboard.writeText(pagarModal.chavePix!)}
+                        style={{ background: NAVY, color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                        📋 Copiar PIX
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Detalhes se houver deduções */}
+                {(pagarModal.emprestimo > 0 || pagarModal.descEmprestimo > 0) && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: '#6b7280', display: 'flex', gap: 16 }}>
+                    {pagarModal.emprestimo > 0 && <span>Empréstimo: <strong style={{ color: ORANGE }}>{fmtCurrency(pagarModal.emprestimo)}</strong></span>}
+                    {pagarModal.descEmprestimo > 0 && <span>Desc. embalagem: <strong style={{ color: PINK }}>- {fmtCurrency(pagarModal.descEmprestimo)}</strong></span>}
+                  </div>
+                )}
+              </div>
+
+              {/* Formulário compacto */}
+              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, marginBottom: 5 }}>Forma de pagamento</div>
+                    <select value={pagarFormaPag} onChange={e => setPagarFormaPag(e.target.value)} style={{ ...inputStyle, fontSize: 13 }}>
+                      {['PIX', 'Dinheiro', 'Transferência', 'Cheque', 'Outro'].map(f => <option key={f}>{f}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, marginBottom: 5 }}>Data</div>
+                    <input type="date" value={pagarData} onChange={e => setPagarData(e.target.value)} style={{ ...inputStyle, fontSize: 13 }} />
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, marginBottom: 5 }}>Conta / Caixa <span style={{ color: '#9ca3af', fontWeight: 400 }}>(opcional)</span></div>
+                  <input value={pagarConta} onChange={e => setPagarConta(e.target.value)} placeholder="Ex: Caixa Geral" style={{ ...inputStyle, fontSize: 13 }} />
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, marginBottom: 5 }}>Observação <span style={{ color: '#9ca3af', fontWeight: 400 }}>(opcional)</span></div>
+                  <textarea value={pagarObs} onChange={e => setPagarObs(e.target.value)} placeholder="Observação" rows={2}
+                    style={{ ...inputStyle, resize: 'none', fontFamily: 'inherit', fontSize: 13 }} />
                 </div>
               </div>
 
               {/* Footer */}
-              <div style={{ padding: '16px 28px 24px', display: 'flex', justifyContent: 'flex-end', gap: 12, borderTop: '1px solid #f3f4f6' }}>
-                <button onClick={() => setPagarModal(null)}
-                  style={{ padding: '10px 22px', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, fontWeight: 500, color: '#374151', cursor: 'pointer' }}>
-                  Cancelar
-                </button>
+              <div style={{ padding: '0 24px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <motion.button onClick={async () => {
                   const p = pagarModal
                   try {
                     const res = await fetch('/api/pagamento-meeiro', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        parceiroId: p.id,
-                        valor: p.valorFinal,
-                        formaPag: pagarFormaPag,
-                        conta: pagarConta,
-                        dataPag: pagarData,
-                        observacao: pagarObs,
-                      }),
+                      body: JSON.stringify({ parceiroId: p.id, valor: p.valorFinal, formaPag: pagarFormaPag, conta: pagarConta, dataPag: pagarData, observacao: pagarObs }),
                     })
                     if (!res.ok) throw new Error()
                     const novo: PagamentoMeeiroRecord = await res.json()
@@ -2030,14 +2254,22 @@ export default function RocasClient({
                     gerarComprovante(p)
                     setPagarModal(null)
                     toast.success('Pagamento confirmado', `${p.nome} movido para Quitados`)
-                  } catch {
-                    toast.error('Erro ao registrar pagamento')
-                  }
+                  } catch { toast.error('Erro ao registrar pagamento') }
                 }}
                   whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                  style={{ padding: '10px 22px', background: NAVY, border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Confirmar e baixar comprovante
+                  style={{ width: '100%', padding: '12px', background: GREEN, border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Confirmar pagamento de {fmtCurrency(pagarModal.valorFinal)}
                 </motion.button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setPagarModal(null)}
+                    style={{ flex: 1, padding: '9px', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer' }}>
+                    Cancelar
+                  </button>
+                  <button onClick={() => gerarRelatorioMeeiro(pagarModal.id, pagarModal.nome)}
+                    style={{ flex: 1, padding: '9px', background: '#fff8ed', border: '1.5px solid #fed7aa', borderRadius: 10, fontSize: 13, fontWeight: 500, color: '#92400e', cursor: 'pointer' }}>
+                    📄 Só relatório
+                  </button>
+                </div>
               </div>
             </motion.div>
           </>
