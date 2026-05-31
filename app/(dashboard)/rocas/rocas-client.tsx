@@ -1287,9 +1287,12 @@ export default function RocasClient({
           {lancViewId && (() => {
             const c = colheitas.find(x => x.id === lancViewId)
             if (!c) return null
-            const custo = custosState.find(k => k.produtorId === c.produtorId && k.data.split('T')[0] === c.data.split('T')[0])
+            const parceiro = parceiros.find(p => p.id === c.parceiroId)
             const valorBruto = c.quantidadeTotal * c.preco
-            const totalDeducoes = custo ? custo.combustivel + custo.bandejaEmbalagem + custo.valesDinheiro + custo.creditos + custo.debitosAnteriores : 0
+            const embaDeducao = (parceiro?.valorEmba ?? 0) * c.quantidadeTotal
+            const custo = custosState.find(k => k.produtorId === c.produtorId && k.data.split('T')[0] === c.data.split('T')[0])
+            const outrasDeducoes = custo ? custo.combustivel + custo.valesDinheiro + custo.creditos + custo.debitosAnteriores : 0
+            const valorLiquido = valorBruto - embaDeducao - outrasDeducoes
             return (
               <>
                 <div onClick={() => setLancViewId(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 40 }} />
@@ -1316,20 +1319,24 @@ export default function RocasClient({
                           <span style={{ color: NAVY, fontWeight: 600 }}>{val}</span>
                         </div>
                       ))}
-                      {custo && (
-                        <>
-                          <div style={{ marginTop: 8, fontWeight: 700, color: NAVY, fontSize: 13 }}>Deduções do lançamento</div>
-                          {custo.combustivel > 0      && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Combustível</span><span style={{ color: PINK }}>- {fmtCurrency(custo.combustivel)}</span></div>}
-                          {custo.bandejaEmbalagem > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Bandeja/Embalagens</span><span style={{ color: PINK }}>- {fmtCurrency(custo.bandejaEmbalagem)}</span></div>}
-                          {custo.valesDinheiro > 0    && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Vales Dinheiro</span><span style={{ color: PINK }}>- {fmtCurrency(custo.valesDinheiro)}</span></div>}
-                          {custo.creditos > 0         && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Créditos Coleta/Film.</span><span style={{ color: PINK }}>- {fmtCurrency(custo.creditos)}</span></div>}
-                          {custo.debitosAnteriores > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Débitos Anteriores</span><span style={{ color: PINK }}>- {fmtCurrency(custo.debitosAnteriores)}</span></div>}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderTop: '2px solid #e5e7eb', marginTop: 4 }}>
-                            <span style={{ fontWeight: 700, color: NAVY }}>Valor líquido</span>
-                            <span style={{ fontWeight: 700, color: GREEN, fontSize: 15 }}>{fmtCurrency(valorBruto - totalDeducoes)}</span>
-                          </div>
-                        </>
+                      <div style={{ marginTop: 8, fontWeight: 700, color: NAVY, fontSize: 13 }}>Deduções do lançamento</div>
+                      {embaDeducao > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                          <span style={{ color: '#6b7280' }}>
+                            Bandeja/Embalagens
+                            <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 6 }}>({fmtCurrency(parceiro?.valorEmba ?? 0)} × {fmtNum(c.quantidadeTotal, 0)} cx)</span>
+                          </span>
+                          <span style={{ color: PINK }}>- {fmtCurrency(embaDeducao)}</span>
+                        </div>
                       )}
+                      {custo && custo.combustivel > 0      && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Combustível</span><span style={{ color: PINK }}>- {fmtCurrency(custo.combustivel)}</span></div>}
+                      {custo && custo.valesDinheiro > 0    && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Vales Dinheiro</span><span style={{ color: PINK }}>- {fmtCurrency(custo.valesDinheiro)}</span></div>}
+                      {custo && custo.creditos > 0         && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Créditos Coleta/Film.</span><span style={{ color: PINK }}>- {fmtCurrency(custo.creditos)}</span></div>}
+                      {custo && custo.debitosAnteriores > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Débitos Anteriores</span><span style={{ color: PINK }}>- {fmtCurrency(custo.debitosAnteriores)}</span></div>}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderTop: '2px solid #e5e7eb', marginTop: 4 }}>
+                        <span style={{ fontWeight: 700, color: NAVY }}>Valor líquido</span>
+                        <span style={{ fontWeight: 700, color: GREEN, fontSize: 15 }}>{fmtCurrency(valorLiquido)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
