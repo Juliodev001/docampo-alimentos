@@ -1287,7 +1287,7 @@ export default function RocasClient({
           {lancViewId && (() => {
             const c = colheitas.find(x => x.id === lancViewId)
             if (!c) return null
-            const parceiro = parceiros.find(p => p.id === c.parceiroId)
+            const parceiro = parceirosState.find(p => p.id === c.parceiroId)
             const valorBruto = c.quantidadeTotal * c.preco
             const embaDeducao = (parceiro?.valorEmba ?? 0) * c.quantidadeTotal
             const custo = custosState.find(k => k.produtorId === c.produtorId && k.data.split('T')[0] === c.data.split('T')[0])
