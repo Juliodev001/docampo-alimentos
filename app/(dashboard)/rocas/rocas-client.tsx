@@ -618,17 +618,15 @@ export default function RocasClient({
     setLancMenuId(null)
   }
 
-  const pagamentosConfirmados = useMemo(
-    () => new Set(pagamentosState.filter(p => p.status === 'CONFIRMADO').map(p => p.parceiroId)),
-    [pagamentosState]
-  )
-
   const pagamentosMeeiros = useMemo(() => parceirosState.map(m => {
     const cs = colheitas.filter(c => c.parceiroId === m.id)
     const valorTotal = cs.reduce((s, c) => s + c.quantidadeTotal * c.preco * (c.percParceiro / 100), 0)
-    const quitado = pagamentosConfirmados.has(m.id)
-    return { id: m.id, nome: m.nome, chavePix: m.chavePix, valorReceber: quitado ? 0 : valorTotal, emprestimo: 0, descEmprestimo: 0, valorFinal: quitado ? 0 : valorTotal }
-  }), [colheitas, parceirosState, pagamentosConfirmados])
+    const totalPago = pagamentosState
+      .filter(p => p.parceiroId === m.id && p.status === 'CONFIRMADO')
+      .reduce((s, p) => s + p.valor, 0)
+    const saldo = Math.max(0, valorTotal - totalPago)
+    return { id: m.id, nome: m.nome, chavePix: m.chavePix, valorReceber: saldo, emprestimo: 0, descEmprestimo: 0, valorFinal: saldo, temMovimento: valorTotal > 0 || totalPago > 0 }
+  }), [colheitas, parceirosState, pagamentosState])
 
   const custosPorProdutor = useMemo(() => {
     const map: Record<string, { combustivel: number; bandejaEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number; lancamentos: { data: string; rocaId: string | null; combustivel: number; bandejaEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number }[] }> = {}
@@ -1417,7 +1415,7 @@ export default function RocasClient({
 
       {activeTab === 'pagamento' && (() => {
         const filtradosAberto = pagamentosMeeiros.filter(p => p.valorReceber > 0)
-        const filtradosQuitados = pagamentosMeeiros.filter(p => p.valorReceber === 0)
+        const filtradosQuitados = pagamentosMeeiros.filter(p => p.valorReceber === 0 && p.temMovimento)
         const lista = pagamentoStatus === 'aberto' ? filtradosAberto : filtradosQuitados
         return (
           <div>
