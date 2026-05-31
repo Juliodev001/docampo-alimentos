@@ -1320,15 +1320,13 @@ export default function RocasClient({
                         </div>
                       ))}
                       <div style={{ marginTop: 8, fontWeight: 700, color: NAVY, fontSize: 13 }}>Deduções do lançamento</div>
-                      {embaDeducao > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
-                          <span style={{ color: '#6b7280' }}>
-                            Bandeja/Embalagens
-                            <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 6 }}>({fmtCurrency(parceiro?.valorEmba ?? 0)} × {fmtNum(c.quantidadeTotal, 0)} cx)</span>
-                          </span>
-                          <span style={{ color: PINK }}>- {fmtCurrency(embaDeducao)}</span>
-                        </div>
-                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                        <span style={{ color: '#6b7280' }}>
+                          Bandeja/Embalagens
+                          <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 6 }}>({fmtCurrency(parceiro?.valorEmba ?? 0)} × {fmtNum(c.quantidadeTotal, 0)} cx)</span>
+                        </span>
+                        <span style={{ color: embaDeducao > 0 ? PINK : '#9ca3af' }}>- {fmtCurrency(embaDeducao)}</span>
+                      </div>
                       {custo && custo.combustivel > 0      && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Combustível</span><span style={{ color: PINK }}>- {fmtCurrency(custo.combustivel)}</span></div>}
                       {custo && custo.valesDinheiro > 0    && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Vales Dinheiro</span><span style={{ color: PINK }}>- {fmtCurrency(custo.valesDinheiro)}</span></div>}
                       {custo && custo.creditos > 0         && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Créditos Coleta/Film.</span><span style={{ color: PINK }}>- {fmtCurrency(custo.creditos)}</span></div>}
