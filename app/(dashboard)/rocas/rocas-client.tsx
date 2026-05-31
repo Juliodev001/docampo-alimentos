@@ -1323,12 +1323,17 @@ export default function RocasClient({
                       ))}
 
                       <div style={{ marginTop: 4, fontWeight: 700, color: NAVY, fontSize: 13 }}>Insumos deduzidos do total</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6', alignItems: 'flex-start' }}>
                         <span style={{ color: '#6b7280' }}>
                           Bandeja/Embalagens
                           <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 6 }}>({fmtCurrency(parceiro?.valorEmba ?? 0)} × {fmtNum(c.quantidadeTotal, 0)} cx)</span>
+                          {(!parceiro || (parceiro.valorEmba ?? 0) === 0) && (
+                            <span style={{ display: 'block', fontSize: 11, color: '#d97706', marginTop: 2 }}>
+                              ⚠ Configure &quot;Custo Embalagem&quot; no cadastro do meeiro
+                            </span>
+                          )}
                         </span>
-                        <span style={{ color: ORANGE }}>- {fmtCurrency(embaDeducao)}</span>
+                        <span style={{ color: embaDeducao > 0 ? ORANGE : '#9ca3af', flexShrink: 0, marginLeft: 8 }}>- {fmtCurrency(embaDeducao)}</span>
                       </div>
                       {custo && custo.combustivel > 0      && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Combustível</span><span style={{ color: ORANGE }}>- {fmtCurrency(custo.combustivel)}</span></div>}
                       {custo && custo.valesDinheiro > 0    && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Vales Dinheiro</span><span style={{ color: PINK }}>- {fmtCurrency(custo.valesDinheiro)}</span></div>}
@@ -2260,9 +2265,10 @@ export default function RocasClient({
                       </div>
                       <div>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 6 }}>
-                          <FontAwesomeIcon icon={faDollarSign} style={{ fontSize: 14, color: BLUE }} /> Valor de emba (R$)
+                          <FontAwesomeIcon icon={faDollarSign} style={{ fontSize: 14, color: ORANGE }} /> Custo Embalagem (R$/cx)
                         </label>
-                        <input type="number" min="0" step="0.01" value={meeiroForm.valorEmba} onChange={e => setMeeiroForm(f => ({ ...f, valorEmba: e.target.value }))} placeholder="1,2" style={inputStyle} />
+                        <input type="number" min="0" step="0.01" value={meeiroForm.valorEmba} onChange={e => setMeeiroForm(f => ({ ...f, valorEmba: e.target.value }))} placeholder="ex: 1.20" style={{ ...inputStyle, borderColor: parseFloat(meeiroForm.valorEmba) > 0 ? '#e5e7eb' : '#fcd34d' }} />
+                        <p style={{ fontSize: 11, color: '#9ca3af', margin: '4px 0 0' }}>Deduzido automaticamente: valor × qtde de caixas</p>
                       </div>
                     </div>
 
