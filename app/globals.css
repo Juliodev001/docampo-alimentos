@@ -409,6 +409,8 @@ body {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 20px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .page-title {
@@ -590,6 +592,53 @@ input:focus, select:focus, textarea:focus {
   padding: 24px 28px;
 }
 
+/* ── Grids utilitários responsivos ── */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+.grid-2-lg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.grid-3-lg {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+/* DRE: tabela + painel lateral */
+.dre-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  gap: 20px;
+  align-items: start;
+}
+/* Cabeçalho de página flex */
+.flex-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+
+/* Controle de Roça */
+.rocas-page { padding: 28px 32px; }
+@media (max-width: 767px) { .rocas-page { padding: 16px 8px; } }
+
 /* Scrollbar customizado para o body */
 html {
   scrollbar-width: thin;
@@ -650,7 +699,7 @@ html::-webkit-scrollbar-thumb:hover {
     margin-left: 0 !important;
   }
   .dashboard-main {
-    padding: 20px 14px 32px;
+    padding: 16px 12px 32px;
   }
 
   .stats-grid {
@@ -678,6 +727,31 @@ html::-webkit-scrollbar-thumb:hover {
     gap: 12px;
   }
 
+  /* Novos grids utilitários */
+  .grid-2, .grid-2-lg {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .grid-3, .grid-3-lg {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .dre-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .flex-header {
+    flex-direction: column;
+    margin-bottom: 20px;
+  }
+
   .page-title {
     font-size: 18px !important;
   }
@@ -688,6 +762,7 @@ html::-webkit-scrollbar-thumb:hover {
     align-items: flex-start !important;
     gap: 12px !important;
     margin-bottom: 20px !important;
+    flex-wrap: wrap !important;
   }
 
   /* Botões de ação no header: empilham e ficam full-width */
@@ -719,8 +794,8 @@ html::-webkit-scrollbar-thumb:hover {
   .table-wrapper {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    margin: 0 -14px;
-    padding: 0 14px;
+    margin: 0 -12px;
+    padding: 0 12px;
   }
 
   /* Grids de 2 colunas viram 1 no mobile pequeno */
@@ -756,6 +831,118 @@ html::-webkit-scrollbar-thumb:hover {
   .kpi-grid-5 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .kpi-grid-4 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .kpi-grid-3 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+}
+
+/* ── Grids de formulário assimétricos ── */
+.form-grid-1-2-1 {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 16px;
+}
+.items-form-grid {
+  display: grid;
+  grid-template-columns: 3fr 1fr 1fr 1fr 80px 44px;
+  gap: 10px;
+  align-items: end;
+}
+
+@media (max-width: 767px) {
+  .form-grid-1-2-1 { grid-template-columns: 1fr; gap: 12px; }
+  .items-form-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+}
+
+/* Grids específicos de parceiros/produtores */
+.partner-add-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 100px 44px;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+.partner-item-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 100px;
+  gap: 8px;
+  align-items: center;
+}
+@media (max-width: 767px) {
+  .partner-add-grid { grid-template-columns: 1fr 1fr; }
+  .partner-item-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* Grid de filtros e rows de itens com botão auto */
+.filter-grid-4-auto {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr auto;
+  gap: 12px;
+  align-items: flex-end;
+}
+.romaneio-items-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+@media (max-width: 767px) {
+  .filter-grid-4-auto { grid-template-columns: 1fr 1fr; }
+  .romaneio-items-row { grid-template-columns: 1fr 1fr; }
+}
+
+/* Grids de item em formulários (produto/unidade dentro de cards) */
+.item-row-2 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.item-row-3-auto {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+.item-row-2-auto {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+@media (max-width: 767px) {
+  .item-row-2 { grid-template-columns: 1fr 1fr; }
+  .item-row-3-auto { grid-template-columns: 1fr 1fr; }
+  .item-row-2-auto { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── Chart grids com proporções assimétricas ── */
+.chart-grid-main {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.chart-grid-side {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 16px;
+}
+.kpi-grid-7 {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 1199px) {
+  .chart-grid-main { grid-template-columns: 1fr; }
+  .chart-grid-side { grid-template-columns: 1fr; }
+  .kpi-grid-7 { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 767px) {
+  .chart-grid-main { grid-template-columns: 1fr; }
+  .chart-grid-side { grid-template-columns: 1fr; }
+  .kpi-grid-7 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  /* Override inline gridTemplateColumns on period charts */
+  .chart-period-grid { grid-template-columns: 1fr !important; }
 }
 
 /* ── Tablet ── */

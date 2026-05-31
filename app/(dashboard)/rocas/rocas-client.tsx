@@ -838,7 +838,7 @@ export default function RocasClient({
   }
 
   return (
-    <div style={{ padding: '28px 32px', background: BG, minHeight: '100vh' }}>
+    <div className="rocas-page" style={{ background: BG, minHeight: '100vh' }}>
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 26, fontWeight: 700, color: NAVY, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 26 }}>🌾</span> Controle de Roça
@@ -874,7 +874,7 @@ export default function RocasClient({
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+          <div className="kpi-grid-4">
             {[
               { label: 'Produtores ativos',     value: produtoresAtivos,               icon: <FontAwesomeIcon icon={faUsers} style={{ fontSize: 20 }} />,      color: BLUE },
               { label: 'Roças ativas',          value: rocasAtivas,                    icon: <FontAwesomeIcon icon={faLeaf} style={{ fontSize: 20 }} />,       color: GREEN },
@@ -905,7 +905,7 @@ export default function RocasClient({
                   Ver lançamentos
                 </button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+              <div className="grid-3" style={{ gap: 10 }}>
                 {[
                   { label: 'Quantidade total de caixa', value: fmtNum(qtdTotalCaixas, 0) },
                   { label: 'Valor médio por caixa',     value: fmtCurrency(valorMedioCaixa) },
@@ -987,7 +987,7 @@ export default function RocasClient({
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+          <div className="kpi-grid-4">
             {(() => {
               const diasComProducao = new Set(filteredColheitas.map(c => c.data.split('T')[0])).size
               return [
@@ -1467,7 +1467,7 @@ export default function RocasClient({
                       <FormField label="Data">
                         <input type="date" style={inputStyle} value={lancEditForm.data} onChange={e => setLancEditForm(f => ({ ...f, data: e.target.value }))} />
                       </FormField>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div className="grid-2">
                         <FormField label="Quantidade">
                           <input type="number" min="0" style={inputStyle} value={lancEditForm.quantidade} onChange={e => setLancEditForm(f => ({ ...f, quantidade: e.target.value }))} />
                         </FormField>
@@ -1705,7 +1705,7 @@ export default function RocasClient({
             )}
 
             {/* Summary cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+            <div className="grid-3" style={{ gap: 16 }}>
               <div style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', borderLeft: `3px solid ${NAVY}` }}>
                 <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Total de Fechamentos</div>
                 <div style={{ fontSize: 28, fontWeight: 700, color: NAVY }}>{fechamentosState.length}</div>
@@ -1800,7 +1800,7 @@ export default function RocasClient({
                     return (
                       <div key={prodId} style={{ background: '#f8fafc', borderRadius: 10, padding: '12px 16px', border: '1px solid #e5e7eb' }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: BLUE, marginBottom: 8 }}>{prod?.nome ?? prodId}</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+                        <div className="kpi-grid-5" style={{ marginBottom: 0 }}>
                           <div style={{ background: '#fff', borderRadius: 8, padding: '8px 12px', border: '1px solid #e5e7eb' }}>
                             <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}>Combustível</div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{fmtCurrency(c.combustivel)}</div>
@@ -1871,7 +1871,7 @@ export default function RocasClient({
                             {/* Período detectado */}
                             <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 10, padding: '10px 14px' }}>
                               <div style={{ fontSize: 11, fontWeight: 700, color: '#059669', textTransform: 'uppercase', marginBottom: 4 }}>Período em aberto detectado</div>
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                              <div className="grid-2" style={{ gap: 10 }}>
                                 <div>
                                   <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}>Início</div>
                                   <input type="date" style={{ ...inputStyle, fontSize: 13 }} value={fechForm.dataInicio} onChange={e => setFechForm(f => ({ ...f, dataInicio: e.target.value }))} />
@@ -1906,7 +1906,7 @@ export default function RocasClient({
 
                               {/* Campos de ajuste colapsáveis */}
                               {fechAjustar && (
-                                <div style={{ background: '#fff', borderRadius: 8, padding: '10px 12px', border: '1px solid #e0e7ff', marginBottom: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                <div className="grid-2" style={{ background: '#fff', borderRadius: 8, padding: '10px 12px', border: '1px solid #e0e7ff', marginBottom: 10, gap: 8 }}>
                                   {[
                                     { label: 'Combustível', key: 'combustivel' as const },
                                     { label: 'Bandeja/Embalagem', key: 'bandejaEmbalagem' as const },
@@ -2001,12 +2001,12 @@ export default function RocasClient({
               <h3 style={{ fontSize: 15, fontWeight: 700, color: NAVY, margin: 0 }}>Notas de lançamento</h3>
             </div>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 18px' }}>Produto, quantidades, preço unitário e total (PDF). Os filtros abaixo são os mesmos do relatório geral seguinte e da sidebar de lançamentos.</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
+            <div className="grid-3" style={{ marginBottom: 12 }}>
               <FormField label="Produtor"><select style={inputStyle} value={notasProdId} onChange={e => setNotasProdId(e.target.value)}><option value="">Todos os produtores</option>{produtoresState.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></FormField>
               <FormField label="Roça (opcional)"><select style={inputStyle} value={notasRocaId} onChange={e => setNotasRocaId(e.target.value)}><option value="">Todas as roças</option>{rocas.map(r => <option key={r.id} value={r.id}>{r.nome}</option>)}</select></FormField>
               <FormField label="Produto (opcional)"><select style={inputStyle} value={notasProdutoId} onChange={e => setNotasProdutoId(e.target.value)}><option value="">Todos os produtos</option>{produtosState.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></FormField>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <div className="grid-2" style={{ marginBottom: 16 }}>
               <FormField label="Data inicial"><input type="date" style={inputStyle} value={notasDateI} onChange={e => setNotasDateI(e.target.value)} /></FormField>
               <FormField label="Data final"><input type="date" style={inputStyle} value={notasDateF} onChange={e => setNotasDateF(e.target.value)} /></FormField>
             </div>
@@ -2023,12 +2023,12 @@ export default function RocasClient({
               <h3 style={{ fontSize: 15, fontWeight: 700, color: NAVY, margin: 0 }}>Relatório geral de lançamento</h3>
             </div>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 18px' }}>Período, produtor, roça e produto (opcionais). Mesmos filtros das Notas de lançamento acima e da sidebar de lançamentos.</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
+            <div className="grid-3" style={{ marginBottom: 12 }}>
               <FormField label="Produtor"><select style={inputStyle} value={notasProdId} onChange={e => setNotasProdId(e.target.value)}><option value="">Todos os produtores</option>{produtoresState.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></FormField>
               <FormField label="Roça (opcional)"><select style={inputStyle} value={notasRocaId} onChange={e => setNotasRocaId(e.target.value)}><option value="">Todas as roças</option>{rocas.map(r => <option key={r.id} value={r.id}>{r.nome}</option>)}</select></FormField>
               <FormField label="Produto (opcional)"><select style={inputStyle} value={notasProdutoId} onChange={e => setNotasProdutoId(e.target.value)}><option value="">Todos os produtos</option>{produtosState.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></FormField>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <div className="grid-2" style={{ marginBottom: 16 }}>
               <FormField label="Data inicial"><input type="date" style={inputStyle} value={notasDateI} onChange={e => setNotasDateI(e.target.value)} /></FormField>
               <FormField label="Data final"><input type="date" style={inputStyle} value={notasDateF} onChange={e => setNotasDateF(e.target.value)} /></FormField>
             </div>
@@ -2045,7 +2045,7 @@ export default function RocasClient({
               <h3 style={{ fontSize: 15, fontWeight: 700, color: NAVY, margin: 0 }}>Relatório de lançamentos de meeiros</h3>
             </div>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 18px' }}>Gera o relatório por meeiro selecionado com os lançamentos do período e permite exportar em PDF.</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+            <div className="grid-3" style={{ marginBottom: 16 }}>
               <FormField label="Meeiro"><select style={inputStyle} value={meeiroRelId} onChange={e => setMeeiroRelId(e.target.value)}><option value="">Todos os meeiros</option>{parceirosState.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></FormField>
               <FormField label="Data inicial"><input type="date" style={inputStyle} value={meeiroRelDateI} onChange={e => setMeeiroRelDateI(e.target.value)} /></FormField>
               <FormField label="Data final"><input type="date" style={inputStyle} value={meeiroRelDateF} onChange={e => setMeeiroRelDateF(e.target.value)} /></FormField>
@@ -2063,7 +2063,7 @@ export default function RocasClient({
               <h3 style={{ fontSize: 15, fontWeight: 700, color: NAVY, margin: 0 }}>Relatório de repasse ao parceiro</h3>
             </div>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 18px' }}>Sem meeiro e sem datas: PDF em lista consolidada. Com um meeiro e período: repasse ao parceiro detalhado.</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
+            <div className="grid-3" style={{ marginBottom: 12 }}>
               <FormField label="Meeiro"><select style={inputStyle} value={repParcId} onChange={e => setRepParcId(e.target.value)}><option value="">Todos os meeiros</option>{parceirosState.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></FormField>
               <FormField label="Data inicial"><input type="date" style={inputStyle} value={repDateI} onChange={e => setRepDateI(e.target.value)} /></FormField>
               <FormField label="Data final"><input type="date" style={inputStyle} value={repDateF} onChange={e => setRepDateF(e.target.value)} /></FormField>
@@ -2086,7 +2086,7 @@ export default function RocasClient({
               <h3 style={{ fontSize: 15, fontWeight: 700, color: NAVY, margin: 0 }}>Relatório de empréstimos de meeiros</h3>
             </div>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 18px' }}>Exibe os meeiros que pediram empréstimo com data e valor, permitindo exportar em PDF.</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+            <div className="grid-3" style={{ marginBottom: 16 }}>
               <FormField label="Data inicial"><input type="date" style={inputStyle} value={empDateI} onChange={e => setEmpDateI(e.target.value)} /></FormField>
               <FormField label="Data final"><input type="date" style={inputStyle} value={empDateF} onChange={e => setEmpDateF(e.target.value)} /></FormField>
               <FormField label="Roça (opcional)"><select style={inputStyle} value={empRocaId} onChange={e => setEmpRocaId(e.target.value)}><option value="">Todas as roças</option>{rocas.map(r => <option key={r.id} value={r.id}>{r.nome}</option>)}</select></FormField>
@@ -2213,7 +2213,7 @@ export default function RocasClient({
 
               {/* Formulário compacto */}
               <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="grid-2">
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, marginBottom: 5 }}>Forma de pagamento</div>
                     <select value={pagarFormaPag} onChange={e => setPagarFormaPag(e.target.value)} style={{ ...inputStyle, fontSize: 13 }}>
@@ -2306,7 +2306,7 @@ export default function RocasClient({
                       </select>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <div className="grid-2" style={{ gap: 14 }}>
                       <div>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 6 }}>
                           <span style={{ color: '#6b7280', fontWeight: 700 }}>#</span> Código da roça
@@ -2336,7 +2336,7 @@ export default function RocasClient({
                       <input type="number" min="0" value={form.mudasPlantadas} onChange={e => setForm(f => ({ ...f, mudasPlantadas: e.target.value }))} placeholder="Ex: 5000" style={inputStyle} />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <div className="grid-2" style={{ gap: 14 }}>
                       <div>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 6 }}>
                           <FontAwesomeIcon icon={faCalendarDays} style={{ fontSize: 14, color: BLUE }} /> Data do plantio <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 400 }}>(opcional)</span>
@@ -2384,7 +2384,7 @@ export default function RocasClient({
                 <FormField label="Código (opcional)"><input value={produtorForm.codigo} onChange={e => setProdutorForm(f => ({ ...f, codigo: e.target.value }))} placeholder="P001 - ou em branco para o sistema gerar" style={inputStyle} /></FormField>
                 <div>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 10 }}>Tipo de Produtor</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="grid-2">
                     {[{ value: 'JURIDICA', label: 'Pessoa Jurídica', sub: 'CNPJ' }, { value: 'FISICA', label: 'Pessoa Física', sub: 'CPF' }].map(opt => {
                       const sel = produtorForm.tipo === opt.value
                       return (
@@ -2407,7 +2407,7 @@ export default function RocasClient({
                     <FormField label="Inscrição Estadual"><input value={produtorForm.inscricaoEstadual} onChange={e => setProdutorForm(f => ({ ...f, inscricaoEstadual: e.target.value }))} style={inputStyle} /></FormField>
                   </>
                 )}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="grid-2">
                   <FormField label="Telefone"><input value={produtorForm.telefone} onChange={e => setProdutorForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(00) 00000-0000" style={inputStyle} /></FormField>
                   <FormField label="Endereço"><input value={produtorForm.endereco} onChange={e => setProdutorForm(f => ({ ...f, endereco: e.target.value }))} style={inputStyle} /></FormField>
                 </div>
@@ -2452,7 +2452,7 @@ export default function RocasClient({
                       </select>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <div className="grid-2" style={{ gap: 14 }}>
                       <div>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 6 }}>
                           <span style={{ color: '#6b7280', fontWeight: 700 }}>#</span> Código do meeiro
@@ -2474,7 +2474,7 @@ export default function RocasClient({
                       <input value={meeiroForm.nomeFantasia} onChange={e => setMeeiroForm(f => ({ ...f, nomeFantasia: e.target.value }))} placeholder="Nome fantasia" style={inputStyle} />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+                    <div className="grid-3" style={{ gap: 14 }}>
                       <div>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 6 }}>
                           <span style={{ color: '#6b7280', fontWeight: 700 }}>#</span> CPF <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 400 }}>(opcional)</span>
@@ -2572,7 +2572,7 @@ export default function RocasClient({
                     </div>
                   )}
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div className="grid-2" style={{ gap: 14 }}>
                     <div>
                       <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 6 }}>Código do produto</label>
                       <input value={produtoForm.sku} onChange={e => setProdutoForm(f => ({ ...f, sku: e.target.value }))} placeholder="Deixe em branco para gerar automaticamente" style={inputStyle} />
@@ -2627,7 +2627,7 @@ export default function RocasClient({
                       {produtoresState.map(p => <option key={p.id} value={p.id}>{p.codigo ? `${p.codigo} – ` : ''}{p.nome}</option>)}
                     </select>
                   </FormField>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+                  <div className="grid-2" style={{ marginTop: 12 }}>
                     <FormField label="Data"><input type="date" value={lancForm.data} onChange={e => setLancForm(f => ({ ...f, data: e.target.value }))} style={inputStyle} /></FormField>
                     <FormField label="Roça">
                       <select value={lancForm.rocaId} onChange={e => setLancForm(f => ({ ...f, rocaId: e.target.value }))} style={inputStyle} disabled={!lancForm.produtorId}>
@@ -2673,7 +2673,7 @@ export default function RocasClient({
                       {produtosState.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                     </select>
                   </FormField>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, marginTop: 12, alignItems: 'end' }}>
+                  <div className="item-row-2-auto" style={{ marginTop: 12 }}>
                     <FormField label="Qtd"><input type="number" min="0" value={lancForm.quantidade} onChange={e => setLancForm(f => ({ ...f, quantidade: e.target.value }))} placeholder="Quantidade" style={inputStyle} /></FormField>
                     <FormField label="Preço un."><input type="number" min="0" step="0.01" value={lancForm.preco} onChange={e => setLancForm(f => ({ ...f, preco: e.target.value }))} placeholder="Preço unitário" style={inputStyle} /></FormField>
                     <button onClick={addLancItem} disabled={!lancForm.produtoId || !lancForm.quantidade} style={{ background: !lancForm.produtoId || !lancForm.quantidade ? '#9ca3af' : BLUE, color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: !lancForm.produtoId || !lancForm.quantidade ? 'not-allowed' : 'pointer', height: 38 }}>Adicionar</button>
@@ -2702,7 +2702,7 @@ export default function RocasClient({
                 <div style={{ border: '1.5px solid #e5e7eb', borderRadius: 12, padding: 18 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Insumos</div>
                   <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 14 }}>Custos de materiais utilizados neste lançamento.</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="grid-2">
                     <FormField label="Combustível (R$)">
                       <input type="number" min="0" step="0.01" value={lancForm.combustivel}
                         onChange={e => setLancForm(f => ({ ...f, combustivel: e.target.value }))} style={inputStyle} />
@@ -2723,7 +2723,7 @@ export default function RocasClient({
                 <div style={{ border: '1.5px solid #e5e7eb', borderRadius: 12, padding: 18 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Deduções</div>
                   <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 14 }}>Valores a descontar do produtor neste lançamento.</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, alignItems: 'start' }}>
+                  <div className="grid-3" style={{ alignItems: 'start' }}>
                     <FormField label="Vales Dinheiro (R$)">
                       <input type="number" min="0" step="0.01" value={lancForm.valesDinheiro}
                         onChange={e => setLancForm(f => ({ ...f, valesDinheiro: e.target.value }))} style={inputStyle} />
@@ -2830,7 +2830,7 @@ export default function RocasClient({
                 <button onClick={() => setSelected(null)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', color: '#fff' }}><FontAwesomeIcon icon={faXmark} style={{ fontSize: 18 }} /></button>
               </div>
               <div style={{ padding: '16px 24px', borderBottom: '1px solid #f3f4f6' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="grid-2">
                   {[
                     { label: 'Localização',    value: selected.localizacao ?? '—' },
                     { label: 'Mudas',          value: selected.mudasPlantadas != null ? String(selected.mudasPlantadas) : '—' },
@@ -2855,7 +2855,7 @@ export default function RocasClient({
               <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
                 <div style={{ background: '#f8fafc', border: '1.5px dashed #d1d5db', borderRadius: 10, padding: 16, marginBottom: 20 }}>
                   <h3 style={{ fontSize: 13, fontWeight: 700, color: NAVY, margin: '0 0 12px' }}>+ Adicionar Registro</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <div className="grid-2" style={{ gap: 8, marginBottom: 8 }}>
                     <input type="date" value={regForm.data} onChange={e => setRegForm(f => ({ ...f, data: e.target.value }))} style={inputStyle} />
                     <select value={regForm.tipo} onChange={e => setRegForm(f => ({ ...f, tipo: e.target.value }))} style={inputStyle}>
                       {Object.entries(TIPO_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
