@@ -93,7 +93,7 @@ const emptyProdutorForm = { codigo: '', nome: '', tipo: 'FISICA', cpf: '', cnpj:
 const emptyMeeiroForm   = { codigo: '', produtorId: '', nome: '', nomeFantasia: '', cpf: '', chavePix: '', percentual: '40', valorEmba: '1.2', endereco: '', telefone: '' }
 const emptyProdutoForm  = { nome: '', sku: '', unidade: 'CAIXA', preco: '', estoqueMinimo: '', ondeCadastrar: 'catalogo', produtorId: '' }
 const emptyLancForm     = { produtorId: '', data: new Date().toISOString().split('T')[0], rocaId: '', meeiroIds: [] as string[], produtoId: '', quantidade: '', preco: '', combustivel: '0', bandejaEmbalagem: '0', valesDinheiro: '0', creditos: '0', debitosAnteriores: '0' }
-const emptyFechForm     = { produtorId: '', dataInicio: '', dataFim: '', dataPagamento: new Date().toISOString().slice(0,10), valesEmbalagem: '0', valesDinheiro: '0', creditos: '0', debitosAnteriores: '0' }
+const emptyFechForm     = { produtorId: '', dataInicio: '', dataFim: '', dataPagamento: new Date().toISOString().slice(0,10), bandejaEmbalagem: '0', valesDinheiro: '0', creditos: '0', debitosAnteriores: '0' }
 
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -161,7 +161,7 @@ type PagamentoMeeiroRecord = {
 type FechamentoRecord = {
   id: string; produtorId: string; produtorNome: string
   dataInicio: string; dataFim: string; dataPagamento: string
-  valesEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number
+  bandejaEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number
   status: string; createdAt: string
 }
 
@@ -1514,7 +1514,7 @@ export default function RocasClient({
                 dataInicio: fechForm.dataInicio,
                 dataFim: fechForm.dataFim,
                 dataPagamento: fechForm.dataPagamento,
-                valesEmbalagem: Number(fechForm.valesEmbalagem) || 0,
+                bandejaEmbalagem: Number(fechForm.bandejaEmbalagem) || 0,
                 valesDinheiro: Number(fechForm.valesDinheiro) || 0,
                 creditos: Number(fechForm.creditos) || 0,
                 debitosAnteriores: Number(fechForm.debitosAnteriores) || 0,
@@ -1527,7 +1527,7 @@ export default function RocasClient({
               id: saved.id, produtorId: saved.produtorId,
               produtorNome: produtor?.nome ?? saved.produtor?.nome ?? '',
               dataInicio: saved.dataInicio, dataFim: saved.dataFim, dataPagamento: saved.dataPagamento,
-              valesEmbalagem: saved.valesEmbalagem, valesDinheiro: saved.valesDinheiro,
+              bandejaEmbalagem: saved.bandejaEmbalagem, valesDinheiro: saved.valesDinheiro,
               creditos: saved.creditos, debitosAnteriores: saved.debitosAnteriores,
               status: saved.status, createdAt: saved.createdAt,
             }
@@ -1626,7 +1626,7 @@ export default function RocasClient({
                       <td style={{ padding: '12px 16px', fontWeight: 600, color: NAVY }}>{f.produtorNome}</td>
                       <td style={{ padding: '12px 16px', color: '#374151', whiteSpace: 'nowrap' }}>{fmtDate(f.dataInicio)} — {fmtDate(f.dataFim)}</td>
                       <td style={{ padding: '12px 16px', color: '#374151' }}>{fmtDate(f.dataPagamento)}</td>
-                      <td style={{ padding: '12px 16px', textAlign: 'right', color: PINK }}>{fmtCurrency(f.valesEmbalagem)}</td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right', color: PINK }}>{fmtCurrency(f.bandejaEmbalagem)}</td>
                       <td style={{ padding: '12px 16px', textAlign: 'right', color: PINK }}>{fmtCurrency(f.valesDinheiro)}</td>
                       <td style={{ padding: '12px 16px', textAlign: 'right', color: GREEN }}>{fmtCurrency(f.creditos)}</td>
                       <td style={{ padding: '12px 16px', textAlign: 'right', color: ORANGE }}>{fmtCurrency(f.debitosAnteriores)}</td>
@@ -1727,7 +1727,7 @@ export default function RocasClient({
                         <input type="date" style={inputStyle} value={fechForm.dataPagamento} onChange={e => setFechForm(f => ({ ...f, dataPagamento: e.target.value }))} />
                       </FormField>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                        <FormField label="Vales Embalagem (R$)"><input type="number" min="0" step="0.01" style={inputStyle} value={fechForm.valesEmbalagem} onChange={e => setFechForm(f => ({ ...f, valesEmbalagem: e.target.value }))} /></FormField>
+                        <FormField label="Vales Embalagem (R$)"><input type="number" min="0" step="0.01" style={inputStyle} value={fechForm.bandejaEmbalagem} onChange={e => setFechForm(f => ({ ...f, bandejaEmbalagem: e.target.value }))} /></FormField>
                         <FormField label="Vales Dinheiro (R$)"><input type="number" min="0" step="0.01" style={inputStyle} value={fechForm.valesDinheiro} onChange={e => setFechForm(f => ({ ...f, valesDinheiro: e.target.value }))} /></FormField>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

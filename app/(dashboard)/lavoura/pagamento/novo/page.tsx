@@ -35,7 +35,8 @@ export default function NovoFechamento() {
   const [colheitas, setColheitas] = useState<Colheita[]>([])
   const [buscado, setBuscado] = useState(false)
   const [buscando, setBuscando] = useState(false)
-  const [valesEmbalagem, setValesEmbalagem] = useState('0')
+  const [combustivel, setCombustivel] = useState('0')
+  const [bandejaEmbalagem, setBandejaEmbalagem] = useState('0')
   const [valesDinheiro, setValesDinheiro] = useState('0')
   const [creditos, setCreditos] = useState('0')
   const [debitosAnteriores, setDebitosAnteriores] = useState('0')
@@ -46,7 +47,7 @@ export default function NovoFechamento() {
     fetch('/api/produtores').then(r => r.json()).then(d => setProdutores(Array.isArray(d) ? d : []))
     fetch('/api/configuracoes?chave=caixas_bandeja_padrao')
       .then(r => r.json())
-      .then(d => { if (d.valor) setValesEmbalagem(d.valor) })
+      .then(d => { if (d.valor) setBandejaEmbalagem(d.valor) })
   }, [])
 
   const buscarColheitas = useCallback(async () => {
@@ -66,7 +67,8 @@ export default function NovoFechamento() {
   }, [produtorId, dataInicio, dataFim])
 
   const totalFaturas = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
-  const totalDeducoes = (parseFloat(valesEmbalagem) || 0) + (parseFloat(valesDinheiro) || 0) + (parseFloat(creditos) || 0) + (parseFloat(debitosAnteriores) || 0)
+  const totalInsumos = (parseFloat(combustivel) || 0) + (parseFloat(bandejaEmbalagem) || 0)
+  const totalDeducoes = totalInsumos + (parseFloat(valesDinheiro) || 0) + (parseFloat(creditos) || 0) + (parseFloat(debitosAnteriores) || 0)
   const aReceber = totalFaturas - totalDeducoes
 
   const produtorSelecionado = produtores.find(p => p.id === produtorId)
@@ -80,7 +82,8 @@ export default function NovoFechamento() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         produtorId, dataInicio, dataFim, dataPagamento,
-        valesEmbalagem: parseFloat(valesEmbalagem) || 0,
+        combustivel: parseFloat(combustivel) || 0,
+        bandejaEmbalagem: parseFloat(bandejaEmbalagem) || 0,
         valesDinheiro: parseFloat(valesDinheiro) || 0,
         creditos: parseFloat(creditos) || 0,
         debitosAnteriores: parseFloat(debitosAnteriores) || 0,
@@ -169,31 +172,54 @@ export default function NovoFechamento() {
           {/* Deduções direita */}
           <motion.div
             initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15, duration: 0.4 }}
-            style={{ backgroundColor: 'white', borderRadius: 16, padding: 28, boxShadow: '0 2px 10px rgba(0,0,0,0.07)' }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
           >
-            <h3 style={{ fontSize: 15, fontWeight: 600, color: NAVY, margin: '0 0 22px' }}>Deduções</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {[
-                { label: 'Caixas e Bandeja (R$)', val: valesEmbalagem, set: setValesEmbalagem },
-                { label: 'Vales Dinheiro (R$)', val: valesDinheiro, set: setValesDinheiro },
-                { label: 'Créditos — Coleta e Filmagem (R$)', val: creditos, set: setCreditos },
-                { label: 'Débitos Anteriores (R$)', val: debitosAnteriores, set: setDebitosAnteriores },
-              ].map(({ label, val, set }) => (
-                <div key={label}>
-                  <label style={{ ...lbl, fontSize: 12 }}>{label}</label>
-                  <input type="number" value={val} onChange={e => set(e.target.value)}
-                    min="0" step="0.01" placeholder="0,00" style={inpDed} />
-                </div>
-              ))}
+            {/* Insumos */}
+            <div style={{ backgroundColor: 'white', borderRadius: 16, padding: 24, boxShadow: '0 2px 10px rgba(0,0,0,0.07)' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: NAVY, margin: '0 0 4px' }}>Insumos</h3>
+              <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 16px' }}>Custos de materiais utilizados neste lançamento.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {[
+                  { label: 'Combustível (R$)', val: combustivel, set: setCombustivel },
+                  { label: 'Bandeja e Embalagens (R$)', val: bandejaEmbalagem, set: setBandejaEmbalagem },
+                ].map(({ label, val, set }) => (
+                  <div key={label}>
+                    <label style={{ ...lbl, fontSize: 12 }}>{label}</label>
+                    <input type="number" value={val} onChange={e => set(e.target.value)} min="0" step="0.01" placeholder="0,00" style={inpDed} />
+                  </div>
+                ))}
+              </div>
+            </div>
 
-              <div style={{ marginTop: 8, padding: '14px 16px', backgroundColor: '#f8faff', borderRadius: 10, border: '1.5px solid #e0e7ff' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+            {/* Deduções */}
+            <div style={{ backgroundColor: 'white', borderRadius: 16, padding: 24, boxShadow: '0 2px 10px rgba(0,0,0,0.07)' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: NAVY, margin: '0 0 4px' }}>Deduções</h3>
+              <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 16px' }}>Valores a descontar do produtor neste lançamento.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {[
+                  { label: 'Vales Dinheiro (R$)', val: valesDinheiro, set: setValesDinheiro },
+                  { label: 'Créditos Coleta/Filmagem (R$)', val: creditos, set: setCreditos },
+                  { label: 'Débitos Anteriores (R$)', val: debitosAnteriores, set: setDebitosAnteriores },
+                ].map(({ label, val, set }) => (
+                  <div key={label}>
+                    <label style={{ ...lbl, fontSize: 12 }}>{label}</label>
+                    <input type="number" value={val} onChange={e => set(e.target.value)} min="0" step="0.01" placeholder="0,00" style={inpDed} />
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 14, padding: '12px 14px', backgroundColor: '#f8faff', borderRadius: 10, border: '1.5px solid #e0e7ff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ fontSize: 13, color: '#6b7280' }}>Total Faturas</span>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: NAVY }}>{fmtBRL(totalFaturas)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{fmtBRL(totalFaturas)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, color: '#6b7280' }}>Total Insumos</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: ORANGE }}>- {fmtBRL(totalInsumos)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                   <span style={{ fontSize: 13, color: '#6b7280' }}>Total Deduções</span>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: PINK }}>- {fmtBRL(totalDeducoes)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: PINK }}>- {fmtBRL(totalDeducoes - totalInsumos)}</span>
                 </div>
                 <div style={{ borderTop: '1px solid #e0e7ff', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>A Receber</span>

@@ -248,7 +248,8 @@ model FechamentoPagamento {
   dataInicio        DateTime
   dataFim           DateTime
   dataPagamento     DateTime
-  valesEmbalagem    Float    @default(0)
+  combustivel       Float    @default(0)
+  bandejaEmbalagem  Float    @default(0)
   valesDinheiro     Float    @default(0)
   creditos          Float    @default(0)
   debitosAnteriores Float    @default(0)

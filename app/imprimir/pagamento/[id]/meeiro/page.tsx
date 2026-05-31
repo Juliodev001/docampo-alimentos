@@ -19,7 +19,7 @@ type Colheita = {
 type Fechamento = {
   produtor: Produtor
   dataInicio: string; dataFim: string; dataPagamento: string
-  valesEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number
+  combustivel: number; bandejaEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number
   status: string
   colheitas: Colheita[]
 }
@@ -57,7 +57,7 @@ function ImprimirPagamentoMeeiro() {
     )
   }
 
-  const { produtor, colheitas, dataInicio, dataFim, dataPagamento, valesEmbalagem, valesDinheiro, creditos, debitosAnteriores } = fechamento
+  const { produtor, colheitas, dataInicio, dataFim, dataPagamento, combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores } = fechamento
 
   const meeiro = produtor.parceiros[parceiroIdx]
   if (!meeiro) {
@@ -73,11 +73,12 @@ function ImprimirPagamentoMeeiro() {
 
   const totalFaturaBruto = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
   const totalFatura = totalFaturaBruto * fator
-  const dedValesEmbalagem = valesEmbalagem * fator
+  const dedCombustivel = combustivel * fator
+  const dedBandeja = bandejaEmbalagem * fator
   const dedValesDinheiro = valesDinheiro * fator
   const dedCreditos = creditos * fator
   const dedDebitos = debitosAnteriores * fator
-  const totalDeducoes = dedValesEmbalagem + dedValesDinheiro + dedCreditos + dedDebitos
+  const totalDeducoes = dedCombustivel + dedBandeja + dedValesDinheiro + dedCreditos + dedDebitos
   const aReceber = totalFatura - totalDeducoes
 
   const td: React.CSSProperties = { padding: '7px 10px', fontSize: 12, borderBottom: '1px solid #e5e7eb', color: '#374151' }
@@ -181,48 +182,66 @@ function ImprimirPagamentoMeeiro() {
 
         {/* Resumo */}
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{ width: 360, border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ backgroundColor: '#f9fafb', padding: '8px 14px', borderBottom: '1px solid #e5e7eb' }}>
-              <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                Deduções — parte do meeiro ({percMeeiro.toFixed(0)}%)
-              </p>
-            </div>
+          <div style={{ width: 380, border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <tbody>
-                {valesEmbalagem > 0 && (
-                  <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '8px 14px', fontSize: 12, color: '#6b7280' }}>
-                      Caixas e Bandeja
-                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(valesEmbalagem)} × {percMeeiro.toFixed(0)}%)</span>
+                {(combustivel > 0 || bandejaEmbalagem > 0) && (
+                  <tr>
+                    <td colSpan={2} style={{ padding: '7px 14px 2px', fontSize: 10, fontWeight: 700, color: ORANGE, textTransform: 'uppercase', letterSpacing: 0.8, backgroundColor: '#fff7ed' }}>
+                      Insumos ({percMeeiro.toFixed(0)}%)
                     </td>
-                    <td style={{ padding: '8px 14px', fontSize: 12, color: PINK, textAlign: 'right' }}>- {fmtBRL(dedValesEmbalagem)}</td>
+                  </tr>
+                )}
+                {combustivel > 0 && (
+                  <tr style={{ borderBottom: '1px solid #f3f4f6', backgroundColor: '#fff7ed' }}>
+                    <td style={{ padding: '6px 14px', fontSize: 12, color: '#6b7280' }}>
+                      Combustível
+                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(combustivel)} × {percMeeiro.toFixed(0)}%)</span>
+                    </td>
+                    <td style={{ padding: '6px 14px', fontSize: 12, color: ORANGE, textAlign: 'right' }}>- {fmtBRL(dedCombustivel)}</td>
+                  </tr>
+                )}
+                {bandejaEmbalagem > 0 && (
+                  <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#fff7ed' }}>
+                    <td style={{ padding: '6px 14px', fontSize: 12, color: '#6b7280' }}>
+                      Bandeja e Embalagens
+                      <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(bandejaEmbalagem)} × {percMeeiro.toFixed(0)}%)</span>
+                    </td>
+                    <td style={{ padding: '6px 14px', fontSize: 12, color: ORANGE, textAlign: 'right' }}>- {fmtBRL(dedBandeja)}</td>
+                  </tr>
+                )}
+                {(valesDinheiro > 0 || creditos > 0 || debitosAnteriores > 0) && (
+                  <tr>
+                    <td colSpan={2} style={{ padding: '7px 14px 2px', fontSize: 10, fontWeight: 700, color: PINK, textTransform: 'uppercase', letterSpacing: 0.8, backgroundColor: '#fff0f3' }}>
+                      Deduções ({percMeeiro.toFixed(0)}%)
+                    </td>
                   </tr>
                 )}
                 {valesDinheiro > 0 && (
-                  <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '8px 14px', fontSize: 12, color: '#6b7280' }}>
+                  <tr style={{ borderBottom: '1px solid #f3f4f6', backgroundColor: '#fff0f3' }}>
+                    <td style={{ padding: '6px 14px', fontSize: 12, color: '#6b7280' }}>
                       Vales Dinheiro
                       <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(valesDinheiro)} × {percMeeiro.toFixed(0)}%)</span>
                     </td>
-                    <td style={{ padding: '8px 14px', fontSize: 12, color: PINK, textAlign: 'right' }}>- {fmtBRL(dedValesDinheiro)}</td>
+                    <td style={{ padding: '6px 14px', fontSize: 12, color: PINK, textAlign: 'right' }}>- {fmtBRL(dedValesDinheiro)}</td>
                   </tr>
                 )}
                 {creditos > 0 && (
-                  <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '8px 14px', fontSize: 12, color: '#6b7280' }}>
+                  <tr style={{ borderBottom: '1px solid #f3f4f6', backgroundColor: '#fff0f3' }}>
+                    <td style={{ padding: '6px 14px', fontSize: 12, color: '#6b7280' }}>
                       Créditos (Coleta e Filmagem)
                       <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(creditos)} × {percMeeiro.toFixed(0)}%)</span>
                     </td>
-                    <td style={{ padding: '8px 14px', fontSize: 12, color: PINK, textAlign: 'right' }}>- {fmtBRL(dedCreditos)}</td>
+                    <td style={{ padding: '6px 14px', fontSize: 12, color: PINK, textAlign: 'right' }}>- {fmtBRL(dedCreditos)}</td>
                   </tr>
                 )}
                 {debitosAnteriores > 0 && (
-                  <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '8px 14px', fontSize: 12, color: '#6b7280' }}>
+                  <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#fff0f3' }}>
+                    <td style={{ padding: '6px 14px', fontSize: 12, color: '#6b7280' }}>
                       Débitos Anteriores
                       <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 6 }}>({fmtBRL(debitosAnteriores)} × {percMeeiro.toFixed(0)}%)</span>
                     </td>
-                    <td style={{ padding: '8px 14px', fontSize: 12, color: PINK, textAlign: 'right' }}>- {fmtBRL(dedDebitos)}</td>
+                    <td style={{ padding: '6px 14px', fontSize: 12, color: PINK, textAlign: 'right' }}>- {fmtBRL(dedDebitos)}</td>
                   </tr>
                 )}
                 <tr style={{ backgroundColor: `${PURPLE}10` }}>

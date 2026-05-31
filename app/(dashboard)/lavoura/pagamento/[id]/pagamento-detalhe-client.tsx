@@ -26,7 +26,7 @@ type Fechamento = {
   id: string
   produtor: Produtor
   dataInicio: string; dataFim: string; dataPagamento: string
-  valesEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number
+  combustivel: number; bandejaEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number
   status: string; createdAt: string
   colheitas: Colheita[]
 }
@@ -52,10 +52,10 @@ export default function PagamentoDetalheClient() {
   if (loading) return <PageSkeleton cards={0} rows={8} />
   if (!fechamento) return <div style={{ padding: 40, color: PINK }}>Fechamento não encontrado.</div>
 
-  const { produtor, colheitas, dataInicio, dataFim, dataPagamento, valesEmbalagem, valesDinheiro, creditos, debitosAnteriores, status } = fechamento
+  const { produtor, colheitas, dataInicio, dataFim, dataPagamento, combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores, status } = fechamento
 
   const totalFaturas = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
-  const totalDeducoes = valesEmbalagem + valesDinheiro + creditos + debitosAnteriores
+  const totalDeducoes = combustivel + bandejaEmbalagem + valesDinheiro + creditos + debitosAnteriores
   const aReceber = totalFaturas - totalDeducoes
 
   async function marcarPago() {
@@ -286,10 +286,16 @@ export default function PagamentoDetalheClient() {
               <span style={{ fontSize: 14, color: '#6b7280' }}>Total Faturas</span>
               <span style={{ fontSize: 14, fontWeight: 600, color: NAVY }}>{fmtBRL(totalFaturas)}</span>
             </div>
-            {valesEmbalagem > 0 && (
+            {combustivel > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-                <span style={{ fontSize: 13, color: '#6b7280' }}>Caixas e Bandeja</span>
-                <span style={{ fontSize: 13, color: PINK }}>- {fmtBRL(valesEmbalagem)}</span>
+                <span style={{ fontSize: 13, color: '#6b7280' }}>Combustível</span>
+                <span style={{ fontSize: 13, color: ORANGE }}>- {fmtBRL(combustivel)}</span>
+              </div>
+            )}
+            {bandejaEmbalagem > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+                <span style={{ fontSize: 13, color: '#6b7280' }}>Bandeja e Embalagens</span>
+                <span style={{ fontSize: 13, color: ORANGE }}>- {fmtBRL(bandejaEmbalagem)}</span>
               </div>
             )}
             {valesDinheiro > 0 && (

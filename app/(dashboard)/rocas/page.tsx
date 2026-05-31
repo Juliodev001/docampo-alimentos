@@ -158,7 +158,7 @@ export default async function RocasPage() {
         dataInicio:         f.dataInicio.toISOString(),
         dataFim:            f.dataFim.toISOString(),
         dataPagamento:      f.dataPagamento.toISOString(),
-        valesEmbalagem:     f.valesEmbalagem,
+        bandejaEmbalagem:     f.bandejaEmbalagem,
         valesDinheiro:      f.valesDinheiro,
         creditos:           f.creditos,
         debitosAnteriores:  f.debitosAnteriores,

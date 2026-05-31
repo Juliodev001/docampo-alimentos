@@ -17,7 +17,7 @@ type Produtor = { id: string; nome: string; cpf: string | null; parceiros: Parce
 type Fechamento = {
   id: string; produtor: Produtor
   dataInicio: string; dataFim: string; dataPagamento: string
-  valesEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number
+  combustivel: number; bandejaEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number
   status: string
 }
 type Colheita = {
@@ -35,7 +35,7 @@ function RelatorioInline({ fechamento, produtor }: { fechamento: FechamentoDetal
   const percProdutor = Math.max(0, 100 - totalParceirosPct)
 
   const bruto = fechamento.colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
-  const totalDed = fechamento.valesEmbalagem + fechamento.valesDinheiro + fechamento.creditos + fechamento.debitosAnteriores
+  const totalDed = fechamento.combustivel + fechamento.bandejaEmbalagem + fechamento.valesDinheiro + fechamento.creditos + fechamento.debitosAnteriores
 
   const partes = [
     { nome: produtor.nome, pct: percProdutor, cor: NAVY, tipo: 'Produtor' },
@@ -111,10 +111,16 @@ function RelatorioInline({ fechamento, produtor }: { fechamento: FechamentoDetal
                   <span style={{ fontSize: 13, color: '#6b7280' }}>Bruto ({parte.pct}%)</span>
                   <span style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{fmtBRL(brutoParte)}</span>
                 </div>
-                {fechamento.valesEmbalagem > 0 && (
+                {fechamento.combustivel > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-                    <span style={{ fontSize: 12, color: '#9ca3af' }}>Caixas/Bandeja</span>
-                    <span style={{ fontSize: 12, color: PINK }}>- {fmtBRL(fechamento.valesEmbalagem * fator)}</span>
+                    <span style={{ fontSize: 12, color: '#9ca3af' }}>Combustível</span>
+                    <span style={{ fontSize: 12, color: ORANGE }}>- {fmtBRL(fechamento.combustivel * fator)}</span>
+                  </div>
+                )}
+                {fechamento.bandejaEmbalagem > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
+                    <span style={{ fontSize: 12, color: '#9ca3af' }}>Bandeja/Embalagens</span>
+                    <span style={{ fontSize: 12, color: ORANGE }}>- {fmtBRL(fechamento.bandejaEmbalagem * fator)}</span>
                   </div>
                 )}
                 {fechamento.valesDinheiro > 0 && (
@@ -155,7 +161,7 @@ function FechamentoCard({ f, produtor }: { f: Fechamento; produtor: Produtor }) 
 
   const totalParceirosPct = produtor.parceiros.reduce((s, p) => s + p.percentual, 0)
   const percProdutor = Math.max(0, 100 - totalParceirosPct)
-  const totalDed = f.valesEmbalagem + f.valesDinheiro + f.creditos + f.debitosAnteriores
+  const totalDed = f.combustivel + f.bandejaEmbalagem + f.valesDinheiro + f.creditos + f.debitosAnteriores
 
   async function toggle() {
     if (!aberto && !detalhe) {
