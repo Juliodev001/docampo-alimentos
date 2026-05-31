@@ -593,10 +593,11 @@ export default function RocasClient({
           body: JSON.stringify({ produtoId: item.produtoId, quantidade: item.quantidade, valorUnit: item.preco, data: lancForm.data, observacao: `Lançamento roça — ${item.produtoNome}` }),
         })
       }
+      const totalCxLanc = lancItems.reduce((s, i) => s + i.quantidade, 0)
       const custoPayload = {
         data: lancForm.data, produtorId: lancForm.produtorId || null, rocaId: lancForm.rocaId || null,
         combustivel: parseFloat(lancForm.combustivel) || 0,
-        bandejaEmbalagem: parseFloat(lancForm.bandejaEmbalagem) || 0,
+        bandejaEmbalagem: (parseFloat(lancForm.bandejaEmbalagem) || 0) * totalCxLanc,
         valesDinheiro: parseFloat(lancForm.valesDinheiro) || 0,
         creditos: parseFloat(lancForm.creditos) || 0,
         debitosAnteriores: parseFloat(lancForm.debitosAnteriores) || 0,
@@ -1287,10 +1288,9 @@ export default function RocasClient({
           {lancViewId && (() => {
             const c = colheitas.find(x => x.id === lancViewId)
             if (!c) return null
-            const parceiro = parceirosState.find(p => p.id === c.parceiroId)
             const valorBruto = c.quantidadeTotal * c.preco
-            const embaDeducao = (parceiro?.valorEmba ?? 0) * c.quantidadeTotal
             const custo = custosState.find(k => k.produtorId === c.produtorId && k.data.split('T')[0] === c.data.split('T')[0])
+            const embaDeducao = custo?.bandejaEmbalagem ?? 0
             const outrasDeducoes = custo ? custo.combustivel + custo.valesDinheiro + custo.creditos + custo.debitosAnteriores : 0
             const totalDeducoes = embaDeducao + outrasDeducoes
             const valorLiquidoTotal = valorBruto - totalDeducoes
@@ -1323,18 +1323,12 @@ export default function RocasClient({
                       ))}
 
                       <div style={{ marginTop: 4, fontWeight: 700, color: NAVY, fontSize: 13 }}>Insumos deduzidos do total</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6', alignItems: 'flex-start' }}>
-                        <span style={{ color: '#6b7280' }}>
-                          Bandeja/Embalagens
-                          <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 6 }}>({fmtCurrency(parceiro?.valorEmba ?? 0)} × {fmtNum(c.quantidadeTotal, 0)} cx)</span>
-                          {(!parceiro || (parceiro.valorEmba ?? 0) === 0) && (
-                            <span style={{ display: 'block', fontSize: 11, color: '#d97706', marginTop: 2 }}>
-                              ⚠ Configure &quot;Custo Embalagem&quot; no cadastro do meeiro
-                            </span>
-                          )}
-                        </span>
-                        <span style={{ color: embaDeducao > 0 ? ORANGE : '#9ca3af', flexShrink: 0, marginLeft: 8 }}>- {fmtCurrency(embaDeducao)}</span>
-                      </div>
+                      {embaDeducao > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                          <span style={{ color: '#6b7280' }}>Bandeja/Embalagens</span>
+                          <span style={{ color: ORANGE }}>- {fmtCurrency(embaDeducao)}</span>
+                        </div>
+                      )}
                       {custo && custo.combustivel > 0      && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Combustível</span><span style={{ color: ORANGE }}>- {fmtCurrency(custo.combustivel)}</span></div>}
                       {custo && custo.valesDinheiro > 0    && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Vales Dinheiro</span><span style={{ color: PINK }}>- {fmtCurrency(custo.valesDinheiro)}</span></div>}
                       {custo && custo.creditos > 0         && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Créditos Coleta/Film.</span><span style={{ color: PINK }}>- {fmtCurrency(custo.creditos)}</span></div>}
@@ -2483,10 +2477,16 @@ export default function RocasClient({
                       <input type="number" min="0" step="0.01" value={lancForm.combustivel}
                         onChange={e => setLancForm(f => ({ ...f, combustivel: e.target.value }))} style={inputStyle} />
                     </FormField>
-                    <FormField label="Bandeja e embalagens (R$)">
+                    <div>
+                      <label style={{ fontSize: 13, fontWeight: 600, color: NAVY, display: 'block', marginBottom: 6 }}>Embalagem (R$/cx)</label>
                       <input type="number" min="0" step="0.01" value={lancForm.bandejaEmbalagem}
                         onChange={e => setLancForm(f => ({ ...f, bandejaEmbalagem: e.target.value }))} style={inputStyle} />
-                    </FormField>
+                      {parseFloat(lancForm.bandejaEmbalagem) > 0 && lancItems.length > 0 && (() => {
+                        const totalCx = lancItems.reduce((s, i) => s + i.quantidade, 0)
+                        const total = parseFloat(lancForm.bandejaEmbalagem) * totalCx
+                        return <p style={{ fontSize: 11, color: ORANGE, margin: '4px 0 0' }}>{fmtCurrency(parseFloat(lancForm.bandejaEmbalagem))} × {fmtNum(totalCx, 0)} cx = <strong>{fmtCurrency(total)}</strong></p>
+                      })()}
+                    </div>
                   </div>
                 </div>
 
