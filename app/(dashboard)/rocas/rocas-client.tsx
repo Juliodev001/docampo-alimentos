@@ -1292,7 +1292,10 @@ export default function RocasClient({
             const embaDeducao = (parceiro?.valorEmba ?? 0) * c.quantidadeTotal
             const custo = custosState.find(k => k.produtorId === c.produtorId && k.data.split('T')[0] === c.data.split('T')[0])
             const outrasDeducoes = custo ? custo.combustivel + custo.valesDinheiro + custo.creditos + custo.debitosAnteriores : 0
-            const valorLiquido = valorBruto - embaDeducao - outrasDeducoes
+            const totalDeducoes = embaDeducao + outrasDeducoes
+            const valorLiquidoTotal = valorBruto - totalDeducoes
+            const parteMeeiro = valorLiquidoTotal * (c.percParceiro / 100)
+            const parteProdutor = valorLiquidoTotal * ((100 - c.percParceiro) / 100)
             return (
               <>
                 <div onClick={() => setLancViewId(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 40 }} />
@@ -1304,36 +1307,47 @@ export default function RocasClient({
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
                       {[
-                        ['Data',     fmtDate(c.data)],
-                        ['Roça',     c.rocaNome ?? '—'],
-                        ['Produto',  c.produtoNome],
-                        ['Meeiro',   c.parceiroNome ?? '—'],
-                        ['Produtor', c.produtorNome ?? '—'],
-                        ['Qtde',     fmtNum(c.quantidadeTotal, 0)],
+                        ['Data',      fmtDate(c.data)],
+                        ['Roça',      c.rocaNome ?? '—'],
+                        ['Produto',   c.produtoNome],
+                        ['Meeiro',    c.parceiroNome ?? '—'],
+                        ['Produtor',  c.produtorNome ?? '—'],
+                        ['Qtde',      fmtNum(c.quantidadeTotal, 0)],
                         ['Preço un.', fmtCurrency(c.preco)],
-                        ['% Meeiro', `${c.percParceiro}%`],
-                        ['Valor bruto', fmtCurrency(valorBruto)],
+                        ['Valor bruto (100%)', fmtCurrency(valorBruto)],
                       ].map(([label, val]) => (
                         <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
                           <span style={{ color: '#6b7280', fontWeight: 500 }}>{label}</span>
                           <span style={{ color: NAVY, fontWeight: 600 }}>{val}</span>
                         </div>
                       ))}
-                      <div style={{ marginTop: 8, fontWeight: 700, color: NAVY, fontSize: 13 }}>Deduções do lançamento</div>
+
+                      <div style={{ marginTop: 4, fontWeight: 700, color: NAVY, fontSize: 13 }}>Insumos deduzidos do total</div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
                         <span style={{ color: '#6b7280' }}>
                           Bandeja/Embalagens
                           <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 6 }}>({fmtCurrency(parceiro?.valorEmba ?? 0)} × {fmtNum(c.quantidadeTotal, 0)} cx)</span>
                         </span>
-                        <span style={{ color: embaDeducao > 0 ? PINK : '#9ca3af' }}>- {fmtCurrency(embaDeducao)}</span>
+                        <span style={{ color: ORANGE }}>- {fmtCurrency(embaDeducao)}</span>
                       </div>
-                      {custo && custo.combustivel > 0      && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Combustível</span><span style={{ color: PINK }}>- {fmtCurrency(custo.combustivel)}</span></div>}
+                      {custo && custo.combustivel > 0      && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Combustível</span><span style={{ color: ORANGE }}>- {fmtCurrency(custo.combustivel)}</span></div>}
                       {custo && custo.valesDinheiro > 0    && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Vales Dinheiro</span><span style={{ color: PINK }}>- {fmtCurrency(custo.valesDinheiro)}</span></div>}
                       {custo && custo.creditos > 0         && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Créditos Coleta/Film.</span><span style={{ color: PINK }}>- {fmtCurrency(custo.creditos)}</span></div>}
                       {custo && custo.debitosAnteriores > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ color: '#6b7280' }}>Débitos Anteriores</span><span style={{ color: PINK }}>- {fmtCurrency(custo.debitosAnteriores)}</span></div>}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderTop: '2px solid #e5e7eb', marginTop: 4 }}>
-                        <span style={{ fontWeight: 700, color: NAVY }}>Valor líquido</span>
-                        <span style={{ fontWeight: 700, color: GREEN, fontSize: 15 }}>{fmtCurrency(valorLiquido)}</span>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '2px solid #e5e7eb', marginTop: 2 }}>
+                        <span style={{ fontWeight: 700, color: NAVY }}>Valor líquido total</span>
+                        <span style={{ fontWeight: 700, color: NAVY }}>{fmtCurrency(valorLiquidoTotal)}</span>
+                      </div>
+
+                      <div style={{ marginTop: 4, fontWeight: 700, color: NAVY, fontSize: 13 }}>Divisão por participante</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                        <span style={{ color: '#6b7280' }}>Meeiro — {c.parceiroNome ?? '—'} ({c.percParceiro}%)</span>
+                        <span style={{ fontWeight: 700, color: '#7c3aed' }}>{fmtCurrency(parteMeeiro)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                        <span style={{ color: '#6b7280' }}>Produtor — {c.produtorNome ?? '—'} ({100 - c.percParceiro}%)</span>
+                        <span style={{ fontWeight: 700, color: GREEN }}>{fmtCurrency(parteProdutor)}</span>
                       </div>
                     </div>
                   </div>
