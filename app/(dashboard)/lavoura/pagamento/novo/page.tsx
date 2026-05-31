@@ -36,7 +36,7 @@ export default function NovoFechamento() {
   const [buscado, setBuscado] = useState(false)
   const [buscando, setBuscando] = useState(false)
   const [combustivel, setCombustivel] = useState('0')
-  const [bandejaEmbalagem, setBandejaEmbalagem] = useState('0')
+  const [valorEmbalagem, setValorEmbalagem] = useState('0')
   const [valesDinheiro, setValesDinheiro] = useState('0')
   const [creditos, setCreditos] = useState('0')
   const [debitosAnteriores, setDebitosAnteriores] = useState('0')
@@ -47,7 +47,7 @@ export default function NovoFechamento() {
     fetch('/api/produtores').then(r => r.json()).then(d => setProdutores(Array.isArray(d) ? d : []))
     fetch('/api/configuracoes?chave=caixas_bandeja_padrao')
       .then(r => r.json())
-      .then(d => { if (d.valor) setBandejaEmbalagem(d.valor) })
+      .then(d => { if (d.valor) setValorEmbalagem(d.valor) })
   }, [])
 
   const buscarColheitas = useCallback(async () => {
@@ -67,7 +67,9 @@ export default function NovoFechamento() {
   }, [produtorId, dataInicio, dataFim])
 
   const totalFaturas = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
-  const totalInsumos = (parseFloat(combustivel) || 0) + (parseFloat(bandejaEmbalagem) || 0)
+  const totalCaixas = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
+  const bandejaEmbalagem = (parseFloat(valorEmbalagem) || 0) * totalCaixas
+  const totalInsumos = (parseFloat(combustivel) || 0) + bandejaEmbalagem
   const totalDeducoes = totalInsumos + (parseFloat(valesDinheiro) || 0) + (parseFloat(creditos) || 0) + (parseFloat(debitosAnteriores) || 0)
   const aReceber = totalFaturas - totalDeducoes
 
@@ -83,7 +85,7 @@ export default function NovoFechamento() {
       body: JSON.stringify({
         produtorId, dataInicio, dataFim, dataPagamento,
         combustivel: parseFloat(combustivel) || 0,
-        bandejaEmbalagem: parseFloat(bandejaEmbalagem) || 0,
+        bandejaEmbalagem,
         valesDinheiro: parseFloat(valesDinheiro) || 0,
         creditos: parseFloat(creditos) || 0,
         debitosAnteriores: parseFloat(debitosAnteriores) || 0,
@@ -179,15 +181,21 @@ export default function NovoFechamento() {
               <h3 style={{ fontSize: 15, fontWeight: 600, color: NAVY, margin: '0 0 4px' }}>Insumos</h3>
               <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 16px' }}>Custos de materiais utilizados neste lançamento.</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {[
-                  { label: 'Combustível (R$)', val: combustivel, set: setCombustivel },
-                  { label: 'Bandeja e Embalagens (R$)', val: bandejaEmbalagem, set: setBandejaEmbalagem },
-                ].map(({ label, val, set }) => (
-                  <div key={label}>
-                    <label style={{ ...lbl, fontSize: 12 }}>{label}</label>
-                    <input type="number" value={val} onChange={e => set(e.target.value)} min="0" step="0.01" placeholder="0,00" style={inpDed} />
-                  </div>
-                ))}
+                <div>
+                  <label style={{ ...lbl, fontSize: 12 }}>Combustível (R$)</label>
+                  <input type="number" value={combustivel} onChange={e => setCombustivel(e.target.value)} min="0" step="0.01" placeholder="0,00" style={inpDed} />
+                </div>
+                <div>
+                  <label style={{ ...lbl, fontSize: 12 }}>Valor por Embalagem (R$/cx)</label>
+                  <input type="number" value={valorEmbalagem} onChange={e => setValorEmbalagem(e.target.value)} min="0" step="0.01" placeholder="0,00" style={inpDed} />
+                  {(parseFloat(valorEmbalagem) > 0 || totalCaixas > 0) && (
+                    <p style={{ fontSize: 11, color: '#9ca3af', margin: '5px 0 0', textAlign: 'right' }}>
+                      {fmtBRL(parseFloat(valorEmbalagem) || 0)} × {totalCaixas.toFixed(1)} cx
+                      {' = '}
+                      <span style={{ fontWeight: 700, color: ORANGE }}>{fmtBRL(bandejaEmbalagem)}</span>
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
