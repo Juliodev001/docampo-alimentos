@@ -637,7 +637,14 @@ input:focus, select:focus, textarea:focus {
 
 /* Controle de Roça */
 .rocas-page { padding: 28px 32px; }
-@media (max-width: 767px) { .rocas-page { padding: 16px 8px; } }
+@media (max-width: 767px) {
+  .rocas-page { padding: 16px 8px; }
+  /* scroll horizontal automático em qualquer div que contenha tabela */
+  .rocas-page div:has(> table) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
 
 /* Scrollbar customizado para o body */
 html {
