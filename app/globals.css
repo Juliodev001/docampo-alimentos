@@ -646,6 +646,13 @@ input:focus, select:focus, textarea:focus {
   }
 }
 
+/* KPI cards flex — 2 colunas no mobile */
+.kpi-flex { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.kpi-flex > * { flex: 1 1 calc(50% - 6px); min-width: 0; }
+@media (max-width: 480px) {
+  .kpi-flex > * { flex: 1 1 calc(50% - 6px); }
+}
+
 /* Scrollbar customizado para o body */
 html {
   scrollbar-width: thin;

@@ -340,7 +340,7 @@ export default function ComprasClient({ centrosCusto }: { centrosCusto: CentroCu
       </div>
 
       {/* ── KPI cards ──────────────────────────── */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div className="kpi-flex">
         <KpiCard label="Total de despesas em aberto"  value={emAberto}                  color={ORANGE} icon={faFileLines}    />
         <KpiCard label="Total de despesas quitadas"   value={quitadas}                  color={GREEN}  icon={faCircleCheck}  />
         <KpiCard label="Valor total em aberto"        value={formatCurrency(valAberto)} color={PINK}   icon={faCalendar}     />
@@ -623,7 +623,7 @@ export default function ComprasClient({ centrosCusto }: { centrosCusto: CentroCu
 
             <form onSubmit={handleSalvar}>
               {/* Row 1: Descrição + Tipo de custo */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              <div className="form-grid-2" style={{ marginBottom: 16 }}>
                 <div>
                   <FieldLabel>Descrição</FieldLabel>
                   <input
@@ -665,7 +665,7 @@ export default function ComprasClient({ centrosCusto }: { centrosCusto: CentroCu
               </div>
 
               {/* Row 3: Valor + Data */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              <div className="form-grid-2" style={{ marginBottom: 16 }}>
                 <div>
                   <FieldLabel>Valor (R$)</FieldLabel>
                   <input
