@@ -127,8 +127,8 @@ export default function TopBar() {
         </span>
       </nav>
 
-      {/* Date */}
-      {dateStr && (
+      {/* Date — oculto no mobile */}
+      {dateStr && !isMobile && (
         <span style={{
           fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap',
           display: 'flex', alignItems: 'center', gap: 4,
