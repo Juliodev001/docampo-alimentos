@@ -646,11 +646,15 @@ input:focus, select:focus, textarea:focus {
   }
 }
 
-/* KPI cards flex — 2 colunas no mobile */
-.kpi-flex { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
-.kpi-flex > * { flex: 1 1 calc(50% - 6px); min-width: 0; }
-@media (max-width: 480px) {
-  .kpi-flex > * { flex: 1 1 calc(50% - 6px); }
+/* KPI cards — 4 colunas desktop, 2 no mobile */
+.kpi-flex {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+@media (max-width: 767px) {
+  .kpi-flex { grid-template-columns: repeat(2, 1fr); gap: 10px; }
 }
 
 /* Scrollbar customizado para o body */
