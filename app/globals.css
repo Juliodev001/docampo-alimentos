@@ -655,6 +655,7 @@ input:focus, select:focus, textarea:focus {
 }
 @media (max-width: 767px) {
   .kpi-flex { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .kpi-val { font-size: 18px !important; }
 }
 
 /* Scrollbar customizado para o body */

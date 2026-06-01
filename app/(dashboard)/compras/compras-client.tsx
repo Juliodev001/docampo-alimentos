@@ -62,14 +62,14 @@ function KpiCard({
       flex: 1,
       minWidth: 0,
     }}>
-      <div>
+      <div style={{ minWidth: 0, flex: 1 }}>
         <p style={{ fontSize: 12, color: '#6b7280', margin: 0 }}>{label}</p>
-        <p style={{ fontSize: 24, fontWeight: 700, color, margin: '6px 0 0', lineHeight: 1.1 }}>
+        <p className="kpi-val" style={{ fontSize: 24, fontWeight: 700, color, margin: '6px 0 0', lineHeight: 1.1, wordBreak: 'break-word' }}>
           {value}
         </p>
       </div>
-      <div style={{ background: `${color}18`, borderRadius: 8, padding: 9, flexShrink: 0, marginLeft: 8 }}>
-        <FontAwesomeIcon icon={icon} style={{ fontSize: 18, color }} />
+      <div style={{ background: `${color}18`, borderRadius: 8, padding: 8, flexShrink: 0, marginLeft: 6 }}>
+        <FontAwesomeIcon icon={icon} style={{ fontSize: 16, color }} />
       </div>
     </div>
   )
