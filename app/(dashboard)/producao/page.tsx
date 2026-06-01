@@ -95,7 +95,7 @@ export default async function ProducaoPage() {
             }}
           >
             <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>{label}</p>
-            <p style={{ fontSize: 24, fontWeight: 800, color, margin: '0 0 2px' }}>{value}</p>
+            <p className="kpi-val" style={{ fontSize: 24, fontWeight: 800, color, margin: '0 0 2px', wordBreak: 'break-word' }}>{value}</p>
             <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>{sub}</p>
           </div>
         ))}

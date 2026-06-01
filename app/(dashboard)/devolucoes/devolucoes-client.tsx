@@ -55,15 +55,15 @@ export default function DevolucoesClient({ devolucoes, total, totalValor, penden
             style={{ backgroundColor: 'white', borderRadius: 14, padding: '20px 22px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `4px solid ${color}` }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <p style={{ color: '#6b7280', fontSize: 12, margin: 0 }}>{label}</p>
                 <motion.p
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.08 + 0.2 }}
-                  style={{ color, fontSize: 22, fontWeight: 700, margin: '6px 0 0' }}
+                  className="kpi-val" style={{ color, fontSize: 22, fontWeight: 700, margin: '6px 0 0', wordBreak: 'break-word' }}
                 >{display}</motion.p>
               </div>
-              <div style={{ backgroundColor: `${color}15`, borderRadius: 10, padding: 9 }}>
-                <FontAwesomeIcon icon={icon} style={{ fontSize: 18, color }} />
+              <div style={{ backgroundColor: `${color}15`, borderRadius: 10, padding: 8, flexShrink: 0, marginLeft: 6 }}>
+                <FontAwesomeIcon icon={icon} style={{ fontSize: 16, color }} />
               </div>
             </div>
           </motion.div>

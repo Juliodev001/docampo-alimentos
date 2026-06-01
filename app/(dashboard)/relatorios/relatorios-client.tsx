@@ -494,7 +494,7 @@ function ResultBody({ result }: { result: ReportResult }) {
               <p style={{ fontSize: 12, color: "#6b7280", margin: "0 0 4px" }}>
                 {label}
               </p>
-              <p style={{ fontSize: 20, fontWeight: 700, color, margin: 0 }}>
+              <p className="kpi-val" style={{ fontSize: 20, fontWeight: 700, color, margin: 0, wordBreak: 'break-word' }}>
                 {formatCurrency(value)}
               </p>
             </div>

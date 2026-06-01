@@ -399,15 +399,15 @@ export default function CaixaClient({
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <p style={{ color: '#6b7280', fontSize: 12, margin: 0 }}>{label}</p>
                 <motion.p
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.08 + 0.18 }}
-                  style={{ color, fontSize: 20, fontWeight: 700, margin: '6px 0 0' }}
+                  className="kpi-val" style={{ color, fontSize: 20, fontWeight: 700, margin: '6px 0 0', wordBreak: 'break-word' }}
                 >{value}</motion.p>
               </div>
-              <div style={{ backgroundColor: `${color}15`, borderRadius: 10, padding: 9 }}>
-                <FontAwesomeIcon icon={icon} style={{ fontSize: 18, color }} />
+              <div style={{ backgroundColor: `${color}15`, borderRadius: 10, padding: 8, flexShrink: 0, marginLeft: 6 }}>
+                <FontAwesomeIcon icon={icon} style={{ fontSize: 16, color }} />
               </div>
             </div>
           </motion.div>

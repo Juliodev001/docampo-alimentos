@@ -158,7 +158,7 @@ export default function EstoqueClient({
         Movimentações por tipo
       </motion.p>
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 12, marginBottom: 24, overflowX: 'auto' }}>
+        className="kpi-grid-7">
         {TIPOS_CONFIG.map((cfg, i) => {
           const val = kpisLocal[cfg.key as keyof KpisMovimento]
           return (
@@ -166,10 +166,10 @@ export default function EstoqueClient({
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 + i * 0.04 }}
               whileHover={{ y: -2, boxShadow: '0 6px 20px rgba(0,0,0,0.09)' }}
-              style={{ backgroundColor: 'white', borderRadius: 14, padding: '16px 14px', boxShadow: '0 2px 6px rgba(0,0,0,0.06)', cursor: 'default', minWidth: 120 }}>
+              style={{ backgroundColor: 'white', borderRadius: 14, padding: '16px 14px', boxShadow: '0 2px 6px rgba(0,0,0,0.06)', cursor: 'default', minWidth: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                 <div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: cfg.sign === '+' ? (val > 0 ? cfg.color : NAVY) : PINK, lineHeight: 1 }}>
+                  <div className="kpi-val" style={{ fontSize: 20, fontWeight: 800, color: cfg.sign === '+' ? (val > 0 ? cfg.color : NAVY) : PINK, lineHeight: 1, wordBreak: 'break-word' }}>
                     {cfg.sign}{val.toFixed(0)}
                     <span style={{ fontSize: 12, fontWeight: 500, color: '#9ca3af', marginLeft: 3 }}>un</span>
                   </div>

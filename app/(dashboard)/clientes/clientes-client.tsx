@@ -439,12 +439,12 @@ export default function ClientesClient({ clientes: inicial }: { clientes: Client
             transition={{ delay: i * 0.07 + 0.1, duration: 0.4, type: 'spring', stiffness: 180 }}
             style={{ backgroundColor: 'white', borderRadius: 14, padding: '18px 22px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `4px solid ${color}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <p style={{ color: '#6b7280', fontSize: 12, margin: 0 }}>{label}</p>
-                <p style={{ color, fontSize: 28, fontWeight: 700, margin: '4px 0 0' }}>{value}</p>
+                <p className="kpi-val" style={{ color, fontSize: 28, fontWeight: 700, margin: '4px 0 0', wordBreak: 'break-word' }}>{value}</p>
               </div>
-              <div style={{ backgroundColor: `${color}15`, borderRadius: 10, padding: 10 }}>
-                <FontAwesomeIcon icon={icon} style={{ fontSize: 20, color }} />
+              <div style={{ backgroundColor: `${color}15`, borderRadius: 10, padding: 8, flexShrink: 0, marginLeft: 6 }}>
+                <FontAwesomeIcon icon={icon} style={{ fontSize: 16, color }} />
               </div>
             </div>
           </motion.div>
@@ -733,7 +733,7 @@ export default function ClientesClient({ clientes: inicial }: { clientes: Client
                   <div style={{ overflowY: 'auto', flex: 1, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
                     {/* KPI cards */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                    <div className="kpi-grid-4" style={{ marginBottom: 0 }}>
                       {[
                         { label: 'Total Comprado', value: formatCurrency(compras.totalComprado), color: GREEN, icon: faChartLine },
                         { label: 'Pedidos',         value: compras.qtdPedidos,                    color: BLUE,  icon: faBagShopping },

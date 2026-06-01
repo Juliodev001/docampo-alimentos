@@ -604,7 +604,7 @@ export default function LavouraClient({ meses, colheitasRecentes, produtos }: Pr
             whileHover={{ y: -4, boxShadow: '0 10px 32px rgba(0,0,0,0.1)' }}
             style={{ backgroundColor: 'white', borderRadius: 14, padding: '22px 24px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `4px solid ${color}` }}>
             <p style={{ color: '#6b7280', fontSize: 13, margin: 0 }}>{label}</p>
-            <p style={{ color, fontSize: 26, fontWeight: 700, margin: '6px 0 3px' }}>{value}</p>
+            <p className="kpi-val" style={{ color, fontSize: 26, fontWeight: 700, margin: '6px 0 3px', wordBreak: 'break-word' }}>{value}</p>
             <p style={{ color: '#9ca3af', fontSize: 11, margin: 0 }}>{sub}</p>
           </motion.div>
         ))}

@@ -52,9 +52,9 @@ function KpiCard({
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         flexShrink: 0,
       }}>
-        <FontAwesomeIcon icon={icon} style={{ fontSize: 18, color }} />
+        <FontAwesomeIcon icon={icon} style={{ fontSize: 16, color }} />
       </div>
-      <p style={{ fontSize: 22, fontWeight: 700, color: NAVY, margin: 0, lineHeight: 1 }}>
+      <p className="kpi-val" style={{ fontSize: 22, fontWeight: 700, color: NAVY, margin: 0, lineHeight: 1, wordBreak: 'break-word' }}>
         {value}
       </p>
       <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>{label}</p>
@@ -154,7 +154,7 @@ export default function ContasReceberClient({
       </div>
 
       {/* ── KPI cards ── */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div className="kpi-flex">
         {kpis.map(k => <KpiCard key={k.label} {...k} />)}
       </div>
 

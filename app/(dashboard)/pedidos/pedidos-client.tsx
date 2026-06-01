@@ -78,7 +78,7 @@ function SectionKpiCard({
       }}>
         <FontAwesomeIcon icon={icon} style={{ fontSize: 16, color: iconColor }} />
       </div>
-      <p style={{ fontSize: value ? 22 : 28, fontWeight: 700, color: NAVY, margin: 0, lineHeight: 1 }}>
+      <p className="kpi-val" style={{ fontSize: value ? 22 : 28, fontWeight: 700, color: NAVY, margin: 0, lineHeight: 1, wordBreak: 'break-word' }}>
         {value ?? count}
       </p>
       <p style={{ fontSize: 14, fontWeight: 600, color: NAVY, margin: 0 }}>{title}</p>

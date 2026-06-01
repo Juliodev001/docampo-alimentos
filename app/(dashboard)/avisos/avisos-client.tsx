@@ -109,7 +109,7 @@ export default function AvisosClient({
       </div>
 
       {/* KPIs fiado */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
+      <div className="kpi-grid-4" style={{ marginBottom: 28 }}>
         {[
           { label: 'Total em aberto',  value: formatCurrency(totalFiado),       color: NAVY,   sub: `${fiadosState.length} cobranças` },
           { label: 'Em atraso',        value: String(atrasados.length),         color: PINK,   sub: 'cobranças vencidas' },
@@ -117,7 +117,7 @@ export default function AvisosClient({
           { label: 'Próximos 7 dias',  value: String(proximosSete.length),      color: BLUE,   sub: 'cobranças chegando' },
         ].map(k => (
           <div key={k.label} style={{ background: 'white', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
-            <p style={{ fontSize: 22, fontWeight: 700, color: k.color, margin: '0 0 4px' }}>{k.value}</p>
+            <p className="kpi-val" style={{ fontSize: 22, fontWeight: 700, color: k.color, margin: '0 0 4px', wordBreak: 'break-word' }}>{k.value}</p>
             <p style={{ fontSize: 12, fontWeight: 600, color: NAVY, margin: '0 0 2px' }}>{k.label}</p>
             <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>{k.sub}</p>
           </div>

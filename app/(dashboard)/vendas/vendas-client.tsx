@@ -102,12 +102,12 @@ export default function VendasClient({
             style={{ backgroundColor: 'white', borderRadius: 14, padding: '16px 18px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `4px solid ${color}` }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <p style={{ color: '#6b7280', fontSize: 11, margin: 0, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>{label}</p>
-                <p style={{ color, fontSize: 20, fontWeight: 700, margin: '4px 0 0' }}>{formatCurrency(value)}</p>
+                <p className="kpi-val" style={{ color, fontSize: 20, fontWeight: 700, margin: '4px 0 0', wordBreak: 'break-word' }}>{formatCurrency(value)}</p>
                 {sub && <p style={{ color: '#9ca3af', fontSize: 11, margin: '2px 0 0' }}>{sub}</p>}
               </div>
-              <div style={{ backgroundColor: `${color}15`, borderRadius: 8, padding: 8 }}>
+              <div style={{ backgroundColor: `${color}15`, borderRadius: 8, padding: 8, flexShrink: 0, marginLeft: 6 }}>
                 <FontAwesomeIcon icon={icon} style={{ fontSize: 16, color }} />
               </div>
             </div>
