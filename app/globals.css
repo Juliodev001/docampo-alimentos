@@ -729,8 +729,10 @@ html::-webkit-scrollbar-thumb:hover {
   }
   /* Todas as tabelas do dashboard scrollam horizontalmente */
   .dashboard-main div:has(> table),
-  .dashboard-main div:has(> div > table) {
-    overflow-x: auto;
+  .dashboard-main div:has(> div > table),
+  .rocas-page div:has(> table) {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
     -webkit-overflow-scrolling: touch;
   }
   .dashboard-content {
