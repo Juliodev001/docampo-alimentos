@@ -220,7 +220,7 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
     <div>
       {/* ── Header ── */}
       <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+        className="flex-header">
         <div>
           <h1 style={{ fontSize: 26, fontWeight: 700, color: NAVY, margin: 0 }}>Produtos</h1>
           <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>Gerencie seu catálogo de produtos</p>
@@ -260,7 +260,7 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
 
       {/* ── Table ── */}
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.4 }}
-        style={{ backgroundColor: 'white', borderRadius: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflow: 'visible' }}>
+        style={{ backgroundColor: 'white', borderRadius: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
 
         {filtrados.length === 0 ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -434,7 +434,7 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
                     {/* ── Categorização ── */}
                     <div>
                       <SectionTitle title="Categorização" />
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div className="grid-2">
                         <div>
                           <label style={lbl}>Categoria <span style={{ color: PINK }}>*</span></label>
                           <input
@@ -459,7 +459,7 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
                     {/* ── Preços ── */}
                     <div>
                       <SectionTitle title="Preços" />
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
+                      <div className="grid-4">
                         <div>
                           <label style={lbl}>Preço de Custo <span style={{ color: PINK }}>*</span></label>
                           <input type="number" step="0.01" min="0" value={form.precoCusto}
@@ -491,7 +491,7 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
                     <div>
                       <SectionTitle title="Estoque" />
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                        <div className="grid-3">
                           <div>
                             <label style={lbl}>
                               Estoque Atual {!editing && <span style={{ color: PINK }}>*</span>}
@@ -516,7 +516,7 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
                               placeholder="0" style={inp} />
                           </div>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <div className="grid-2">
                           <div>
                             <label style={lbl}>Unidade de Medida <span style={{ color: PINK }}>*</span></label>
                             <select value={form.unidade} onChange={e => setForm(p => ({ ...p, unidade: e.target.value }))} style={inp}>
@@ -535,7 +535,7 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
                     {/* ── Informações Fiscais ── */}
                     <div>
                       <SectionTitle title="Informações Fiscais" />
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                      <div className="grid-3">
                         <div>
                           <label style={lbl}>NCM</label>
                           <input value={form.ncm} onChange={e => setForm(p => ({ ...p, ncm: e.target.value }))}
@@ -557,7 +557,7 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
                     {/* ── Dimensões e Peso ── */}
                     <div>
                       <SectionTitle title="Dimensões e Peso" />
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
+                      <div className="grid-4">
                         <div>
                           <label style={lbl}>Peso (kg)</label>
                           <input type="number" step="0.001" min="0" value={form.peso}
@@ -598,7 +598,7 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
                         </div>
                         <div>
                           <label style={lbl}>Status</label>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, maxWidth: 320 }}>
+                          <div className="grid-2" style={{ gap: 10, maxWidth: 320 }}>
                             {([{ val: true, label: 'Ativo' }, { val: false, label: 'Inativo' }] as const).map(opt => (
                               <button key={String(opt.val)} type="button" onClick={() => setForm(p => ({ ...p, ativo: opt.val }))}
                                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', border: `2px solid ${form.ativo === opt.val ? (opt.val ? BLUE : PINK) : '#e5e7eb'}`, borderRadius: 10, background: form.ativo === opt.val ? (opt.val ? '#eff6ff' : '#fff0f3') : 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 13, color: form.ativo === opt.val ? (opt.val ? BLUE : PINK) : '#374151', transition: 'all 0.15s' }}>

@@ -254,7 +254,7 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
   return (
     <div>
       {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div className="flex-header">
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: NAVY, margin: 0 }}>Pedidos</h1>
           <p style={{ fontSize: 13, color: '#6b7280', margin: '4px 0 0' }}>Gestão completa de vendas e compras</p>

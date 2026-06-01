@@ -58,7 +58,7 @@ export default async function ProducaoPage() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+      <div className="flex-header">
         <div>
           <h1 style={{ fontSize: 26, fontWeight: 700, color: NAVY, margin: 0 }}>Produção</h1>
           <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>

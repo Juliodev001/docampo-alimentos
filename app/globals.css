@@ -728,6 +728,12 @@ html::-webkit-scrollbar-thumb:hover {
     overflow-x: hidden;
     max-width: 100vw;
   }
+  /* Todas as tabelas do dashboard scrollam horizontalmente */
+  .dashboard-main div:has(> table),
+  .dashboard-main div:has(> div > table) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   .dashboard-content {
     margin-left: 0 !important;
     max-width: 100vw;
