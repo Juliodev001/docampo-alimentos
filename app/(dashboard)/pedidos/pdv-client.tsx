@@ -539,36 +539,9 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
         {/* Resumo + ações */}
         <div style={{ padding: '12px 14px', borderTop: '1px solid #f3f4f6', background: 'white', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-          {/* Produto avulso */}
-          {!showAvulso ? (
-            <button onClick={() => setShowAvulso(true)} style={{ width: '100%', padding: '6px', background: '#f8fafc', border: '1.5px dashed #cbd5e1', borderRadius: 8, color: '#64748b', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-              + Produto avulso
-            </button>
-          ) : (
-            <div style={{ background: '#f8fafc', border: '1.5px solid #3b82f6', borderRadius: 8, padding: '10px 10px 8px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#3b82f6', marginBottom: 8 }}>Produto avulso</div>
-              <input placeholder="Nome do produto *" value={avulsoNome} onChange={e => setAvulsoNome(e.target.value)}
-                style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px 8px', fontSize: 12, marginBottom: 6, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 8 }}>
-                <input placeholder="Preço" value={avulsoPreco} onChange={e => setAvulsoPreco(e.target.value)} type="number" min="0" step="0.01"
-                  style={{ border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px 8px', fontSize: 12, fontFamily: 'inherit', outline: 'none' }} />
-                <input placeholder="Qtd" value={avulsoQtd} onChange={e => setAvulsoQtd(e.target.value)} type="number" min="1"
-                  style={{ border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px 8px', fontSize: 12, fontFamily: 'inherit', outline: 'none' }} />
-                <select value={avulsoUnidade} onChange={e => setAvulsoUnidade(e.target.value)}
-                  style={{ border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px 4px', fontSize: 12, fontFamily: 'inherit', outline: 'none' }}>
-                  {['UNIDADE','CAIXA','KG','LITRO','DUZIA','SACO'].map(u => <option key={u}>{u}</option>)}
-                </select>
-              </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={addAvulso} disabled={!avulsoNome.trim()} style={{ flex: 2, padding: '6px', background: !avulsoNome.trim() ? '#cbd5e1' : '#3b82f6', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: !avulsoNome.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-                  Adicionar
-                </button>
-                <button onClick={() => setShowAvulso(false)} style={{ flex: 1, padding: '6px', background: '#fff', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          )}
+          <button onClick={() => setShowAvulso(true)} style={{ width: '100%', padding: '7px', background: '#f8fafc', border: '1.5px dashed #cbd5e1', borderRadius: 8, color: '#64748b', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            + Produto avulso
+          </button>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#6b7280' }}>
             <span>Subtotal</span>
@@ -629,6 +602,55 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
           </button>
         </div>
       </div>
+
+      {/* ═══════ MODAL PRODUTO AVULSO ═══════ */}
+      {showAvulso && (
+        <>
+          <div onClick={() => setShowAvulso(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000 }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 1001, width: '100%', maxWidth: 380, padding: '0 16px' }}>
+            <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>Produto avulso</span>
+                <button onClick={() => setShowAvulso(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 18 }}>✕</button>
+              </div>
+              <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Nome do produto *</label>
+                  <input autoFocus placeholder="Ex: Tomate cereja" value={avulsoNome} onChange={e => setAvulsoNome(e.target.value)}
+                    style={{ width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '9px 12px', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 10 }}>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Preço (R$)</label>
+                    <input placeholder="0,00" value={avulsoPreco} onChange={e => setAvulsoPreco(e.target.value)} type="number" min="0" step="0.01"
+                      style={{ width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '9px 12px', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Qtd</label>
+                    <input placeholder="1" value={avulsoQtd} onChange={e => setAvulsoQtd(e.target.value)} type="number" min="1"
+                      style={{ width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '9px 12px', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Unidade</label>
+                  <select value={avulsoUnidade} onChange={e => setAvulsoUnidade(e.target.value)}
+                    style={{ width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '9px 12px', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', background: '#fff' }}>
+                    {['UNIDADE','CAIXA','KG','LITRO','DUZIA','SACO'].map(u => <option key={u}>{u}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ padding: '12px 20px 16px', display: 'flex', gap: 10 }}>
+                <button onClick={() => setShowAvulso(false)} style={{ flex: 1, padding: '10px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Cancelar
+                </button>
+                <button onClick={addAvulso} disabled={!avulsoNome.trim()} style={{ flex: 2, padding: '10px', background: !avulsoNome.trim() ? '#d1d5db' : BLUE, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: !avulsoNome.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                  Adicionar ao carrinho
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ═══════ MODAL DE PAGAMENTO ═══════ */}
       {modalOpen && (
