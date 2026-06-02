@@ -44,11 +44,14 @@ model Produto {
   largura          Float?
   dataValidade     DateTime?
   observacao       String?
-  ativo            Boolean          @default(true)
-  createdAt        DateTime         @default(now())
-  colheitas        ColheitaDiaria[]
-  saidas           SaidaLavoura[]
-  entradas         EntradaEstoque[]
+  ativo                Boolean          @default(true)
+  estoqueVinculadoId   String?
+  estoqueVinculado     Produto?         @relation("EstoqueVinculo", fields: [estoqueVinculadoId], references: [id])
+  vinculados           Produto[]        @relation("EstoqueVinculo")
+  createdAt            DateTime         @default(now())
+  colheitas            ColheitaDiaria[]
+  saidas               SaidaLavoura[]
+  entradas             EntradaEstoque[]
 }
 
 model EntradaEstoque {

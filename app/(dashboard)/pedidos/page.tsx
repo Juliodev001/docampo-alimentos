@@ -13,7 +13,10 @@ export default async function PedidosPage() {
     prisma.produto.findMany({
       where: { ativo: true },
       orderBy: { nome: 'asc' },
-      include: { entradas: { select: { quantidade: true } } },
+      include: {
+        entradas: { select: { quantidade: true } },
+        estoqueVinculado: { include: { entradas: { select: { quantidade: true } } } },
+      },
     }),
   ])
 
@@ -36,7 +39,10 @@ export default async function PedidosPage() {
         id: p.id, nome: p.nome, precoVenda: p.precoVenda, precoPromocional: p.precoPromocional,
         precoPdv: p.precoPdv,
         unidade: p.unidade, categoria: p.categoria, ativo: p.ativo,
-        estoque: p.entradas.reduce((s, e) => s + e.quantidade, 0),
+        estoqueVinculadoId: p.estoqueVinculadoId ?? null,
+        estoque: p.estoqueVinculado
+          ? p.estoqueVinculado.entradas.reduce((s, e) => s + e.quantidade, 0)
+          : p.entradas.reduce((s, e) => s + e.quantidade, 0),
       }))}
     />
   )

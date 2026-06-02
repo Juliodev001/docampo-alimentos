@@ -67,13 +67,15 @@ export async function POST(req: NextRequest) {
     include: { cliente: true, fornecedor: true, transportadora: true, itens: true },
   })
 
-  // Deduz estoque para vendas PDV
+  // Deduz estoque para vendas PDV (usa estoque vinculado se houver)
   if (tipo === 'PDV') {
     for (const it of itens as { produtoId?: string; quantidade: number; valorUnit: number }[]) {
       if (it.produtoId) {
+        const prod = await prisma.produto.findUnique({ where: { id: it.produtoId }, select: { estoqueVinculadoId: true } })
+        const estoqueId = prod?.estoqueVinculadoId ?? it.produtoId
         await prisma.entradaEstoque.create({
           data: {
-            produtoId:  it.produtoId,
+            produtoId:  estoqueId,
             quantidade: -it.quantidade,
             valorUnit:  it.valorUnit,
             data:       new Date(data),

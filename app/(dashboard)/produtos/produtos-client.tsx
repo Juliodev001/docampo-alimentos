@@ -35,6 +35,7 @@ const emptyForm = {
   ncm: '', cest: '', cfop: '',
   peso: '', altura: '', largura: '', dataValidade: '',
   observacao: '', ativo: true,
+  estoqueVinculadoId: '' as string,
 }
 
 const inp: React.CSSProperties = {
@@ -128,6 +129,7 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
       largura: p.largura != null ? f(p.largura) : '',
       dataValidade: p.dataValidade ? p.dataValidade.slice(0, 10) : '',
       observacao: p.observacao ?? '', ativo: p.ativo,
+      estoqueVinculadoId: (p as unknown as { estoqueVinculadoId?: string }).estoqueVinculadoId ?? '',
     })
     setError(''); setOpenMenu(null); setModal(true)
   }
@@ -161,6 +163,7 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
         dataValidade: form.dataValidade || null,
         observacao: form.observacao.trim() || null,
         ativo: form.ativo,
+        estoqueVinculadoId: form.estoqueVinculadoId || null,
       }
       if (editing) {
         const res = await fetch(`/api/produtos/${editing.id}`, {
@@ -502,6 +505,16 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
                               readOnly={!!editing}
                               style={{ ...inp, background: editing ? '#f9fafb' : 'white', color: editing ? '#9ca3af' : NAVY }} />
                             {editing && <p style={{ fontSize: 11, color: '#9ca3af', margin: '3px 0 0' }}>Gerencie via Movimentações</p>}
+                          </div>
+                          <div>
+                            <label style={lbl}>Vincular estoque a outro produto</label>
+                            <select value={form.estoqueVinculadoId} onChange={e => setForm(p => ({ ...p, estoqueVinculadoId: e.target.value }))} style={inp}>
+                              <option value="">— Estoque próprio —</option>
+                              {filtrados.filter(p => p.id !== editing?.id).map(p => (
+                                <option key={p.id} value={p.id}>{p.nome}</option>
+                              ))}
+                            </select>
+                            <p style={{ fontSize: 11, color: '#9ca3af', margin: '3px 0 0' }}>Ao vender este produto, o estoque do produto selecionado será deduzido.</p>
                           </div>
                           <div>
                             <label style={lbl}>Estoque Mínimo <span style={{ color: PINK }}>*</span></label>

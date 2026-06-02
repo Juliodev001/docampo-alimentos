@@ -25,6 +25,7 @@ type Produto = {
   categoria: string | null
   ativo: boolean
   estoque: number
+  estoqueVinculadoId: string | null
 }
 
 type Cliente = { id: string; nome: string }
