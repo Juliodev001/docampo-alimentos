@@ -382,13 +382,15 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
                             setEditingPriceId(p.id)
                             setEditingPriceVal(String(p.precoPdv > 0 ? p.precoPdv : price))
                           }}
-                          title="Editar preço PDV"
+                          title="Clique para editar o preço do PDV"
                           style={{
-                            background: 'none', border: 'none', cursor: 'pointer',
-                            padding: '1px 3px', color: '#d1d5db', display: 'flex', alignItems: 'center',
+                            background: '#eff6ff', border: 'none', cursor: 'pointer',
+                            padding: '3px 6px', borderRadius: 5, color: BLUE,
+                            display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600,
                           }}
                         >
-                          <FontAwesomeIcon icon={faPencil} style={{ fontSize: 9 }} />
+                          <FontAwesomeIcon icon={faPencil} style={{ fontSize: 10 }} />
+                          preço
                         </button>
                       </div>
                     )}
