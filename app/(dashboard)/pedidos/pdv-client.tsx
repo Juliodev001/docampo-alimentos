@@ -79,6 +79,7 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
   const [cashReceived, setCashReceived] = useState('')
   const [dataCobranca, setDataCobranca] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [lastPedidoId, setLastPedidoId] = useState<string | null>(null)
 
   /* edição de preço inline no card */
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null)
@@ -204,6 +205,8 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
         const err = await res.json()
         throw new Error(err.error || 'Erro ao registrar venda')
       }
+      const saved = await res.json()
+      setLastPedidoId(saved.id)
       toast.success('Venda registrada!', `Total: ${formatCurrency(total)}`)
       clearCart()
       setModalOpen(false)
@@ -521,8 +524,29 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
             <span style={{ color: GREEN }}>{formatCurrency(total)}</span>
           </div>
 
+          {lastPedidoId && (
+            <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#166534' }}>✅ Venda registrada!</div>
+                <div style={{ fontSize: 11, color: '#15803d', marginTop: 2 }}>Clique para imprimir o formulário</div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <button
+                  onClick={() => { window.open(`/imprimir/venda-pdv/${lastPedidoId}`, '_blank'); setLastPedidoId(null) }}
+                  style={{ padding: '7px 12px', background: '#166534', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  📄 Abrir Formulário
+                </button>
+                <button
+                  onClick={() => setLastPedidoId(null)}
+                  style={{ padding: '5px 12px', background: 'none', color: '#166534', border: '1px solid #86efac', borderRadius: 7, fontSize: 11, cursor: 'pointer' }}>
+                  Ignorar
+                </button>
+              </div>
+            </div>
+          )}
+
           <button
-            onClick={() => { if (cart.length > 0) setModalOpen(true) }}
+            onClick={() => { if (cart.length > 0) { setLastPedidoId(null); setModalOpen(true) } }}
             disabled={cart.length === 0}
             style={{
               padding: '13px', background: cart.length === 0 ? '#d1d5db' : GREEN,
