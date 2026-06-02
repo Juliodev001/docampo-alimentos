@@ -86,6 +86,17 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
   const [editingPriceVal, setEditingPriceVal] = useState('')
   const [produtosLocal, setProdutosLocal] = useState(produtos)
 
+  /* edição de nome no carrinho */
+  const [editingNomeId, setEditingNomeId] = useState<string | null>(null)
+  const [editingNomeVal, setEditingNomeVal] = useState('')
+
+  /* produto avulso */
+  const [showAvulso, setShowAvulso] = useState(false)
+  const [avulsoNome, setAvulsoNome] = useState('')
+  const [avulsoPreco, setAvulsoPreco] = useState('')
+  const [avulsoQtd, setAvulsoQtd] = useState('1')
+  const [avulsoUnidade, setAvulsoUnidade] = useState('UNIDADE')
+
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -161,6 +172,25 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
     setCart(prev => prev.filter(it => it.produtoId !== produtoId))
   }
 
+  function updateNome(produtoId: string, nome: string) {
+    setCart(prev => prev.map(it => it.produtoId === produtoId ? { ...it, nome } : it))
+    setEditingNomeId(null)
+  }
+
+  function addAvulso() {
+    const preco = parseFloat(avulsoPreco.replace(',', '.')) || 0
+    const qtd   = parseInt(avulsoQtd) || 1
+    if (!avulsoNome.trim()) return
+    const id = `avulso-${Date.now()}`
+    setCart(prev => [...prev, {
+      produtoId: id, nome: avulsoNome.trim(),
+      unidade: avulsoUnidade, quantidade: qtd,
+      valorUnit: preco, desconto: 0, total: preco * qtd,
+    }])
+    setAvulsoNome(''); setAvulsoPreco(''); setAvulsoQtd('1')
+    setShowAvulso(false)
+  }
+
   function clearCart() {
     setCart([])
     setGlobalDiscount('')
@@ -191,7 +221,7 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
           formaPagamento: paymentMethod,
           dataCobranca: paymentMethod === 'FIADO' && dataCobranca ? dataCobranca : undefined,
           itens: cart.map(item => ({
-            produtoId: item.produtoId,
+            produtoId: item.produtoId.startsWith('avulso-') ? undefined : item.produtoId,
             produto: item.nome,
             unidade: item.unidade,
             quantidade: item.quantidade,
@@ -423,6 +453,39 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
               </button>
             )}
           </div>
+
+          {/* Produto avulso */}
+          <div style={{ marginTop: 8 }}>
+            {!showAvulso ? (
+              <button onClick={() => setShowAvulso(true)} style={{ width: '100%', padding: '6px', background: '#f8fafc', border: '1.5px dashed #cbd5e1', borderRadius: 8, color: '#64748b', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                + Produto avulso
+              </button>
+            ) : (
+              <div style={{ background: '#f8fafc', border: '1.5px solid #3b82f6', borderRadius: 8, padding: '10px 10px 8px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#3b82f6', marginBottom: 8 }}>Produto avulso</div>
+                <input placeholder="Nome do produto *" value={avulsoNome} onChange={e => setAvulsoNome(e.target.value)}
+                  style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px 8px', fontSize: 12, marginBottom: 6, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 8 }}>
+                  <input placeholder="Preço" value={avulsoPreco} onChange={e => setAvulsoPreco(e.target.value)} type="number" min="0" step="0.01"
+                    style={{ border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px 8px', fontSize: 12, fontFamily: 'inherit', outline: 'none' }} />
+                  <input placeholder="Qtd" value={avulsoQtd} onChange={e => setAvulsoQtd(e.target.value)} type="number" min="1"
+                    style={{ border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px 8px', fontSize: 12, fontFamily: 'inherit', outline: 'none' }} />
+                  <select value={avulsoUnidade} onChange={e => setAvulsoUnidade(e.target.value)}
+                    style={{ border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px 4px', fontSize: 12, fontFamily: 'inherit', outline: 'none' }}>
+                    {['UNIDADE','CAIXA','KG','LITRO','DUZIA','SACO'].map(u => <option key={u}>{u}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={addAvulso} disabled={!avulsoNome.trim()} style={{ flex: 2, padding: '6px', background: !avulsoNome.trim() ? '#cbd5e1' : '#3b82f6', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: !avulsoNome.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                    Adicionar
+                  </button>
+                  <button onClick={() => setShowAvulso(false)} style={{ flex: 1, padding: '6px', background: '#fff', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Itens do carrinho */}
@@ -444,9 +507,23 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: NAVY, flex: 1, marginRight: 8, lineHeight: 1.3 }}>
-                      {item.nome}
-                    </span>
+                    {editingNomeId === item.produtoId ? (
+                      <input
+                        autoFocus
+                        value={editingNomeVal}
+                        onChange={e => setEditingNomeVal(e.target.value)}
+                        onBlur={() => updateNome(item.produtoId, editingNomeVal || item.nome)}
+                        onKeyDown={e => { if (e.key === 'Enter') updateNome(item.produtoId, editingNomeVal || item.nome); if (e.key === 'Escape') setEditingNomeId(null) }}
+                        style={{ fontSize: 12, fontWeight: 700, color: NAVY, flex: 1, marginRight: 8, border: '1px solid #3b82f6', borderRadius: 5, padding: '2px 6px', outline: 'none', fontFamily: 'inherit' }}
+                      />
+                    ) : (
+                      <span
+                        title="Clique para editar o nome"
+                        onClick={() => { setEditingNomeId(item.produtoId); setEditingNomeVal(item.nome) }}
+                        style={{ fontSize: 12, fontWeight: 700, color: NAVY, flex: 1, marginRight: 8, lineHeight: 1.3, cursor: 'text', borderBottom: '1px dashed #d1d5db' }}>
+                        {item.nome}
+                      </span>
+                    )}
                     <button
                       onClick={() => removeFromCart(item.produtoId)}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', padding: 0, display: 'flex', flexShrink: 0 }}
