@@ -95,7 +95,7 @@ const emptyProdutorForm = { codigo: '', nome: '', tipo: 'FISICA', cpf: '', cnpj:
 const emptyMeeiroForm   = { codigo: '', produtorId: '', nome: '', nomeFantasia: '', cpf: '', chavePix: '', percentual: '40', valorEmba: '1.2', endereco: '', telefone: '' }
 const emptyProdutoForm  = { nome: '', sku: '', unidade: 'CAIXA', preco: '', estoqueMinimo: '', ondeCadastrar: 'catalogo', produtorId: '' }
 const emptyLancForm     = { produtorId: '', data: new Date().toISOString().split('T')[0], rocaId: '', meeiroIds: [] as string[], produtoId: '', quantidade: '', preco: '', combustivel: '0', bandejaEmbalagem: '0', valesDinheiro: '0', creditos: '0', debitosAnteriores: '0' }
-const emptyFechForm     = { produtorId: '', dataInicio: '', dataFim: '', dataPagamento: new Date().toISOString().slice(0,10), combustivel: '0', bandejaEmbalagem: '0', valesDinheiro: '0', creditos: '0', debitosAnteriores: '0' }
+const emptyFechForm     = { produtorId: '', dataInicio: new Date().toISOString().slice(0,10), dataFim: new Date().toISOString().slice(0,10), dataPagamento: new Date().toISOString().slice(0,10), combustivel: '0', bandejaEmbalagem: '0', valesDinheiro: '0', creditos: '0', debitosAnteriores: '0' }
 
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -1887,7 +1887,7 @@ export default function RocasClient({
                         </select>
                       </FormField>
 
-                      {fechForm.produtorId && fechForm.dataInicio && (() => {
+                      {fechForm.produtorId && (() => {
                         const prod = produtoresState.find(p => p.id === fechForm.produtorId)
                         if (!prod) return null
                         const inicio = new Date(fechForm.dataInicio)
