@@ -827,17 +827,18 @@ export default function RocasClient({
     const meeiroNome = forceMeeiroNome ?? meeiroObj?.nome
     const valorEmba = meeiroObj?.valorEmba ?? 0
     const totalBruto = dados.reduce((s, c) => s + c.quantidadeTotal * c.preco * (c.percParceiro / 100), 0)
-    const totalEmba = dados.reduce((s, c) => s + valorEmba * c.quantidadeTotal, 0)
+    const totalEmba = dados.reduce((s, c) => s + valorEmba * c.quantidadeTotal * (c.percParceiro / 100), 0)
     const totalLiquido = totalBruto - totalEmba
     const rows = dados.length === 0
       ? `<tr><td colspan="8" style="text-align:center;padding:24px;color:#9ca3af">Nenhum lançamento encontrado</td></tr>`
       : dados.map(c => {
           const vm = c.quantidadeTotal * c.preco * (c.percParceiro / 100)
-          const de = valorEmba * c.quantidadeTotal
+          const de = valorEmba * c.quantidadeTotal * (c.percParceiro / 100)
           return `<tr><td>${fmtDate(c.data)}</td><td>${c.rocaNome ?? '—'}</td><td>${c.produtoNome}</td><td>${fmtNum(c.quantidadeTotal, 0)}</td><td>${fmtCurrency(c.preco)}</td><td>${c.percParceiro}%</td><td class="bold">${fmtCurrency(vm)}</td><td style="color:#e87320">- ${fmtCurrency(de)}</td></tr>`
         }).join('')
+    const percLabel = dados[0]?.percParceiro ?? 0
     const embaFooter = totalEmba > 0
-      ? `<tr><td colspan="7" style="padding:6px 10px;font-size:11px;color:#6b7280;text-align:right">Desc. Embalagens (R$ ${fmtNum(valorEmba, 2)}/cx)</td><td style="padding:6px 10px;color:#e87320;font-weight:700">- ${fmtCurrency(totalEmba)}</td></tr>`
+      ? `<tr><td colspan="7" style="padding:6px 10px;font-size:11px;color:#6b7280;text-align:right">Desc. Embalagens (R$ ${fmtNum(valorEmba, 2)}/cx × ${percLabel}%)</td><td style="padding:6px 10px;color:#e87320;font-weight:700">- ${fmtCurrency(totalEmba)}</td></tr>`
       : ''
     abrirJanela(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lançamentos de Meeiro${meeiroNome ? ' - ' + meeiroNome : ''}</title>${estiloRel}</head><body><h1>Lançamentos de Meeiro${meeiroNome ? ': ' + meeiroNome : ''}</h1><p class="sub">Gerado em ${new Date().toLocaleString('pt-BR')}</p><table><thead><tr><th>Data</th><th>Roça</th><th>Produto</th><th>Qtde</th><th>Valor Unit.</th><th>%</th><th>Valor Meeiro</th><th>Desc. Emba.</th></tr></thead><tbody>${rows}</tbody><tfoot>${embaFooter}<tr><td colspan="7" class="bold" style="padding:10px">Líquido a receber</td><td class="bold" style="padding:10px">${fmtCurrency(totalLiquido)}</td></tr></tfoot></table></body></html>`)
   }
@@ -846,10 +847,12 @@ export default function RocasClient({
     const dados = colheitas.filter(c => c.parceiroId === p.id)
     const meeiro = parceirosState.find(m => m.id === p.id)
     const valorEmba = meeiro?.valorEmba ?? 0
-    const totalEmba = dados.reduce((s, c) => s + valorEmba * c.quantidadeTotal, 0)
+    const totalEmba = dados.reduce((s, c) => s + valorEmba * c.quantidadeTotal * (c.percParceiro / 100), 0)
     const liquidoFinal = p.valorFinal - totalEmba
+    const totalQtd = dados.reduce((s, c) => s + c.quantidadeTotal, 0)
+    const percLabel = dados[0]?.percParceiro ?? 0
     const rows = dados.map(c => `<tr><td>${fmtDate(c.data)}</td><td>${c.rocaNome ?? '—'}</td><td>${c.produtoNome}</td><td>${fmtNum(c.quantidadeTotal, 0)}</td><td>${fmtCurrency(c.preco)}</td><td>${c.percParceiro}%</td><td class="bold">${fmtCurrency(c.quantidadeTotal * c.preco * (c.percParceiro / 100))}</td></tr>`).join('')
-    const embaRow = totalEmba > 0 ? `<tr><td colspan="5" style="padding:8px 10px;text-align:right;font-size:11px;color:#6b7280">Desc. Embalagens (R$ ${fmtNum(valorEmba, 2)}/cx × ${fmtNum(dados.reduce((s,c)=>s+c.quantidadeTotal,0),0)} cx)</td><td colspan="2" class="bold" style="padding:8px 10px;color:#e87320">- ${fmtCurrency(totalEmba)}</td></tr>` : ''
+    const embaRow = totalEmba > 0 ? `<tr><td colspan="5" style="padding:8px 10px;text-align:right;font-size:11px;color:#6b7280">Desc. Embalagens (R$ ${fmtNum(valorEmba, 2)}/cx × ${fmtNum(totalQtd, 0)} cx × ${percLabel}%)</td><td colspan="2" class="bold" style="padding:8px 10px;color:#e87320">- ${fmtCurrency(totalEmba)}</td></tr>` : ''
     abrirJanela(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Comprovante de Pagamento - ${p.nome}</title>${estiloRel}</head><body><h1>Comprovante de Pagamento</h1><p class="sub">Meeiro: ${p.nome} | Data: ${fmtDate(pagarData)} | Forma: ${pagarFormaPag}${pagarConta ? ' — ' + pagarConta : ''}${pagarObs ? ' | Obs: ' + pagarObs : ''}</p><table><thead><tr><th>Data</th><th>Roça</th><th>Produto</th><th>Qtde</th><th>Valor Unit.</th><th>%</th><th>Valor Meeiro</th></tr></thead><tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:24px;color:#9ca3af">Nenhum lançamento</td></tr>'}</tbody><tfoot>${embaRow}<tr><td colspan="3" class="bold" style="padding:10px">PIX: ${p.chavePix ?? '—'}</td><td colspan="3" class="bold" style="padding:10px">Emprést. desc.: ${fmtCurrency(p.descEmprestimo)}</td><td class="bold" style="padding:10px">Líquido: ${fmtCurrency(liquidoFinal)}</td></tr></tfoot></table></body></html>`)
   }
 
