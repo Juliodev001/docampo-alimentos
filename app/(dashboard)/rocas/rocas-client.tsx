@@ -1568,34 +1568,6 @@ export default function RocasClient({
                 <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 14 }} /> Histórico de pagamentos
               </button>
             </div>
-            {Object.keys(custosPorProdutor).length > 0 && (
-              <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.07)', padding: '16px 20px', marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 12 }}>Deduções registradas nos lançamentos</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {Object.entries(custosPorProdutor).map(([prodId, c]) => {
-                    const prod = produtoresState.find(p => p.id === prodId)
-                    const meirosDoProd = parceirosState.filter(m => m.produtorId === prodId).map(m => m.nome)
-                    if (!c.valesDinheiro && !c.creditos && !c.debitosAnteriores) return null
-                    return (
-                      <div key={prodId} style={{ background: '#f8fafc', borderRadius: 10, padding: '12px 16px', border: '1px solid #e5e7eb' }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: BLUE, marginBottom: 6 }}>
-                          {prod?.nome ?? prodId}
-                          {meirosDoProd.length > 0 && <span style={{ color: '#6b7280', fontWeight: 400, marginLeft: 8 }}>Meeiros: {meirosDoProd.join(', ')}</span>}
-                        </div>
-                        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-                          {c.valesDinheiro > 0 && <span style={{ fontSize: 12, color: PINK }}>Vales Dinheiro: <strong>{fmtCurrency(c.valesDinheiro)}</strong></span>}
-                          {c.creditos > 0 && <span style={{ fontSize: 12, color: ORANGE }}>Créditos Coleta/Filmagem: <strong>{fmtCurrency(c.creditos)}</strong></span>}
-                          {c.debitosAnteriores > 0 && <span style={{ fontSize: 12, color: PINK }}>Débitos Anteriores: <strong>{fmtCurrency(c.debitosAnteriores)}</strong></span>}
-                        </div>
-                        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 6 }}>
-                          {c.lancamentos.length} lançamento(s) registrado(s) — última atualização: {fmtDate(c.lancamentos[0]?.data ?? null)}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
 
             <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.07)', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
