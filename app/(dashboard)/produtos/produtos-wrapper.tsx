@@ -13,7 +13,7 @@ type ProdutoCompleto = {
   ncm: string | null; cest: string | null; cfop: string | null
   peso: number | null; altura: number | null; largura: number | null
   dataValidade: string | null; observacao: string | null
-  ativo: boolean; createdAt: string; estoque: number
+  ativo: boolean; createdAt: string; estoque: number; estoqueVinculadoId: string | null
 }
 
 type Cliente = { id: string; nome: string }

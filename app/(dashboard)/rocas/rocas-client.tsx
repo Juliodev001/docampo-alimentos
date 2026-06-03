@@ -697,14 +697,42 @@ export default function RocasClient({
   }
 
   const pagamentosMeeiros = useMemo(() => parceirosState.map(m => {
-    const cs = colheitas.filter(c => c.parceiroId === m.id)
-    const valorTotal = cs.reduce((s, c) => s + c.quantidadeTotal * c.preco * (c.percParceiro / 100), 0)
+    const fechDoProd = fechamentosState.filter(f => f.produtorId === m.produtorId)
+    let valorTotal = 0
+    let temMovimento = false
+
+    if (fechDoProd.length > 0) {
+      for (const fech of fechDoProd) {
+        const fechCs = colheitas.filter(c =>
+          c.parceiroId === m.id &&
+          c.data >= fech.dataInicio &&
+          c.data <= fech.dataFim
+        )
+        if (fechCs.length === 0) continue
+        temMovimento = true
+        const totalBruto = fechCs.reduce((s, c) => s + c.quantidadeTotal * c.preco, 0)
+        const totalDed = fech.combustivel + fech.bandejaEmbalagem + fech.valesDinheiro + fech.creditos + fech.debitosAnteriores
+        const valorLiquido = Math.max(0, totalBruto - totalDed)
+        valorTotal += valorLiquido * (m.percentual / 100)
+      }
+      // colheitas ainda não cobertas por nenhum fechamento
+      const pendente = colheitas
+        .filter(c => c.parceiroId === m.id && !fechDoProd.some(f => c.data >= f.dataInicio && c.data <= f.dataFim))
+        .reduce((s, c) => s + c.quantidadeTotal * c.preco * (c.percParceiro / 100), 0)
+      if (pendente > 0) { valorTotal += pendente; temMovimento = true }
+    } else {
+      const cs = colheitas.filter(c => c.parceiroId === m.id)
+      valorTotal = cs.reduce((s, c) => s + c.quantidadeTotal * c.preco * (c.percParceiro / 100), 0)
+      temMovimento = valorTotal > 0
+    }
+
     const totalPago = pagamentosState
       .filter(p => p.parceiroId === m.id && p.status === 'CONFIRMADO')
       .reduce((s, p) => s + p.valor, 0)
+    temMovimento = temMovimento || totalPago > 0
     const saldo = Math.max(0, valorTotal - totalPago)
-    return { id: m.id, nome: m.nome, chavePix: m.chavePix, valorReceber: saldo, emprestimo: 0, descEmprestimo: 0, valorFinal: saldo, temMovimento: valorTotal > 0 || totalPago > 0 }
-  }), [colheitas, parceirosState, pagamentosState])
+    return { id: m.id, nome: m.nome, chavePix: m.chavePix, valorReceber: saldo, emprestimo: 0, descEmprestimo: 0, valorFinal: saldo, temMovimento }
+  }), [colheitas, parceirosState, pagamentosState, fechamentosState])
 
   const custosPorProdutor = useMemo(() => {
     const map: Record<string, { combustivel: number; bandejaEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number; lancamentos: { data: string; rocaId: string | null; combustivel: number; bandejaEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number }[] }> = {}
@@ -806,8 +834,13 @@ export default function RocasClient({
 
   function gerarComprovante(p: NonNullable<typeof pagarModal>) {
     const dados = colheitas.filter(c => c.parceiroId === p.id)
+    const meeiro = parceirosState.find(m => m.id === p.id)
+    const valorEmba = meeiro?.valorEmba ?? 0
+    const totalEmba = dados.reduce((s, c) => s + valorEmba * c.quantidadeTotal, 0)
+    const liquidoFinal = p.valorFinal - totalEmba
     const rows = dados.map(c => `<tr><td>${fmtDate(c.data)}</td><td>${c.rocaNome ?? '—'}</td><td>${c.produtoNome}</td><td>${fmtNum(c.quantidadeTotal, 0)}</td><td>${fmtCurrency(c.preco)}</td><td>${c.percParceiro}%</td><td class="bold">${fmtCurrency(c.quantidadeTotal * c.preco * (c.percParceiro / 100))}</td></tr>`).join('')
-    abrirJanela(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Comprovante de Pagamento - ${p.nome}</title>${estiloRel}</head><body><h1>Comprovante de Pagamento</h1><p class="sub">Meeiro: ${p.nome} | Data: ${fmtDate(pagarData)} | Forma: ${pagarFormaPag}${pagarConta ? ' — ' + pagarConta : ''}${pagarObs ? ' | Obs: ' + pagarObs : ''}</p><table><thead><tr><th>Data</th><th>Roça</th><th>Produto</th><th>Qtde</th><th>Valor Unit.</th><th>%</th><th>Valor Meeiro</th></tr></thead><tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:24px;color:#9ca3af">Nenhum lançamento</td></tr>'}</tbody><tfoot><tr><td colspan="3" class="bold" style="padding:10px">PIX: ${p.chavePix ?? '—'}</td><td colspan="3" class="bold" style="padding:10px">Emprést. desc.: ${fmtCurrency(p.descEmprestimo)}</td><td class="bold" style="padding:10px">Líquido: ${fmtCurrency(p.valorFinal)}</td></tr></tfoot></table></body></html>`)
+    const embaRow = totalEmba > 0 ? `<tr><td colspan="5" style="padding:8px 10px;text-align:right;font-size:11px;color:#6b7280">Desc. Embalagens (R$ ${fmtNum(valorEmba, 2)}/cx × ${fmtNum(dados.reduce((s,c)=>s+c.quantidadeTotal,0),0)} cx)</td><td colspan="2" class="bold" style="padding:8px 10px;color:#e87320">- ${fmtCurrency(totalEmba)}</td></tr>` : ''
+    abrirJanela(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Comprovante de Pagamento - ${p.nome}</title>${estiloRel}</head><body><h1>Comprovante de Pagamento</h1><p class="sub">Meeiro: ${p.nome} | Data: ${fmtDate(pagarData)} | Forma: ${pagarFormaPag}${pagarConta ? ' — ' + pagarConta : ''}${pagarObs ? ' | Obs: ' + pagarObs : ''}</p><table><thead><tr><th>Data</th><th>Roça</th><th>Produto</th><th>Qtde</th><th>Valor Unit.</th><th>%</th><th>Valor Meeiro</th></tr></thead><tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:24px;color:#9ca3af">Nenhum lançamento</td></tr>'}</tbody><tfoot>${embaRow}<tr><td colspan="3" class="bold" style="padding:10px">PIX: ${p.chavePix ?? '—'}</td><td colspan="3" class="bold" style="padding:10px">Emprést. desc.: ${fmtCurrency(p.descEmprestimo)}</td><td class="bold" style="padding:10px">Líquido: ${fmtCurrency(liquidoFinal)}</td></tr></tfoot></table></body></html>`)
   }
 
   function gerarRelatorioRepasse() {
