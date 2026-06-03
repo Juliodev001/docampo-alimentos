@@ -49,7 +49,7 @@ export default function NovoUsuario() {
         <p style={{ color: '#6b7280', fontSize: 13, marginTop: 4 }}>Cadastre um novo usuário com nível de acesso</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="form-grid-2" style={{ gap: 20 }}>
         <div style={{ backgroundColor: 'white', borderRadius: 14, padding: 28, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, color: NAVY, margin: '0 0 20px' }}>Dados do usuário</h3>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>

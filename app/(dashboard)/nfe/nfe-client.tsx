@@ -30,7 +30,7 @@ export default function NfeClient({ rascunhos, emitidas }: { rascunhos: NFe[]; e
     <div>
       <motion.div
         initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}
+        className="flex-header"
       >
         <div>
           <h1 style={{ fontSize: 26, fontWeight: 700, color: NAVY, margin: 0 }}>Notas Fiscais Eletrônicas</h1>

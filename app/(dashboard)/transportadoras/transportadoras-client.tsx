@@ -177,7 +177,7 @@ export default function TransportadorasClient({ transportadoras: inicial }: { tr
 
       {/* KPI cards */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+        className="kpi-grid-4">
         {kpis.map(({ label, value, icon, bg, color }, i) => (
           <motion.div key={label}
             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
@@ -334,7 +334,7 @@ export default function TransportadorasClient({ transportadoras: inicial }: { tr
                         placeholder="Nome fantasia (opcional)" style={inp} />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div className="grid-2">
                       <div>
                         <label style={lbl(NAVY)}>
                           <FontAwesomeIcon icon={faHashtag} style={{ fontSize: 13, color: BLUE }} /> CNPJ
@@ -368,7 +368,7 @@ export default function TransportadorasClient({ transportadoras: inicial }: { tr
                         placeholder="Ex.: João Silva" style={inp} />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div className="grid-2">
                       <div>
                         <label style={lbl(NAVY)}>
                           <FontAwesomeIcon icon={faPhone} style={{ fontSize: 13, color: BLUE }} /> Telefone <span style={{ color: PINK }}>*</span>
@@ -396,7 +396,7 @@ export default function TransportadorasClient({ transportadoras: inicial }: { tr
                     title="Endereço"
                     subtitle="Localização da transportadora">
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div className="grid-2">
                       <div>
                         <label style={lbl(NAVY)}><FontAwesomeIcon icon={faLocationDot} style={{ fontSize: 13, color: GREEN }} /> CEP</label>
                         <input value={form.cep} onChange={e => f('cep', e.target.value)}
@@ -415,7 +415,7 @@ export default function TransportadorasClient({ transportadoras: inicial }: { tr
                         placeholder="Rua, Avenida, etc." style={inp} />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div className="grid-2">
                       <div>
                         <label style={lbl(NAVY)}><FontAwesomeIcon icon={faLocationDot} style={{ fontSize: 13, color: GREEN }} /> Número</label>
                         <input value={form.numero} onChange={e => f('numero', e.target.value)}
@@ -428,7 +428,7 @@ export default function TransportadorasClient({ transportadoras: inicial }: { tr
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div className="grid-2">
                       <div>
                         <label style={lbl(NAVY)}><FontAwesomeIcon icon={faLocationDot} style={{ fontSize: 13, color: GREEN }} /> Bairro</label>
                         <input value={form.bairro} onChange={e => f('bairro', e.target.value)}
@@ -461,7 +461,7 @@ export default function TransportadorasClient({ transportadoras: inicial }: { tr
 
                     <div>
                       <label style={{ fontSize: 13, fontWeight: 600, color: NAVY, display: 'block', marginBottom: 8 }}>Status</label>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div className="grid-2">
                         {([{ val: true, label: 'ATIVO' }, { val: false, label: 'INATIVO' }] as const).map(opt => (
                           <button key={String(opt.val)} type="button" onClick={() => f('ativo', opt.val)}
                             style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', border: `2px solid ${form.ativo === opt.val ? BLUE : '#e5e7eb'}`, borderRadius: 10, background: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 14, color: form.ativo === opt.val ? NAVY : '#9ca3af', transition: 'all 0.15s' }}>

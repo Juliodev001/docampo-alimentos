@@ -161,7 +161,7 @@ export default function NovoFechamento() {
       </motion.div>
 
       <form onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+        <div className="form-grid-2" style={{ gap: 20, marginBottom: 20 }}>
           {/* Formulário esquerdo */}
           <motion.div
             initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1, duration: 0.4 }}
@@ -178,7 +178,7 @@ export default function NovoFechamento() {
                 </select>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div className="grid-2" style={{ gap: 14 }}>
                 <div>
                   <label style={lbl}>Data início *</label>
                   <input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} required style={inp} />

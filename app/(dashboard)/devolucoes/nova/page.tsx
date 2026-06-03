@@ -73,7 +73,7 @@ export default function NovaDevolucao() {
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+        <div className="form-grid-2" style={{ gap: 20, marginBottom: 20 }}>
           <div style={{ backgroundColor: 'white', borderRadius: 14, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <h3 style={{ fontSize: 15, fontWeight: 600, color: NAVY, margin: '0 0 16px' }}>Dados da devolução</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -121,13 +121,13 @@ export default function NovaDevolucao() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {itens.map((item, i) => (
                 <div key={i} style={{ border: '1px solid #f3f4f6', borderRadius: 10, padding: 12 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <div className="item-row-2">
                     <input value={item.produto} onChange={e => updateItem(i, 'produto', e.target.value)} placeholder="Produto" style={{ ...inp, padding: '8px 12px', fontSize: 13 }} />
                     <select value={item.unidade} onChange={e => updateItem(i, 'unidade', e.target.value)} style={{ ...inp, padding: '8px 12px', fontSize: 13 }}>
                       {['CAIXA', 'KG', 'UNIDADE', 'SACO', 'LITRO', 'DUZIA', 'FARDO'].map(u => <option key={u}>{u}</option>)}
                     </select>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 8, alignItems: 'center' }}>
+                  <div className="item-row-3-auto">
                     <input type="number" value={item.quantidade} min={0.01} step="any" onChange={e => updateItem(i, 'quantidade', parseFloat(e.target.value) || 0)}
                       placeholder="Qtd" style={{ ...inp, padding: '8px 12px', fontSize: 13 }} />
                     <input type="number" value={item.valorUnit} min={0} step="any" onChange={e => updateItem(i, 'valorUnit', parseFloat(e.target.value) || 0)}

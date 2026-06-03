@@ -22,7 +22,7 @@ export default async function ProdutorDetailPage({ params }: { params: Promise<{
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+      <div className="flex-header">
         <div>
           <Link href="/produtores" style={{ color: '#6b7280', fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
             ← Voltar para produtores
@@ -36,7 +36,7 @@ export default async function ProdutorDetailPage({ params }: { params: Promise<{
         </Link>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}>
+      <div className="chart-grid-side" style={{ gap: 20 }}>
         {/* Info card */}
         <div style={{ backgroundColor: 'white', borderRadius: 14, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', height: 'fit-content' }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, color: NAVY, margin: '0 0 16px' }}>Informações</h3>

@@ -147,7 +147,7 @@ export default function CompraDetalheClient({ compra: inicial }: { compra: Compr
       </div>
 
       {/* Info cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+      <div className="form-grid-2" style={{ marginBottom: 20 }}>
         <div style={{ background: 'white', borderRadius: 12, padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
           <p style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 16px' }}>Dados da Compra</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

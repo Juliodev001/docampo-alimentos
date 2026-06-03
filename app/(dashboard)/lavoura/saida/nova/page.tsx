@@ -55,7 +55,7 @@ export default function NovaSaidaLavoura() {
         <p style={{ color: '#6b7280', fontSize: 13, marginTop: 4 }}>Movimentação financeira da saída de produção</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="form-grid-2" style={{ gap: 20 }}>
         <div style={{ backgroundColor: 'white', borderRadius: 14, padding: 28, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, color: NAVY, margin: '0 0 20px' }}>Dados da saída</h3>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -70,7 +70,7 @@ export default function NovaSaidaLavoura() {
               <label style={lbl}>Data *</label>
               <input type="date" value={data} onChange={e => setData(e.target.value)} required style={inp} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="grid-2">
               <div>
                 <label style={lbl}>Quantidade (cx) *</label>
                 <input type="number" value={quantidade} onChange={e => setQuantidade(e.target.value)} min="0.1" step="0.1" placeholder="0" required style={inp} />

@@ -250,7 +250,7 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
               <p style={{ margin: 0, fontWeight: 600 }}>Nenhum produto encontrado</p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            <div className="grid-3" style={{ gap: 10 }}>
               {filtered.map(p => {
                 const price = p.precoPromocional > 0 ? p.precoPromocional : p.precoVenda
                 const lowStock = p.estoque === 0
@@ -525,7 +525,7 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
                   <p style={{ fontSize: 12, fontWeight: 700, color: NAVY, margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     Forma de Pagamento
                   </p>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div className="grid-2" style={{ gap: 8 }}>
                     {PAYMENT_METHODS.map(pm => (
                       <button
                         key={pm.key}

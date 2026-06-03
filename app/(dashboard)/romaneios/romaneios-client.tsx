@@ -110,7 +110,7 @@ export default function RomaneiosClient({ romaneios: inicial, clientes }: { roma
   return (
     <div>
       <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+        className="flex-header">
         <div>
           <h1 style={{ fontSize: 26, fontWeight: 700, color: NAVY, margin: 0 }}>Romaneios</h1>
           <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>Vendas internas sem valor fiscal</p>
@@ -125,7 +125,7 @@ export default function RomaneiosClient({ romaneios: inicial, clientes }: { roma
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
         style={{ backgroundColor: 'white', borderRadius: 14, padding: '18px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', marginBottom: 20 }}>
         <p style={{ fontSize: 13, fontWeight: 700, color: NAVY, margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Filtros</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 12, alignItems: 'flex-end' }}>
+        <div className="filter-grid-4-auto">
           <div>
             <label style={lbl}>De</label>
             <input type="date" value={de} onChange={e => setDe(e.target.value)} style={inp} />
@@ -231,7 +231,7 @@ export default function RomaneiosClient({ romaneios: inicial, clientes }: { roma
                 </motion.button>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div className="item-row-2" style={{ gap: 12, marginBottom: 14 }}>
                 <div>
                   <label style={lbl}>Cliente *</label>
                   <select value={clienteId} onChange={e => setClienteId(e.target.value)} style={inp}>
@@ -261,7 +261,7 @@ export default function RomaneiosClient({ romaneios: inicial, clientes }: { roma
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {itens.map((it, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'center' }}>
+                    <div key={i} className="romaneio-items-row">
                       <input value={it.produto} onChange={e => updateItem(i, 'produto', e.target.value)} placeholder="Produto" style={{ ...inp, padding: '8px 10px', fontSize: 13 }} />
                       <select value={it.unidade} onChange={e => updateItem(i, 'unidade', e.target.value)} style={{ ...inp, padding: '8px 10px', fontSize: 13 }}>
                         {['CAIXA', 'KG', 'UNIDADE', 'SACO', 'LITRO', 'DUZIA', 'FARDO'].map(u => <option key={u}>{u}</option>)}

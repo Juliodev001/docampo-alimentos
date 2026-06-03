@@ -123,7 +123,7 @@ export default function NovoRegistroProducaoPage() {
               const add = aba === '2' ? addEntrada : addSaida
               return (
                 <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1fr 1fr 80px 44px', gap: 10, alignItems: 'end' }}>
+                  <div className="items-form-grid">
                     <div>
                       <label style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 5 }}>Produto *</label>
                       <input value={item.produto} onChange={(e) => updateItemField(setItem, 'produto', e.target.value)} style={inputStyle} />

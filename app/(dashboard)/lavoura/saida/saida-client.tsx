@@ -28,7 +28,7 @@ export default function SaidaClient({ saidas, totalQtd, totalValor, ticketMedio 
     <div>
       <motion.div
         initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}
+        className="flex-header"
       >
         <div>
           <Link href="/lavoura" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#6b7280', fontSize: 13, textDecoration: 'none', marginBottom: 8 }}>

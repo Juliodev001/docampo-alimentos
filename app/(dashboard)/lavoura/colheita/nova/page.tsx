@@ -95,7 +95,7 @@ export default function NovaColheita() {
         <p style={{ color: '#6b7280', fontSize: 13, marginTop: 4 }}>A divisão é calculada automaticamente conforme o cadastro do produtor</p>
       </motion.div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="form-grid-2" style={{ gap: 20 }}>
         {/* Formulário */}
         <motion.div
           initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1, duration: 0.4 }}
@@ -160,7 +160,7 @@ export default function NovaColheita() {
             </div>
 
             {/* Qualidade + Descarte em linha */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div className="grid-2" style={{ gap: 14 }}>
               <div>
                 <label style={lbl}>Qualidade</label>
                 <input type="text" value={qualidade} onChange={e => setQualidade(e.target.value)}
@@ -260,7 +260,7 @@ export default function NovaColheita() {
                 </div>
 
                 {/* Cards dono / parceiro */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="grid-2">
                   <motion.div animate={{ scale: qtd > 0 ? 1 : 0.97 }}
                     style={{ backgroundColor: '#f0faf0', borderRadius: 12, padding: '20px', border: `1.5px solid ${GREEN}40` }}
                   >

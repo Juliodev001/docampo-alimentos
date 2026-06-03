@@ -70,7 +70,7 @@ export default function NovoProdutorPage() {
       <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
         style={{ backgroundColor: 'white', borderRadius: 14, padding: 28, marginBottom: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
         <h2 style={{ fontSize: 16, fontWeight: 600, color: NAVY, marginBottom: 20 }}>👤 Dados do Produtor (Dono da Lavoura)</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 16 }}>
+        <div className="form-grid-3">
           <div>
             <label style={{ fontSize: 13, fontWeight: 500, color: '#374151', display: 'block', marginBottom: 6 }}>Nome *</label>
             <input value={produtor.nome} onChange={(e) => setProdutor((f) => ({ ...f, nome: e.target.value }))} placeholder="Nome completo" style={inputStyle} />
@@ -100,7 +100,7 @@ export default function NovoProdutorPage() {
         </div>
 
         {/* Adicionar parceiro */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 100px 44px', gap: 10, alignItems: 'end', marginBottom: 16 }}>
+        <div className="partner-add-grid">
           <div>
             <label style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 5 }}>Nome do Parceiro</label>
             <input value={novoParceiro.nome} onChange={(e) => setNovoParceiro((f) => ({ ...f, nome: e.target.value }))} placeholder="Nome completo" style={inputStyle} />

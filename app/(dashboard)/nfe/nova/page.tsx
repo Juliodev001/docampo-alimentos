@@ -103,7 +103,7 @@ export default function NovaNFe() {
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+        <div className="form-grid-2" style={{ gap: 20, marginBottom: 20 }}>
           <div style={{ backgroundColor: 'white', borderRadius: 14, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <h3 style={{ fontSize: 15, fontWeight: 600, color: NAVY, margin: '0 0 16px' }}>Dados da nota</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -130,7 +130,7 @@ export default function NovaNFe() {
                   {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                 </select>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+              <div className="grid-2" style={{ gap: 12 }}>
                 <div>
                   <label style={lbl}>Número da NF</label>
                   <input type="text" name="numero" placeholder="Automático" style={inp} />
@@ -172,20 +172,20 @@ export default function NovaNFe() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 360, overflowY: 'auto' }}>
               {itens.map((item, i) => (
                 <div key={i} style={{ border: '1px solid #f3f4f6', borderRadius: 10, padding: 12 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <div className="item-row-2">
                     <input value={item.produto} onChange={e => updateItem(i, 'produto', e.target.value)} placeholder="Produto" style={{ ...inp, padding: '8px 12px', fontSize: 13 }} />
                     <select value={item.unidade} onChange={e => updateItem(i, 'unidade', e.target.value)} style={{ ...inp, padding: '8px 12px', fontSize: 13 }}>
                       {['CAIXA', 'KG', 'UNIDADE', 'SACO', 'LITRO', 'DUZIA', 'FARDO'].map(u => <option key={u}>{u}</option>)}
                     </select>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <div className="grid-3" style={{ gap: 8, marginBottom: 8 }}>
                     <input type="number" value={item.quantidade} min={0.01} step="any" onChange={e => updateItem(i, 'quantidade', parseFloat(e.target.value) || 0)}
                       placeholder="Qtd" style={{ ...inp, padding: '8px 12px', fontSize: 13 }} />
                     <input type="number" value={item.valorUnit} min={0} step="any" onChange={e => updateItem(i, 'valorUnit', parseFloat(e.target.value) || 0)}
                       placeholder="Valor unit." style={{ ...inp, padding: '8px 12px', fontSize: 13 }} />
                     <span style={{ display: 'flex', alignItems: 'center', fontSize: 13, color: GREEN, fontWeight: 600 }}>R$ {item.total.toFixed(2)}</span>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, alignItems: 'center' }}>
+                  <div className="item-row-2-auto">
                     <input value={item.ncm} onChange={e => updateItem(i, 'ncm', e.target.value)} placeholder="NCM" style={{ ...inp, padding: '8px 12px', fontSize: 13 }} />
                     <input value={item.cfop} onChange={e => updateItem(i, 'cfop', e.target.value)} placeholder="CFOP" style={{ ...inp, padding: '8px 12px', fontSize: 13 }} />
                     {itens.length > 1 && (
@@ -253,7 +253,7 @@ export default function NovaNFe() {
                   <input value={novoCliente.cnpjCpf} onChange={e => setNovoCliente(p => ({ ...p, cnpjCpf: e.target.value }))}
                     placeholder="000.000.000-00" style={inp} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="grid-2" style={{ gap: 10 }}>
                   <div>
                     <label style={lbl}>Telefone</label>
                     <input value={novoCliente.telefone} onChange={e => setNovoCliente(p => ({ ...p, telefone: e.target.value }))}

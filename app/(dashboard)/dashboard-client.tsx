@@ -222,7 +222,7 @@ export default function DashboardClient({ centrosCusto }: { centrosCusto: Centro
     <div>
       {/* ── Cabeçalho da página ─────────────────── */}
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 700, color: NAVY, margin: 0 }}>Dashboard</h1>
+        <h1 className="page-title" style={{ fontSize: 26, fontWeight: 700, color: NAVY, margin: 0 }}>Dashboard</h1>
         <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>Visão geral do seu negócio</p>
       </div>
 
@@ -336,11 +336,7 @@ export default function DashboardClient({ centrosCusto }: { centrosCusto: Centro
         </p>
 
         {/* conteúdo DRE: tabela + painel */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0,1fr) 270px',
-          gap: 20, alignItems: 'start',
-        }}>
+        <div className="dre-grid">
           {/* tabela */}
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>

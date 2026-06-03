@@ -38,13 +38,13 @@ export default function ImprimirVendaPDV() {
 
   const isFiado = pedido.formaPagamento === 'FIADO'
   const B: React.CSSProperties = { border: '1px solid #000' }
-  const cell: React.CSSProperties = { ...B, padding: '4px 8px', fontSize: 11 }
-  const hd: React.CSSProperties = { ...B, padding: '5px 8px', fontSize: 11, fontWeight: 700, backgroundColor: '#f0f0f0', textAlign: 'center' as const }
+  const cell: React.CSSProperties = { ...B, padding: '3px 6px', fontSize: 10 }
+  const hd: React.CSSProperties = { ...B, padding: '4px 6px', fontSize: 10, fontWeight: 700, backgroundColor: '#f0f0f0', textAlign: 'center' as const }
 
   return (
     <>
       <style>{`
-        @page { margin: 8mm 10mm; size: A5; }
+        @page { size: A4 portrait; margin: 10mm 12mm; }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: Arial, sans-serif; background: #fff; color: #000; }
         @media print {
@@ -53,44 +53,38 @@ export default function ImprimirVendaPDV() {
         }
       `}</style>
 
-      <div style={{ maxWidth: 700, margin: '0 auto', padding: '20px 0', fontFamily: 'Arial, sans-serif', fontSize: 12 }}>
+      <div style={{ maxWidth: 680, margin: '0 auto', padding: '10px 0', fontFamily: 'Arial, sans-serif', fontSize: 11 }}>
 
         {/* Botões — só na tela */}
-        <div className="no-print" style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
-          <button onClick={() => window.print()} style={{ padding: '8px 20px', background: '#2d3561', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+        <div className="no-print" style={{ marginBottom: 10, display: 'flex', gap: 8 }}>
+          <button onClick={() => window.print()} style={{ padding: '7px 18px', background: '#2d3561', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             🖨️ Imprimir / PDF
           </button>
-          <button onClick={() => window.close()} style={{ padding: '8px 16px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
+          <button onClick={() => window.close()} style={{ padding: '7px 14px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
             Fechar
           </button>
         </div>
 
         {/* Título */}
-        <div style={{ textAlign: 'center', marginBottom: 12 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, textDecoration: 'underline', textTransform: 'uppercase' }}>
+        <div style={{ textAlign: 'center', marginBottom: 7 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, textDecoration: 'underline', textTransform: 'uppercase' }}>
             {isFiado ? 'Comprovante de Venda — Fiado' : 'Comprovante de Venda'}
           </div>
         </div>
 
         {/* Dados do cliente */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 6 }}>
           <tbody>
             <tr>
-              <td style={{ ...cell, width: '55%' }}>
-                <strong>Cliente:</strong> {pedido.cliente?.nome ?? '—'}
-              </td>
-              <td style={{ ...cell, width: '45%' }}>
-                <strong>CPF / CNPJ:</strong> {pedido.cliente?.cnpjCpf ?? '—'}
-              </td>
+              <td style={{ ...cell, width: '55%' }}><strong>Cliente:</strong> {pedido.cliente?.nome ?? '—'}</td>
+              <td style={{ ...cell, width: '45%' }}><strong>CPF / CNPJ:</strong> {pedido.cliente?.cnpjCpf ?? '—'}</td>
             </tr>
             <tr>
-              <td style={cell}>
-                <strong>Data da Compra:</strong> {fmtDate(pedido.data)}
-              </td>
+              <td style={cell}><strong>Data da Compra:</strong> {fmtDate(pedido.data)}</td>
               <td style={cell}>
                 {isFiado && pedido.dataCobranca
-                  ? <><strong>Data de Vencimento:</strong> {fmtDate(pedido.dataCobranca)}</>
-                  : <><strong>Forma de Pagamento:</strong> {pedido.formaPagamento ?? '—'}</>
+                  ? <><strong>Vencimento:</strong> {fmtDate(pedido.dataCobranca)}</>
+                  : <><strong>Pagamento:</strong> {pedido.formaPagamento ?? '—'}</>
                 }
               </td>
             </tr>
@@ -98,7 +92,7 @@ export default function ImprimirVendaPDV() {
         </table>
 
         {/* Itens */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 6 }}>
           <thead>
             <tr>
               <th style={hd}>Produto</th>
@@ -122,11 +116,11 @@ export default function ImprimirVendaPDV() {
         </table>
 
         {/* Total */}
-        <table style={{ borderCollapse: 'collapse', minWidth: 280, marginLeft: 'auto' }}>
+        <table style={{ borderCollapse: 'collapse', minWidth: 220, marginLeft: 'auto' }}>
           <tbody>
             <tr>
-              <td style={{ ...cell, fontWeight: 700, fontSize: 13 }}>Total</td>
-              <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 800, fontSize: 14, width: 120 }}>
+              <td style={{ ...cell, fontWeight: 700, fontSize: 11 }}>Total</td>
+              <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 800, fontSize: 12, width: 100 }}>
                 R$ {fmtN(pedido.totalValor)}
               </td>
             </tr>
@@ -134,23 +128,23 @@ export default function ImprimirVendaPDV() {
         </table>
 
         {pedido.observacao && (
-          <div style={{ marginTop: 10, padding: '6px 8px', border: '1px solid #ccc', borderRadius: 4, fontSize: 11 }}>
-            <strong>Observação:</strong> {pedido.observacao}
+          <div style={{ marginTop: 6, padding: '3px 6px', border: '1px solid #ccc', borderRadius: 3, fontSize: 9 }}>
+            <strong>Obs:</strong> {pedido.observacao}
           </div>
         )}
 
         {/* Assinaturas */}
-        <div style={{ marginTop: 48, display: 'flex', justifyContent: 'space-between' }}>
-          <div style={{ textAlign: 'center', width: 200 }}>
-            <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>
-              <p style={{ fontSize: 10, margin: 0 }}>Assinatura do Cliente</p>
-              <p style={{ fontSize: 10, margin: '2px 0 0', color: '#555' }}>{pedido.cliente?.nome ?? ''}</p>
+        <div style={{ marginTop: 22, display: 'flex', justifyContent: 'space-between' }}>
+          <div style={{ textAlign: 'center', width: '45%' }}>
+            <div style={{ borderTop: '1px solid #000', paddingTop: 3 }}>
+              <p style={{ fontSize: 9, margin: 0 }}>Assinatura do Cliente</p>
+              <p style={{ fontSize: 9, margin: '2px 0 0', color: '#555' }}>{pedido.cliente?.nome ?? ''}</p>
             </div>
           </div>
-          <div style={{ textAlign: 'center', width: 200 }}>
-            <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>
-              <p style={{ fontSize: 10, margin: 0 }}>Responsável pela Empresa</p>
-              <p style={{ fontSize: 10, margin: '2px 0 0', color: '#555' }}>Do Campo Alimentos</p>
+          <div style={{ textAlign: 'center', width: '45%' }}>
+            <div style={{ borderTop: '1px solid #000', paddingTop: 3 }}>
+              <p style={{ fontSize: 9, margin: 0 }}>Responsável pela Empresa</p>
+              <p style={{ fontSize: 9, margin: '2px 0 0', color: '#555' }}>Do Campo Alimentos</p>
             </div>
           </div>
         </div>

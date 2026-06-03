@@ -109,7 +109,7 @@ export default function NovaCompraPage() {
       <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
         style={{ backgroundColor: 'white', borderRadius: 14, padding: 28, marginBottom: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
         <h2 style={{ fontSize: 16, fontWeight: 600, color: NAVY, marginBottom: 20 }}>Dados da Compra</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: 16 }}>
+        <div className="form-grid-1-2-1">
           <div>
             <label style={{ fontSize: 13, fontWeight: 500, color: '#374151', display: 'block', marginBottom: 6 }}>Data da Compra *</label>
             <input type="date" value={form.data} onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))} style={inputStyle} />
@@ -171,7 +171,7 @@ export default function NovaCompraPage() {
       <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
         style={{ backgroundColor: 'white', borderRadius: 14, padding: 28, marginBottom: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
         <h2 style={{ fontSize: 16, fontWeight: 600, color: NAVY, marginBottom: 20 }}>Itens da Compra</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1fr 1fr 80px 44px', gap: 10, alignItems: 'end' }}>
+        <div className="items-form-grid">
           <div>
             <label style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 5 }}>Produto *</label>
             <input value={itemAtual.produto} onChange={(e) => updateItem('produto', e.target.value)} placeholder="Ex: Tomate, Bandeja 21x21" style={inputStyle} />
@@ -237,7 +237,7 @@ export default function NovaCompraPage() {
       <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
         style={{ backgroundColor: 'white', borderRadius: 14, padding: 28, marginBottom: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
         <h2 style={{ fontSize: 16, fontWeight: 600, color: NAVY, marginBottom: 20 }}>Condição de Pagamento</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+        <div className="form-grid-3">
           <div>
             <label style={{ fontSize: 13, fontWeight: 500, color: '#374151', display: 'block', marginBottom: 6 }}>Condição *</label>
             <select value={form.condicao} onChange={(e) => setForm((f) => ({ ...f, condicao: e.target.value }))} style={inputStyle}>

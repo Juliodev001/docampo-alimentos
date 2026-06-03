@@ -56,7 +56,7 @@ export default function NovoProduto() {
             <label style={lbl}>Nome do produto *</label>
             <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Morango, Tomate..." required style={inp} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="grid-2">
             <div>
               <label style={lbl}>SKU <span style={{ fontSize: 11, fontWeight: 400, color: '#9ca3af' }}>(auto se vazio)</span></label>
               <input value={sku} onChange={e => setSku(e.target.value)} placeholder="SKU-01" style={inp} />
@@ -66,7 +66,7 @@ export default function NovoProduto() {
               <input type="number" step="0.01" min="0" value={preco} onChange={e => setPreco(e.target.value)} placeholder="0,00" style={inp} />
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="grid-2">
             <div>
               <label style={lbl}>Unidade de medida</label>
               <select value={unidade} onChange={e => setUnidade(e.target.value)} style={inp}>
@@ -80,7 +80,7 @@ export default function NovoProduto() {
           </div>
           <div>
             <label style={lbl}>Status</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div className="grid-2" style={{ gap: 10 }}>
               {([{ val: true, label: 'Ativo' }, { val: false, label: 'Inativo' }] as const).map(opt => (
                 <button key={String(opt.val)} type="button" onClick={() => setAtivo(opt.val)}
                   style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', border: `2px solid ${ativo === opt.val ? (opt.val ? BLUE : PINK) : '#e5e7eb'}`, borderRadius: 10, background: ativo === opt.val ? (opt.val ? '#eff6ff' : '#fff0f3') : 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 14, color: ativo === opt.val ? (opt.val ? BLUE : PINK) : '#374151' }}>

@@ -13,7 +13,7 @@ export default async function RegistroProducaoPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+      <div className="flex-header">
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: NAVY, margin: 0 }}>Registro de Produção</h1>
           <p style={{ color: '#6b7280', fontSize: 13, marginTop: 4 }}>Vincule entradas (matéria-prima) a saídas (produtos acabados)</p>
