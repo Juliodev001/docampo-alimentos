@@ -31,10 +31,14 @@ export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: s
   if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await props.params
   try {
+    // Remove vinculação de outros produtos que apontam para este
+    await prisma.produto.updateMany({ where: { estoqueVinculadoId: id }, data: { estoqueVinculadoId: null } })
+    // Remove entradas de estoque (não afetam histórico financeiro)
+    await prisma.entradaEstoque.deleteMany({ where: { produtoId: id } })
     await prisma.produto.delete({ where: { id } })
     memCache.invalidate(KEY)
     return NextResponse.json({ ok: true })
   } catch {
-    return NextResponse.json({ error: 'Produto possui registros vinculados' }, { status: 409 })
+    return NextResponse.json({ error: 'Produto possui registros vinculados (colheitas ou pedidos)' }, { status: 409 })
   }
 }

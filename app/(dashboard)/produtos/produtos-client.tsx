@@ -22,6 +22,7 @@ type Produto = {
   peso: number | null; altura: number | null; largura: number | null
   dataValidade: string | null; observacao: string | null
   ativo: boolean; createdAt: string; estoque: number
+  estoqueVinculadoId: string | null
 }
 
 type FornecedorItem = { id: string; nome: string }
@@ -129,7 +130,7 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
       largura: p.largura != null ? f(p.largura) : '',
       dataValidade: p.dataValidade ? p.dataValidade.slice(0, 10) : '',
       observacao: p.observacao ?? '', ativo: p.ativo,
-      estoqueVinculadoId: (p as unknown as { estoqueVinculadoId?: string }).estoqueVinculadoId ?? '',
+      estoqueVinculadoId: p.estoqueVinculadoId ?? '',
     })
     setError(''); setOpenMenu(null); setModal(true)
   }
@@ -204,8 +205,24 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
       if (!res.ok) throw new Error((await res.json()).error || 'Erro ao excluir')
       setProdutos(prev => prev.filter(p => p.id !== id))
       toast.success('Produto excluído')
+      setConfirmDel(null); setOpenMenu(null)
     } catch (e: unknown) {
-      toast.error('Não foi possível excluir', e instanceof Error ? e.message : 'Verifique se não há registros vinculados.')
+      toast.error('Não foi possível excluir', e instanceof Error ? e.message : 'Produto possui registros vinculados.')
+    } finally { setLoading(false) }
+  }
+
+  async function handleDesativar(id: string) {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/produtos/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ativo: false }),
+      })
+      if (!res.ok) throw new Error()
+      setProdutos(prev => prev.map(p => p.id === id ? { ...p, ativo: false } : p))
+      toast.success('Produto desativado')
+    } catch {
+      toast.error('Erro ao desativar')
     } finally { setLoading(false); setConfirmDel(null); setOpenMenu(null) }
   }
 
@@ -510,7 +527,7 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
                             <label style={lbl}>Vincular estoque a outro produto</label>
                             <select value={form.estoqueVinculadoId} onChange={e => setForm(p => ({ ...p, estoqueVinculadoId: e.target.value }))} style={inp}>
                               <option value="">— Estoque próprio —</option>
-                              {filtrados.filter(p => p.id !== editing?.id).map(p => (
+                              {produtos.filter(p => p.id !== editing?.id).map(p => (
                                 <option key={p.id} value={p.id}>{p.nome}</option>
                               ))}
                             </select>
@@ -721,17 +738,24 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
                 </div>
                 <h3 style={{ fontSize: 16, fontWeight: 700, color: NAVY, margin: '0 0 8px' }}>Excluir produto?</h3>
                 <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 20px' }}>
-                  Somente produtos sem registros vinculados podem ser excluídos.
+                  Produtos com colheitas ou pedidos vinculados não podem ser excluídos — use <strong>Desativar</strong> para removê-lo das listas.
                 </p>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={() => setConfirmDel(null)}
-                    style={{ flex: 1, padding: '10px', border: '1.5px solid #e5e7eb', borderRadius: 10, background: 'white', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Cancelar
-                  </button>
-                  <motion.button onClick={() => handleDelete(confirmDel)} disabled={loading}
-                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                    style={{ flex: 1, padding: '10px', backgroundColor: PINK, color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    {loading ? 'Excluindo...' : 'Excluir'}
+                <div style={{ display: 'flex', gap: 10, flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button onClick={() => setConfirmDel(null)}
+                      style={{ flex: 1, padding: '10px', border: '1.5px solid #e5e7eb', borderRadius: 10, background: 'white', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Cancelar
+                    </button>
+                    <motion.button onClick={() => handleDelete(confirmDel)} disabled={loading}
+                      whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                      style={{ flex: 1, padding: '10px', backgroundColor: PINK, color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {loading ? 'Aguarde...' : 'Excluir'}
+                    </motion.button>
+                  </div>
+                  <motion.button onClick={() => handleDesativar(confirmDel)} disabled={loading}
+                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
+                    style={{ width: '100%', padding: '10px', backgroundColor: '#f3f4f6', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Desativar (ocultar das listas)
                   </motion.button>
                 </div>
               </motion.div>
