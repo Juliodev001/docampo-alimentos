@@ -629,7 +629,6 @@ export default function RocasClient({
   }
   async function handleSaveLanc() {
     if (!lancForm.produtorId) { setLancError('Selecione o produtor'); return }
-    if (!lancForm.rocaId) { setLancError('Selecione a roça'); return }
     if (lancItems.length === 0) { setLancError('Adicione ao menos um produto'); return }
     setSavingLanc(true); setLancError('')
     try {
