@@ -1351,7 +1351,7 @@ export default function RocasClient({
                       <td style={{ padding: '14px 16px', position: 'relative' }}>
                         <button onClick={e => {
                           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                          setLancMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+                          setLancMenuPos({ top: rect.bottom + 4 + 100 > window.innerHeight ? rect.top - 100 : rect.bottom + 4, right: window.innerWidth - rect.right })
                           setLancMenuId(lancMenuId === c.id ? null : c.id)
                         }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 4 }}>
                           <FontAwesomeIcon icon={faEllipsisH} style={{ fontSize: 16 }} />
@@ -1606,7 +1606,7 @@ export default function RocasClient({
                       <td style={{ padding: '16px' }}>
                         <button onClick={e => {
                           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                          setPagarMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right - 8 })
+                          setPagarMenuPos({ top: rect.bottom + 4 + 100 > window.innerHeight ? rect.top - 100 : rect.bottom + 4, right: window.innerWidth - rect.right - 8 })
                           setPagarMenuId(pagarMenuId === p.id ? null : p.id)
                         }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 4 }}><FontAwesomeIcon icon={faEllipsisH} style={{ fontSize: 16 }} /></button>
                       </td>
@@ -1809,7 +1809,8 @@ export default function RocasClient({
                       <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                         <button onClick={e => {
                           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                          setFechMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+                          const top = rect.bottom + 4 + 120 > window.innerHeight ? rect.top - 120 : rect.bottom + 4
+                          setFechMenuPos({ top, right: window.innerWidth - rect.right })
                           setFechMenuId(fechMenuId === f.id ? null : f.id)
                         }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 4 }}>
                           <FontAwesomeIcon icon={faEllipsisH} style={{ fontSize: 16 }} />
