@@ -823,12 +823,23 @@ export default function RocasClient({
       if (meeiroRelDateF && c.data > meeiroRelDateF + 'T23:59:59') return false
       return true
     })
-    const meeiro = forceMeeiroNome ?? parceirosState.find(p => p.id === id)?.nome
-    const totalMeeiro = dados.reduce((s, c) => s + c.quantidadeTotal * c.preco * (c.percParceiro / 100), 0)
+    const meeiroObj = parceirosState.find(p => p.id === id)
+    const meeiroNome = forceMeeiroNome ?? meeiroObj?.nome
+    const valorEmba = meeiroObj?.valorEmba ?? 0
+    const totalBruto = dados.reduce((s, c) => s + c.quantidadeTotal * c.preco * (c.percParceiro / 100), 0)
+    const totalEmba = dados.reduce((s, c) => s + valorEmba * c.quantidadeTotal, 0)
+    const totalLiquido = totalBruto - totalEmba
     const rows = dados.length === 0
-      ? `<tr><td colspan="7" style="text-align:center;padding:24px;color:#9ca3af">Nenhum lançamento encontrado</td></tr>`
-      : dados.map(c => `<tr><td>${fmtDate(c.data)}</td><td>${c.rocaNome ?? '—'}</td><td>${c.produtoNome}</td><td>${fmtNum(c.quantidadeTotal, 0)}</td><td>${fmtCurrency(c.preco)}</td><td>${c.percParceiro}%</td><td class="bold">${fmtCurrency(c.quantidadeTotal * c.preco * (c.percParceiro / 100))}</td></tr>`).join('')
-    abrirJanela(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lançamentos de Meeiro${meeiro ? ' - ' + meeiro : ''}</title>${estiloRel}</head><body><h1>Lançamentos de Meeiro${meeiro ? ': ' + meeiro : ''}</h1><p class="sub">Gerado em ${new Date().toLocaleString('pt-BR')}</p><table><thead><tr><th>Data</th><th>Roça</th><th>Produto</th><th>Qtde</th><th>Valor Unit.</th><th>%</th><th>Valor Meeiro</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="6" class="bold" style="padding:10px">Total a receber</td><td class="bold" style="padding:10px">${fmtCurrency(totalMeeiro)}</td></tr></tfoot></table></body></html>`)
+      ? `<tr><td colspan="8" style="text-align:center;padding:24px;color:#9ca3af">Nenhum lançamento encontrado</td></tr>`
+      : dados.map(c => {
+          const vm = c.quantidadeTotal * c.preco * (c.percParceiro / 100)
+          const de = valorEmba * c.quantidadeTotal
+          return `<tr><td>${fmtDate(c.data)}</td><td>${c.rocaNome ?? '—'}</td><td>${c.produtoNome}</td><td>${fmtNum(c.quantidadeTotal, 0)}</td><td>${fmtCurrency(c.preco)}</td><td>${c.percParceiro}%</td><td class="bold">${fmtCurrency(vm)}</td><td style="color:#e87320">- ${fmtCurrency(de)}</td></tr>`
+        }).join('')
+    const embaFooter = totalEmba > 0
+      ? `<tr><td colspan="7" style="padding:6px 10px;font-size:11px;color:#6b7280;text-align:right">Desc. Embalagens (R$ ${fmtNum(valorEmba, 2)}/cx)</td><td style="padding:6px 10px;color:#e87320;font-weight:700">- ${fmtCurrency(totalEmba)}</td></tr>`
+      : ''
+    abrirJanela(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lançamentos de Meeiro${meeiroNome ? ' - ' + meeiroNome : ''}</title>${estiloRel}</head><body><h1>Lançamentos de Meeiro${meeiroNome ? ': ' + meeiroNome : ''}</h1><p class="sub">Gerado em ${new Date().toLocaleString('pt-BR')}</p><table><thead><tr><th>Data</th><th>Roça</th><th>Produto</th><th>Qtde</th><th>Valor Unit.</th><th>%</th><th>Valor Meeiro</th><th>Desc. Emba.</th></tr></thead><tbody>${rows}</tbody><tfoot>${embaFooter}<tr><td colspan="7" class="bold" style="padding:10px">Líquido a receber</td><td class="bold" style="padding:10px">${fmtCurrency(totalLiquido)}</td></tr></tfoot></table></body></html>`)
   }
 
   function gerarComprovante(p: NonNullable<typeof pagarModal>) {
