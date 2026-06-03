@@ -88,6 +88,7 @@ model ColheitaDiaria {
   responsavelId      String
   responsavel        User          @relation(fields: [responsavelId], references: [id])
   observacao         String?
+  aprovado           Boolean       @default(true)
   createdAt          DateTime      @default(now())
 }
 

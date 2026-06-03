@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
       },
       include: {
         produto: true,
+        roca: { select: { id: true, nome: true, codigo: true } },
         produtor: { include: { parceiros: true } },
+        parceiro: { select: { id: true, nome: true, percentual: true, valorEmba: true } },
         responsavel: { select: { id: true, name: true, role: true } },
       },
       orderBy: { data: 'desc' },
