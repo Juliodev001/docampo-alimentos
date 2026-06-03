@@ -2739,24 +2739,6 @@ export default function RocasClient({
                   </div>
                 </div>
 
-                <div style={{ border: '1.5px solid #e5e7eb', borderRadius: 12, padding: 18 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Deduções</div>
-                  <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 14 }}>Valores a descontar do produtor neste lançamento.</div>
-                  <div className="grid-3" style={{ alignItems: 'start' }}>
-                    <FormField label="Vales Dinheiro (R$)">
-                      <input type="number" min="0" step="0.01" value={lancForm.valesDinheiro}
-                        onChange={e => setLancForm(f => ({ ...f, valesDinheiro: e.target.value }))} style={inputStyle} />
-                    </FormField>
-                    <FormField label="Créditos Coleta/Filmagem (R$)">
-                      <input type="number" min="0" step="0.01" value={lancForm.creditos}
-                        onChange={e => setLancForm(f => ({ ...f, creditos: e.target.value }))} style={inputStyle} />
-                    </FormField>
-                    <FormField label="Débitos Anteriores (R$)">
-                      <input type="number" min="0" step="0.01" value={lancForm.debitosAnteriores}
-                        onChange={e => setLancForm(f => ({ ...f, debitosAnteriores: e.target.value }))} style={inputStyle} />
-                    </FormField>
-                  </div>
-                </div>
 
                 {lancError && <div style={{ color: PINK, fontSize: 13, background: '#fee2e2', borderRadius: 8, padding: '8px 12px' }}>{lancError}</div>}
               </div>
