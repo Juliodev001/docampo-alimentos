@@ -13,13 +13,15 @@ type Fornecedor = { id: string; nome: string }
 type ProdutoSimples = { id: string; nome: string; unidade: string }
 
 type ItemPedido = { id?: string; produto: string; unidade: string; quantidade: number; valorUnit: number; desconto: number; total: number }
+type Endereco = { cep: string | null; logradouro: string | null; numero: string | null; complemento: string | null; bairro: string | null; cidade: string | null; estado: string | null; referencia: string | null } | null
+type Parte = { id: string; nome: string; cnpjCpf: string | null; telefone: string | null; email: string | null; endereco: Endereco } | null
 type Pedido = {
   id: string; numero: number; tipo: string; data: string
   status: string; totalValor: number; frete: number; outrasTaxas: number
   formaPagamento: string | null; observacao: string | null
   obsInternas: string | null; obsCliente: string | null
-  cliente: { id: string; nome: string } | null
-  fornecedor: { id: string; nome: string } | null
+  cliente: Parte
+  fornecedor: Parte
   transportadora: { id: string; nome: string } | null
   itens: ItemPedido[]
 }

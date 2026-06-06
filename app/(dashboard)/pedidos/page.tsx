@@ -4,7 +4,12 @@ import PedidosWrapper from './pedidos-wrapper'
 export default async function PedidosPage() {
   const [pedidos, clientes, fornecedores, produtos, rawProdutosPdv] = await Promise.all([
     prisma.pedido.findMany({
-      include: { cliente: true, fornecedor: true, transportadora: true, itens: true },
+      include: {
+        cliente: { include: { enderecos: true } },
+        fornecedor: { include: { enderecos: true } },
+        transportadora: true,
+        itens: true,
+      },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.cliente.findMany({ orderBy: { nome: 'asc' } }),
@@ -20,6 +25,12 @@ export default async function PedidosPage() {
     }),
   ])
 
+  const mapEndereco = (e: { cep: string | null; logradouro: string | null; numero: string | null; complemento: string | null; bairro: string | null; cidade: string | null; estado: string | null; referencia: string | null } | undefined) =>
+    e ? {
+      cep: e.cep, logradouro: e.logradouro, numero: e.numero, complemento: e.complemento,
+      bairro: e.bairro, cidade: e.cidade, estado: e.estado, referencia: e.referencia,
+    } : null
+
   return (
     <PedidosWrapper
       pedidos={pedidos.map(p => ({
@@ -27,8 +38,16 @@ export default async function PedidosPage() {
         status: p.status, totalValor: p.totalValor, frete: p.frete, outrasTaxas: p.outrasTaxas,
         formaPagamento: p.formaPagamento, observacao: p.observacao,
         obsInternas: p.obsInternas, obsCliente: p.obsCliente,
-        cliente:       p.cliente       ? { id: p.cliente.id,       nome: p.cliente.nome }       : null,
-        fornecedor:    p.fornecedor    ? { id: p.fornecedor.id,    nome: p.fornecedor.nome }    : null,
+        cliente: p.cliente ? {
+          id: p.cliente.id, nome: p.cliente.nome, cnpjCpf: p.cliente.cnpjCpf,
+          telefone: p.cliente.telefone, email: p.cliente.email,
+          endereco: mapEndereco(p.cliente.enderecos[0]),
+        } : null,
+        fornecedor: p.fornecedor ? {
+          id: p.fornecedor.id, nome: p.fornecedor.nome, cnpjCpf: p.fornecedor.cnpjCpf,
+          telefone: p.fornecedor.telefone, email: p.fornecedor.email,
+          endereco: mapEndereco(p.fornecedor.enderecos[0]),
+        } : null,
         transportadora: p.transportadora ? { id: p.transportadora.id, nome: p.transportadora.nome } : null,
         itens: p.itens.map(it => ({ id: it.id, produto: it.produto, unidade: it.unidade, quantidade: it.quantidade, valorUnit: it.valorUnit, desconto: it.desconto, total: it.total })),
       }))}
