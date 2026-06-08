@@ -10,5 +10,5 @@ export default async function CompraDetalhePage({ params }: { params: Promise<{ 
     include: { fornecedor: true, centroCusto: true, itens: true },
   })
   if (!compra) notFound()
-  return <CompraDetalheClient compra={s(compra)} />
+  return <CompraDetalheClient compra={s(compra) as never} />
 }

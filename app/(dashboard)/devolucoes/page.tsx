@@ -15,7 +15,7 @@ export default async function DevolucoesPage() {
 
   return (
     <DevolucoesClient
-      devolucoes={s(devolucoes)}
+      devolucoes={s(devolucoes) as never}
       total={total}
       totalValor={totalValor}
       pendentes={pendentes}
