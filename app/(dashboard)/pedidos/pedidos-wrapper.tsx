@@ -18,6 +18,7 @@ type Parte = { id: string; nome: string; cnpjCpf: string | null; telefone: strin
 type Pedido = {
   id: string; numero: number; tipo: string; data: string
   status: string; totalValor: number; frete: number; outrasTaxas: number
+  clienteId: string | null
   formaPagamento: string | null; observacao: string | null
   obsInternas: string | null; obsCliente: string | null
   cliente: Parte

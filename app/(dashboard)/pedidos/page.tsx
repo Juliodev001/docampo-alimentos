@@ -36,6 +36,7 @@ export default async function PedidosPage() {
       pedidos={pedidos.map(p => ({
         id: p.id, numero: p.numero, tipo: p.tipo, data: p.data.toISOString(),
         status: p.status, totalValor: Number(p.totalValor), frete: Number(p.frete), outrasTaxas: Number(p.outrasTaxas),
+        clienteId: p.clienteId,
         formaPagamento: p.formaPagamento, observacao: p.observacao,
         obsInternas: p.obsInternas, obsCliente: p.obsCliente,
         cliente: p.cliente ? {
