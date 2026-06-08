@@ -38,7 +38,7 @@ export default async function AvisosPage() {
         ultimaCompra: p.data.toISOString(),
       }
     }
-    clienteMap[p.clienteId].totalComprado += p.totalValor
+    clienteMap[p.clienteId].totalComprado += Number(p.totalValor)
     clienteMap[p.clienteId].qtdPedidos   += 1
   }
 
@@ -51,7 +51,7 @@ export default async function AvisosPage() {
         numero:      f.numero,
         clienteNome: f.cliente?.nome ?? 'Sem cliente',
         telefone:    f.cliente?.telefone ?? null,
-        valor:       f.totalValor,
+        valor:       Number(f.totalValor),
         dataVenda:   f.data.toISOString(),
         dataCobranca: f.dataCobranca?.toISOString() ?? null,
         status:      f.status,

@@ -34,12 +34,12 @@ export default async function ClientesPage() {
       comprasPorCliente[p.clienteId] = { totalComprado: 0, qtdPedidos: 0, ultimaCompra: null, fiadoPendente: 0, pedidos: [] }
     }
     const agg = comprasPorCliente[p.clienteId]
-    agg.totalComprado += p.totalValor
+    agg.totalComprado += Number(p.totalValor)
     agg.qtdPedidos   += 1
     if (!agg.ultimaCompra || p.data.toISOString() > agg.ultimaCompra) agg.ultimaCompra = p.data.toISOString()
-    if (p.formaPagamento === 'FIADO' && p.status !== 'PAGO') agg.fiadoPendente += p.totalValor
+    if (p.formaPagamento === 'FIADO' && p.status !== 'PAGO') agg.fiadoPendente += Number(p.totalValor)
     agg.pedidos.push({
-      id: p.id, numero: p.numero, valor: p.totalValor,
+      id: p.id, numero: p.numero, valor: Number(p.totalValor),
       data: p.data.toISOString(), formaPagamento: p.formaPagamento,
       status: p.status, dataCobranca: p.dataCobranca?.toISOString() ?? null,
     })
