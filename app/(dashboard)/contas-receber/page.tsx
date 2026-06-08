@@ -14,11 +14,11 @@ export default async function ContasReceberPage() {
 
   const totalAReceber = titulos
     .filter(t => t.status !== 'RECEBIDO')
-    .reduce((s, t) => s + t.valor, 0)
+    .reduce((s, t) => s + Number(t.valor), 0)
 
   const valorRecebido = titulos
     .filter(t => t.status === 'RECEBIDO')
-    .reduce((s, t) => s + t.valor, 0)
+    .reduce((s, t) => s + Number(t.valor), 0)
 
   const vencidas = titulos.filter(t => {
     const v = new Date(t.dataVenc); v.setHours(0, 0, 0, 0)
@@ -41,8 +41,8 @@ export default async function ContasReceberPage() {
         id:           t.id,
         cliente:      t.cliente.nome,
         descricao:    t.descricao,
-        valor:        t.valor,
-        valorPago:    t.status === 'RECEBIDO' ? t.valor : 0,
+        valor:        Number(t.valor),
+        valorPago:    t.status === 'RECEBIDO' ? Number(t.valor) : 0,
         dataVenc:     t.dataVenc.toISOString(),
         dataPagamento: t.dataPagamento?.toISOString() ?? null,
         status:       t.status !== 'RECEBIDO' && new Date(t.dataVenc) < hoje

@@ -19,19 +19,19 @@ export default async function VendasPage() {
 
   const receitaNfe = nfes
     .filter((n) => n.status === 'AUTORIZADA')
-    .reduce((s, n) => s + n.totalValor, 0)
+    .reduce((s, n) => s + Number(n.totalValor), 0)
   const aReceberNfe = nfes
     .filter((n) => n.status === 'AUTORIZADA' && n.statusFinanceiro === 'A_RECEBER')
-    .reduce((s, n) => s + n.totalValor, 0)
+    .reduce((s, n) => s + Number(n.totalValor), 0)
   const recebidoNfe = nfes
     .filter((n) => n.status === 'AUTORIZADA' && n.statusFinanceiro === 'RECEBIDO')
-    .reduce((s, n) => s + n.totalValor, 0)
+    .reduce((s, n) => s + Number(n.totalValor), 0)
 
-  const receitaRomaneios = romaneios.reduce((s, r) => s + r.totalValor, 0)
+  const receitaRomaneios = romaneios.reduce((s, r) => s + Number(r.totalValor), 0)
   const receitaMes = [
     ...nfes.filter((n) => n.status === 'AUTORIZADA' && new Date(n.dataEmissao) >= inicioMes),
     ...romaneios.filter((r) => new Date(r.data) >= inicioMes),
-  ].reduce((s, v) => s + v.totalValor, 0)
+  ].reduce((s, v) => s + Number(v.totalValor), 0)
 
   return (
     <VendasClient
@@ -39,7 +39,7 @@ export default async function VendasPage() {
         id: n.id,
         dataEmissao: n.dataEmissao.toISOString(),
         numero: n.numero,
-        totalValor: n.totalValor,
+        totalValor: Number(n.totalValor),
         statusFinanceiro: n.statusFinanceiro,
         status: n.status,
         cliente: { nome: n.cliente.nome },
@@ -49,7 +49,7 @@ export default async function VendasPage() {
         id: r.id,
         numero: r.numero,
         data: r.data.toISOString(),
-        totalValor: r.totalValor,
+        totalValor: Number(r.totalValor),
         status: r.status,
         cliente: { nome: r.cliente.nome },
         itensCount: r.itens.length,

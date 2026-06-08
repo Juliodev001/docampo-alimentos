@@ -31,8 +31,8 @@ export default async function RegistroProducaoPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {registros.map((r) => {
-            const custoTotal = r.entradas.reduce((s, e) => s + e.total, 0)
-            const receitaTotal = r.saidas.reduce((s, s2) => s + s2.total, 0)
+            const custoTotal = r.entradas.reduce((s, e) => s + Number(e.total), 0)
+            const receitaTotal = r.saidas.reduce((s, s2) => s + Number(s2.total), 0)
             return (
               <div key={r.id} style={{ backgroundColor: 'white', borderRadius: 12, padding: '18px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>

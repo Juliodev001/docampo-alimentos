@@ -34,7 +34,7 @@ export default async function ProducaoPage() {
   const totalMes = colheitasMes.reduce((s, c) => s + c.quantidadeTotal, 0)
   const totalSemana = colheitasSemana.reduce((s, c) => s + c.quantidadeTotal, 0)
   const totalDescarte = colheitasMes.reduce((s, c) => s + c.descarte, 0)
-  const valorMes = colheitasMes.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
+  const valorMes = colheitasMes.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * Number(c.preco), 0)
 
   const registrosPendentes = registros.filter(r => r.status === 'RASCUNHO').length
 
@@ -170,8 +170,8 @@ export default async function ProducaoPage() {
           ) : (
             <div style={{ padding: '8px 0' }}>
               {registros.slice(0, 6).map((r) => {
-                const custo = r.entradas.reduce((s, e) => s + e.total, 0)
-                const producao = r.saidas.reduce((s, e) => s + e.total, 0)
+                const custo = r.entradas.reduce((s, e) => s + Number(e.total), 0)
+                const producao = r.saidas.reduce((s, e) => s + Number(e.total), 0)
                 const margem = custo > 0 ? ((producao - custo) / custo * 100).toFixed(1) : null
                 return (
                   <div key={r.id} style={{ padding: '11px 20px', borderBottom: '1px solid #f9fafb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -8,7 +8,7 @@ export default async function DevolucoesPage() {
   })
 
   const total = devolucoes.length
-  const totalValor = devolucoes.reduce((s, d) => s + d.totalValor, 0)
+  const totalValor = devolucoes.reduce((s, d) => s + Number(d.totalValor), 0)
   const pendentes = devolucoes.filter((d) => d.status === 'PENDENTE').length
   const acertadas = devolucoes.filter((d) => d.status === 'ACERTADA').length
 

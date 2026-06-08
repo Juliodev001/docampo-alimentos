@@ -12,8 +12,8 @@ export default async function ContasPagarPage() {
     orderBy: { vencimento: 'asc' },
   })
 
-  const totalAPagar  = compras.filter(c => c.status !== 'PAGO').reduce((s, c) => s + c.totalValor, 0)
-  const totalPago    = compras.filter(c => c.status === 'PAGO').reduce((s, c) => s + c.totalValor, 0)
+  const totalAPagar  = compras.filter(c => c.status !== 'PAGO').reduce((s, c) => s + Number(c.totalValor), 0)
+  const totalPago    = compras.filter(c => c.status === 'PAGO').reduce((s, c) => s + Number(c.totalValor), 0)
 
   const vencidas = compras.filter(c => {
     const v = new Date(c.vencimento); v.setHours(0, 0, 0, 0)
@@ -37,7 +37,7 @@ export default async function ContasPagarPage() {
         tipo:         c.categoria,
         fornecedor:   c.fornecedor.nome,
         roca:         c.centroCusto?.nome ?? null,
-        valor:        c.totalValor,
+        valor:        Number(c.totalValor),
         vencimento:   c.vencimento.toISOString(),
         status:       c.status !== 'PAGO' && new Date(c.vencimento) < hoje ? 'VENCIDO' : c.status,
         observacao:   c.observacao,

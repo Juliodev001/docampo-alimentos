@@ -8,7 +8,7 @@ export default async function SaidaLavouraPage() {
   })
 
   const totalQtd = saidas.reduce((s, x) => s + x.quantidade, 0)
-  const totalValor = saidas.reduce((s, x) => s + x.totalValor, 0)
+  const totalValor = saidas.reduce((s, x) => s + Number(x.totalValor), 0)
   const ticketMedio = saidas.length > 0 ? totalValor / saidas.length : 0
 
   return <SaidaClient saidas={saidas} totalQtd={totalQtd} totalValor={totalValor} ticketMedio={ticketMedio} />

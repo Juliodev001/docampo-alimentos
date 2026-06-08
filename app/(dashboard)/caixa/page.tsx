@@ -17,13 +17,13 @@ export default async function CaixaPage() {
     .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
 
   const saldoTotal = contas.reduce((s, c) => {
-    const entradas = c.movimentacoes.filter((m) => m.tipo === 'ENTRADA').reduce((acc, m) => acc + m.valor, 0)
-    const saidas   = c.movimentacoes.filter((m) => m.tipo === 'SAIDA').reduce((acc, m) => acc + m.valor, 0)
-    return s + c.saldoInicial + entradas - saidas
+    const entradas = c.movimentacoes.filter((m) => m.tipo === 'ENTRADA').reduce((acc, m) => acc + Number(m.valor), 0)
+    const saidas   = c.movimentacoes.filter((m) => m.tipo === 'SAIDA').reduce((acc, m) => acc + Number(m.valor), 0)
+    return s + Number(c.saldoInicial) + entradas - saidas
   }, 0)
 
-  const entradPeriodo = todasMovimentacoes.filter((m) => m.tipo === 'ENTRADA').reduce((s, m) => s + m.valor, 0)
-  const saidPeriodo   = todasMovimentacoes.filter((m) => m.tipo === 'SAIDA').reduce((s, m) => s + m.valor, 0)
+  const entradPeriodo = todasMovimentacoes.filter((m) => m.tipo === 'ENTRADA').reduce((s, m) => s + Number(m.valor), 0)
+  const saidPeriodo   = todasMovimentacoes.filter((m) => m.tipo === 'SAIDA').reduce((s, m) => s + Number(m.valor), 0)
   const pendentes     = todasMovimentacoes.filter((m) => !m.conciliado).length
 
   return (
