@@ -55,8 +55,8 @@ export default async function PedidosPage() {
       fornecedores={fornecedores.map(f => ({ id: f.id, nome: f.nome }))}
       produtos={produtos.map(p => ({ id: p.id, nome: p.nome, unidade: p.unidade }))}
       produtosPdv={rawProdutosPdv.map(p => ({
-        id: p.id, nome: p.nome, precoVenda: Number(p.precoVenda), precoPromocional: p.precoPromocional != null ? Number(p.precoPromocional) : null,
-        precoPdv: p.precoPdv != null ? Number(p.precoPdv) : null,
+        id: p.id, nome: p.nome, precoVenda: Number(p.precoVenda), precoPromocional: Number(p.precoPromocional ?? 0),
+        precoPdv: Number(p.precoPdv ?? 0),
         unidade: p.unidade, categoria: p.categoria, ativo: p.ativo,
         estoqueVinculadoId: p.estoqueVinculadoId ?? null,
         estoque: p.estoqueVinculado
