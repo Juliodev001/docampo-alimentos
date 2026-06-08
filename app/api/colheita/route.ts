@@ -3,6 +3,7 @@ import { revalidateTag } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 import { memCache } from '@/lib/mem-cache'
+import { s } from '@/lib/serialize'
 
 export async function GET(req: NextRequest) {
   const session = await getSession()
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
     }),
     30_000
   )
-  return NextResponse.json(colheitas)
+  return NextResponse.json(s(colheitas))
 }
 
 export async function POST(req: NextRequest) {
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
     })
     revalidateTag('lavoura', 'max')
     memCache.invalidate('colheita')
-    return NextResponse.json(colheita, { status: 201 })
+    return NextResponse.json(s(colheita), { status: 201 })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('[POST /api/colheita]', msg)

@@ -282,6 +282,7 @@ export default function RocasClient({
   const [fechAjustar, setFechAjustar]                 = useState(false)
   const [fechProdutorFilter, setFechProdutorFilter]   = useState('')
   const [fechStatusFilter, setFechStatusFilter]       = useState<'TODOS' | 'PENDENTE' | 'PAGO'>('TODOS')
+  const [searchFech, setSearchFech]                   = useState('')
   const [fechMenuId, setFechMenuId]                   = useState<string | null>(null)
   const [fechMenuPos, setFechMenuPos]                 = useState({ top: 0, right: 0 })
 
@@ -768,7 +769,7 @@ export default function RocasClient({
     (p.sku ?? '').toLowerCase().includes(searchProduto.toLowerCase())
   ), [produtosState, searchProduto])
   const filteredLanc = useMemo(() => colheitas.filter(c =>
-    (c.rocaNome ?? '').toLowerCase().includes(searchLanc.toLowerCase()) ||
+    (c.produtorNome ?? '').toLowerCase().includes(searchLanc.toLowerCase()) ||
     (c.parceiroNome ?? '').toLowerCase().includes(searchLanc.toLowerCase()) ||
     c.produtoNome.toLowerCase().includes(searchLanc.toLowerCase())
   ), [colheitas, searchLanc])
@@ -951,11 +952,12 @@ export default function RocasClient({
                   Ver lançamentos
                 </button>
               </div>
-              <div className="grid-3" style={{ gap: 10 }}>
+              {/* Cards totais */}
+              <div className="grid-3" style={{ gap: 10, marginBottom: 16 }}>
                 {[
-                  { label: 'Quantidade total de caixa', value: fmtNum(qtdTotalCaixas, 0) },
-                  { label: 'Valor médio por caixa',     value: fmtCurrency(valorMedioCaixa) },
-                  { label: 'Meeiros cadastrados',       value: totalMeeiros },
+                  { label: 'Lançamentos filtrados', value: fmtNum(lancamentosFiltrados, 0) },
+                  { label: 'Quantidade total de caixas', value: fmtNum(qtdTotalCaixas, 0) },
+                  { label: 'Meeiros cadastrados', value: totalMeeiros },
                 ].map((item, i) => (
                   <div key={i} style={{ background: '#f8fafc', borderRadius: 10, padding: '14px 16px', border: '1px solid #e5e7eb' }}>
                     <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 6 }}>{item.label}</div>
@@ -963,6 +965,50 @@ export default function RocasClient({
                   </div>
                 ))}
               </div>
+
+              {/* Breakdown por produto */}
+              {(() => {
+                const porProduto = filteredColheitas.reduce<Record<string, { nome: string; qtd: number; valor: number }>>((acc, c) => {
+                  if (!acc[c.produtoId]) acc[c.produtoId] = { nome: c.produtoNome, qtd: 0, valor: 0 }
+                  acc[c.produtoId].qtd   += c.quantidadeTotal
+                  acc[c.produtoId].valor += c.quantidadeTotal * c.preco
+                  return acc
+                }, {})
+                const rows = Object.values(porProduto).sort((a, b) => b.valor - a.valor)
+                if (rows.length === 0) return null
+                return (
+                  <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 14 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 10 }}>Por produto</div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1.5px solid #e5e7eb' }}>
+                          {['Produto', 'Qtde (cx)', 'Valor total', 'Preço médio/cx'].map(h => (
+                            <th key={h} style={{ padding: '6px 10px', textAlign: h === 'Produto' ? 'left' : 'right', color: '#6b7280', fontWeight: 600, fontSize: 11 }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((r, i) => (
+                          <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                            <td style={{ padding: '9px 10px', fontWeight: 600, color: NAVY, textTransform: 'uppercase', fontSize: 12 }}>{r.nome}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', color: '#374151' }}>{fmtNum(r.qtd, 0)}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', color: GREEN, fontWeight: 600 }}>{fmtCurrency(r.valor)}</td>
+                            <td style={{ padding: '9px 10px', textAlign: 'right', color: NAVY, fontWeight: 700 }}>{fmtCurrency(r.qtd > 0 ? r.valor / r.qtd : 0)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ borderTop: '2px solid #e5e7eb', background: '#f8fafc' }}>
+                          <td style={{ padding: '9px 10px', fontWeight: 700, color: NAVY, fontSize: 12 }}>Total geral</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700, color: NAVY }}>{fmtNum(qtdTotalCaixas, 0)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700, color: GREEN }}>{fmtCurrency(valorTotalFiltrado)}</td>
+                          <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700, color: '#6b7280', fontSize: 11, fontStyle: 'italic' }}>—</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )
+              })()}
             </div>
 
             <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
@@ -1339,7 +1385,7 @@ export default function RocasClient({
               <thead>
                 <tr style={{ background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
                   <th style={{ padding: '14px 16px', textAlign: 'left' }}><input type="checkbox" /></th>
-                  {['Data', 'Roça', 'Produtos', 'Qtde', 'Valor Unit.', 'Meeiro', '%', 'Valor do meeiro', 'Valor total', 'Ações'].map(h => (
+                  {['Data', 'Produtor', 'Produtos', 'Qtde', 'Valor Unit.', 'Meeiro', '%', 'Valor do meeiro', 'Valor total', 'Ações'].map(h => (
                     <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6b7280' }}>{h}</th>
                   ))}
                 </tr>
@@ -1354,7 +1400,7 @@ export default function RocasClient({
                     <tr key={c.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                       <td style={{ padding: '14px 16px' }}><input type="checkbox" /></td>
                       <td style={{ padding: '14px 16px', fontSize: 13, color: '#374151' }}>{fmtDate(c.data)}</td>
-                      <td style={{ padding: '14px 16px', fontSize: 13, color: NAVY, fontWeight: 600 }}>{c.rocaNome ?? '—'}</td>
+                      <td style={{ padding: '14px 16px', fontSize: 13, color: NAVY, fontWeight: 600 }}>{c.produtorNome ?? '—'}</td>
                       <td style={{ padding: '14px 16px', fontSize: 13, color: '#374151', textTransform: 'uppercase' }}>{c.produtoNome}</td>
                       <td style={{ padding: '14px 16px', fontSize: 13, color: '#374151' }}>{fmtNum(c.quantidadeTotal, 0)}</td>
                       <td style={{ padding: '14px 16px', fontSize: 13, color: '#374151' }}>{fmtCurrency(c.preco)}</td>
@@ -1609,6 +1655,7 @@ export default function RocasClient({
         const fechFiltrados = fechamentosState.filter(f => {
           if (fechProdutorFilter && f.produtorId !== fechProdutorFilter) return false
           if (fechStatusFilter !== 'TODOS' && f.status !== fechStatusFilter) return false
+          if (searchFech.trim() && !f.produtorNome.toLowerCase().includes(searchFech.toLowerCase())) return false
           return true
         })
 
@@ -1741,16 +1788,26 @@ export default function RocasClient({
             {/* Filter / action bar */}
             <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.07)', padding: '16px 20px' }}>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                <select style={{ ...inputStyle, width: 220 }} value={fechProdutorFilter} onChange={e => setFechProdutorFilter(e.target.value)}>
+                <select style={{ ...inputStyle, width: 200 }} value={fechProdutorFilter} onChange={e => setFechProdutorFilter(e.target.value)}>
                   <option value="">Todos os produtores</option>
                   {produtoresState.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                 </select>
-                <select style={{ ...inputStyle, width: 160 }} value={fechStatusFilter} onChange={e => setFechStatusFilter(e.target.value as 'TODOS' | 'PENDENTE' | 'PAGO')}>
+                <select style={{ ...inputStyle, width: 150 }} value={fechStatusFilter} onChange={e => setFechStatusFilter(e.target.value as 'TODOS' | 'PENDENTE' | 'PAGO')}>
                   <option value="TODOS">Todos os status</option>
                   <option value="PENDENTE">Pendente</option>
                   <option value="PAGO">Pago</option>
                 </select>
-                <div style={{ flex: 1 }} />
+                <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
+                  <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 13, pointerEvents: 'none' }} />
+                  <input
+                    type="text"
+                    placeholder="Buscar por produtor..."
+                    value={searchFech}
+                    onChange={e => setSearchFech(e.target.value)}
+                    style={{ ...inputStyle, width: '100%', paddingLeft: 32, boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div style={{ flex: '0 0 auto' }} />
                 <button
                   onClick={() => { setFechError(''); setFechForm(emptyFechForm); setShowFechModal(true) }}
                   style={{ background: NAVY, color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -2639,6 +2696,7 @@ export default function RocasClient({
               </div>
 
               <div style={{ padding: '20px 28px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {/* 1. Produtor */}
                 <div style={{ border: '1.5px solid #e5e7eb', borderRadius: 12, padding: 18 }}>
                   <FormField label="Produtor">
                     <select value={lancForm.produtorId} onChange={e => setLancForm(f => ({ ...f, produtorId: e.target.value, rocaId: '', meeiroIds: [] }))} style={inputStyle}>
@@ -2646,22 +2704,13 @@ export default function RocasClient({
                       {produtoresState.map(p => <option key={p.id} value={p.id}>{p.codigo ? `${p.codigo} – ` : ''}{p.nome}</option>)}
                     </select>
                   </FormField>
-                  <div className="grid-2" style={{ marginTop: 12 }}>
-                    <FormField label="Data"><input type="date" value={lancForm.data} onChange={e => setLancForm(f => ({ ...f, data: e.target.value }))} style={inputStyle} /></FormField>
-                    <FormField label="Roça">
-                      <select value={lancForm.rocaId} onChange={e => setLancForm(f => ({ ...f, rocaId: e.target.value }))} style={inputStyle} disabled={!lancForm.produtorId}>
-                        <option value="">Selecione a roça</option>
-                        {rocasDoProdutor.map(r => <option key={r.id} value={r.id}>{r.codigo ? `${r.codigo} – ` : ''}{r.nome}</option>)}
-                      </select>
-                    </FormField>
-                  </div>
                 </div>
 
+                {/* 2. Meeiros participantes */}
                 <div style={{ border: '1.5px solid #e5e7eb', borderRadius: 12, padding: 18 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Meeiros participantes</div>
-                  <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12 }}>Adicione os meeiros que participaram do lançamento. A porcentagem de cada um é definida ao lado de cada produto.</div>
                   {lancForm.meeiroIds.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10, marginTop: 8 }}>
                       {lancForm.meeiroIds.map(id => {
                         const m = parceirosState.find(p => p.id === id); if (!m) return null
                         return (
@@ -2673,7 +2722,7 @@ export default function RocasClient({
                       })}
                     </div>
                   )}
-                  <select value="" onChange={e => { if (e.target.value) toggleMeeiro(e.target.value) }} style={inputStyle} disabled={!lancForm.produtorId}>
+                  <select value="" onChange={e => { if (e.target.value) toggleMeeiro(e.target.value) }} style={{ ...inputStyle, marginTop: lancForm.meeiroIds.length > 0 ? 0 : 8 }} disabled={!lancForm.produtorId}>
                     <option value="">Selecione o meeiro</option>
                     {meeirosDoProdutor.filter(m => !lancForm.meeiroIds.includes(m.id)).map(m => (
                       <option key={m.id} value={m.id}>{m.nome} ({m.percentual}%)</option>
@@ -2681,21 +2730,42 @@ export default function RocasClient({
                   </select>
                 </div>
 
+                {/* 3. Data e Roça */}
                 <div style={{ border: '1.5px solid #e5e7eb', borderRadius: 12, padding: 18 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 12 }}>Produtos (quantidade, preço e % por meeiro — cada produto gera um lançamento com 1 pé colhido)</div>
-                  <FormField label="Produto">
-                    <select value={lancForm.produtoId} onChange={e => {
-                      const prod = produtosState.find(p => p.id === e.target.value)
-                      setLancForm(f => ({ ...f, produtoId: e.target.value, preco: prod ? String(prod.preco) : f.preco }))
-                    }} style={inputStyle}>
-                      <option value="">Selecione o produto</option>
-                      {produtosState.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-                    </select>
-                  </FormField>
-                  <div className="item-row-2-auto" style={{ marginTop: 12 }}>
-                    <FormField label="Qtd"><input type="number" min="0" value={lancForm.quantidade} onChange={e => setLancForm(f => ({ ...f, quantidade: e.target.value }))} placeholder="Quantidade" style={inputStyle} /></FormField>
-                    <FormField label="Preço un."><input type="number" min="0" step="0.01" value={lancForm.preco} onChange={e => setLancForm(f => ({ ...f, preco: e.target.value }))} placeholder="Preço unitário" style={inputStyle} /></FormField>
-                    <button onClick={addLancItem} disabled={!lancForm.produtoId || !lancForm.quantidade} style={{ background: !lancForm.produtoId || !lancForm.quantidade ? '#9ca3af' : BLUE, color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: !lancForm.produtoId || !lancForm.quantidade ? 'not-allowed' : 'pointer', height: 38 }}>Adicionar</button>
+                  <div className="grid-2">
+                    <FormField label="Data"><input type="date" value={lancForm.data} onChange={e => setLancForm(f => ({ ...f, data: e.target.value }))} style={inputStyle} /></FormField>
+                    <FormField label="Roça">
+                      <select value={lancForm.rocaId} onChange={e => setLancForm(f => ({ ...f, rocaId: e.target.value }))} style={inputStyle} disabled={!lancForm.produtorId}>
+                        <option value="">Selecione a roça</option>
+                        {rocasDoProdutor.map(r => <option key={r.id} value={r.id}>{r.codigo ? `${r.codigo} – ` : ''}{r.nome}</option>)}
+                      </select>
+                    </FormField>
+                  </div>
+                </div>
+
+                {/* 4. Produtos — Produto + Qtde + Preço na mesma linha */}
+                <div style={{ border: '1.5px solid #e5e7eb', borderRadius: 12, padding: 18 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 12 }}>Produtos</div>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 3, minWidth: 140 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Produto</label>
+                      <select value={lancForm.produtoId} onChange={e => {
+                        const prod = produtosState.find(p => p.id === e.target.value)
+                        setLancForm(f => ({ ...f, produtoId: e.target.value, preco: prod ? String(prod.preco) : f.preco }))
+                      }} style={inputStyle}>
+                        <option value="">Selecione o produto</option>
+                        {produtosState.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 80 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Qtde</label>
+                      <input type="number" min="0" value={lancForm.quantidade} onChange={e => setLancForm(f => ({ ...f, quantidade: e.target.value }))} placeholder="0" style={inputStyle} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 90 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Preço un.</label>
+                      <input type="number" min="0" step="0.01" value={lancForm.preco} onChange={e => setLancForm(f => ({ ...f, preco: e.target.value }))} placeholder="0,00" style={inputStyle} />
+                    </div>
+                    <button onClick={addLancItem} disabled={!lancForm.produtoId || !lancForm.quantidade} style={{ background: !lancForm.produtoId || !lancForm.quantidade ? '#9ca3af' : BLUE, color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: !lancForm.produtoId || !lancForm.quantidade ? 'not-allowed' : 'pointer', height: 38, whiteSpace: 'nowrap' }}>+ Adicionar</button>
                   </div>
                   {lancItems.length > 0 && (
                     <div style={{ marginTop: 14, borderTop: '1px solid #f3f4f6', paddingTop: 12 }}>

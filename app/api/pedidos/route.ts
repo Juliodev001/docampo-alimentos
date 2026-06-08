@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
+import { s } from '@/lib/serialize'
 
 export async function GET() {
   const session = await getSession()
@@ -9,7 +10,7 @@ export async function GET() {
     include: { cliente: true, fornecedor: true, transportadora: true, itens: true },
     orderBy: { createdAt: 'desc' },
   })
-  return NextResponse.json(pedidos)
+  return NextResponse.json(s(pedidos))
 }
 
 export async function POST(req: NextRequest) {
@@ -86,5 +87,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json(pedido, { status: 201 })
+  return NextResponse.json(s(pedido), { status: 201 })
 }

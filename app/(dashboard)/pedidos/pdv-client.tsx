@@ -2,9 +2,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
-  faMagnifyingGlass, faShoppingCart, faPlus, faMinus,
+  faMagnifyingGlass, faShoppingCart,
   faXmark, faCheckCircle, faMoneyBill, faCreditCard, faQrcode,
-  faHandshake, faReceipt, faBoxOpen, faPencil, faCheck,
+  faHandshake, faReceipt, faBoxOpen, faPencil,
 } from '@fortawesome/free-solid-svg-icons'
 import { useToast } from '@/components/toast'
 import { formatCurrency } from '@/lib/utils'
@@ -30,6 +30,8 @@ type Produto = {
 
 type Cliente = { id: string; nome: string }
 
+type PedidoPendente = { id: string; clienteId: string | null; formaPagamento: string | null; status: string; totalValor: number }
+
 type CartItem = {
   itemId: string
   produtoId: string
@@ -48,7 +50,7 @@ const PAYMENT_METHODS: { key: PaymentMethod; label: string; icon: typeof faMoney
   { key: 'PIX',            label: 'PIX',             icon: faQrcode },
   { key: 'CARTAO_CREDITO', label: 'Cartão Crédito',  icon: faCreditCard },
   { key: 'CARTAO_DEBITO',  label: 'Cartão Débito',   icon: faCreditCard },
-  { key: 'FIADO',          label: 'Fiado',           icon: faHandshake },
+  { key: 'FIADO',          label: 'Carteira',           icon: faHandshake },
 ]
 
 const inp: React.CSSProperties = {
@@ -64,11 +66,12 @@ const inp: React.CSSProperties = {
   background: 'white',
 }
 
-export default function PdvClient({ produtos, clientes }: { produtos: Produto[]; clientes: Cliente[] }) {
+export default function PdvClient({ produtos, clientes, pedidos }: { produtos: Produto[]; clientes: Cliente[]; pedidos: PedidoPendente[] }) {
   const toast = useToast()
 
   const [q, setQ] = useState('')
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
   const [cart, setCart] = useState<CartItem[]>([])
   const [globalDiscount, setGlobalDiscount] = useState('')
 
@@ -77,13 +80,14 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('DINHEIRO')
   const [clienteId, setClienteId] = useState('')
   const [clienteSearch, setClienteSearch] = useState('')
+  const [clienteDropdown, setClienteDropdown] = useState(false)
   const [clienteError, setClienteError] = useState(false)
   const [cashReceived, setCashReceived] = useState('')
   const [dataCobranca, setDataCobranca] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [lastPedidoId, setLastPedidoId] = useState<string | null>(null)
 
-  /* edição de preço inline no card */
+  /* edição de preço inline no carrinho */
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null)
   const [editingPriceVal, setEditingPriceVal] = useState('')
   const [produtosLocal, setProdutosLocal] = useState(produtos)
@@ -105,15 +109,15 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
     searchRef.current?.focus()
   }, [])
 
-  async function savePrice(id: string) {
+  function saveCartPrice(itemId: string) {
     const novo = parseFloat(editingPriceVal)
-    if (isNaN(novo) || novo < 0) { setEditingPriceId(null); return }
-    await fetch(`/api/produtos/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ precoPdv: novo }),
-    })
-    setProdutosLocal(prev => prev.map(p => p.id === id ? { ...p, precoPdv: novo } : p))
+    if (!isNaN(novo) && novo >= 0) {
+      setCart(prev => prev.map(it =>
+        it.itemId === itemId
+          ? { ...it, valorUnit: novo, total: novo * it.quantidade - it.desconto }
+          : it
+      ))
+    }
     setEditingPriceId(null)
   }
 
@@ -134,9 +138,15 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
   const cashRec = parseFloat(cashReceived) || 0
   const troco = cashRec > total ? cashRec - total : 0
 
-  const clientesFiltrados = clientes.filter(c =>
-    !clienteSearch || c.nome.toLowerCase().includes(clienteSearch.toLowerCase())
-  )
+  const saldoCarteira = clienteId
+    ? pedidos
+        .filter(p => p.clienteId === clienteId && p.formaPagamento === 'FIADO' && !['CANCELADO', 'PAGO'].includes(p.status))
+        .reduce((s, p) => s + p.totalValor, 0)
+    : 0
+
+  const clientesFiltrados = clienteSearch.length >= 2
+    ? clientes.filter(c => c.nome.toLowerCase().includes(clienteSearch.toLowerCase()))
+    : []
 
   function addToCart(produto: Produto) {
     const price = produto.precoPromocional > 0 ? produto.precoPromocional : produto.precoPdv > 0 ? produto.precoPdv : produto.precoVenda
@@ -145,7 +155,7 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
       produtoId: produto.id,
       nome: produto.nome,
       unidade: produto.unidade,
-      quantidade: 1,
+      quantidade: 0,
       valorUnit: price,
       desconto: 0,
       total: price,
@@ -153,7 +163,7 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
   }
 
   function updateQty(itemId: string, qty: number) {
-    if (qty <= 0) { removeFromCart(itemId); return }
+    if (qty < 0) { removeFromCart(itemId); return }
     setCart(prev => prev.map(it =>
       it.itemId === itemId
         ? { ...it, quantidade: qty, total: qty * it.valorUnit - it.desconto }
@@ -247,178 +257,58 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
   }
 
   return (
-    <div className="pdv-layout">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
 
-      {/* ═══════ COLUNA ESQUERDA — produtos ═══════ */}
-      <div className="pdv-produtos">
-
-        {/* Busca */}
-        <div style={{ padding: '16px 16px 0' }}>
-          <div style={{ position: 'relative' }}>
-            <FontAwesomeIcon
-              icon={faMagnifyingGlass}
-              style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 14, pointerEvents: 'none' }}
-            />
-            <input
-              ref={searchRef}
-              value={q}
-              onChange={e => setQ(e.target.value)}
-              placeholder="Buscar produto..."
-              style={{ ...inp, paddingLeft: 36, fontSize: 14 }}
-            />
-          </div>
+      {/* ═══════ BARRA DE BUSCA ═══════ */}
+      <div style={{ padding: '14px 16px', borderBottom: '1px solid #f3f4f6', background: 'white', position: 'relative' }}>
+        <div style={{ position: 'relative' }}>
+          <FontAwesomeIcon
+            icon={faMagnifyingGlass}
+            style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 14, pointerEvents: 'none' }}
+          />
+          <input
+            ref={searchRef}
+            value={q}
+            onChange={e => { setQ(e.target.value); setSearchOpen(true) }}
+            onFocus={() => setSearchOpen(true)}
+            onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
+            placeholder="Buscar produto pelo nome e clique para adicionar..."
+            style={{ ...inp, paddingLeft: 36, fontSize: 14 }}
+          />
         </div>
-
-        {/* Abas de categoria */}
-        <div style={{ display: 'flex', gap: 6, padding: '10px 16px', overflowX: 'auto', flexShrink: 0, scrollbarWidth: 'none' }}>
-          <button
-            onClick={() => setActiveCategory(null)}
-            style={{
-              padding: '5px 14px', borderRadius: 20, border: 'none',
-              background: !activeCategory ? NAVY : '#f3f4f6',
-              color: !activeCategory ? 'white' : '#374151',
-              fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-              whiteSpace: 'nowrap', flexShrink: 0,
-            }}
-          >
-            Todos
-          </button>
-          {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-              style={{
-                padding: '5px 14px', borderRadius: 20, border: 'none',
-                background: activeCategory === cat ? NAVY : '#f3f4f6',
-                color: activeCategory === cat ? 'white' : '#374151',
-                fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                whiteSpace: 'nowrap', flexShrink: 0,
-              }}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        {/* Grade de produtos */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 16px', scrollbarWidth: 'thin' }}>
-          {filtered.length === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 200, color: '#9ca3af' }}>
-              <FontAwesomeIcon icon={faBoxOpen} style={{ fontSize: 40, opacity: 0.3, marginBottom: 10 }} />
-              <p style={{ margin: 0, fontWeight: 600 }}>Nenhum produto encontrado</p>
-            </div>
-          ) : (
-            <div className="grid-3" style={{ gap: 10 }}>
-              {filtered.map(p => {
-                const price = p.precoPromocional > 0 ? p.precoPromocional : p.precoPdv > 0 ? p.precoPdv : p.precoVenda
-                const lowStock = p.estoque === 0
-                const editingThis = editingPriceId === p.id
-                return (
-                  <div
-                    key={p.id}
-                    onClick={() => { if (!editingThis) addToCart(p) }}
-                    onMouseEnter={e => {
-                      if (!editingThis) {
-                        (e.currentTarget as HTMLDivElement).style.borderColor = BLUE
-                        ;(e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 10px rgba(59,130,246,0.15)'
-                      }
-                    }}
-                    onMouseLeave={e => {
-                      (e.currentTarget as HTMLDivElement).style.borderColor = '#e5e7eb'
-                      ;(e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 4px rgba(0,0,0,0.07)'
-                    }}
-                    style={{
-                      background: 'white',
-                      border: '1.5px solid #e5e7eb',
-                      borderRadius: 12,
-                      padding: '12px 10px',
-                      cursor: editingThis ? 'default' : 'pointer',
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
-                      transition: 'box-shadow 0.15s, border-color 0.15s',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 4,
-                    }}
-                  >
-                    <span style={{ fontSize: 12, fontWeight: 700, color: NAVY, lineHeight: 1.3 }}>
-                      {p.nome.toUpperCase()}
-                    </span>
-
-                    {/* Preço com edição inline */}
-                    {editingThis ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }} onClick={e => e.stopPropagation()}>
-                        <span style={{ fontSize: 11, color: '#9ca3af' }}>R$</span>
-                        <input
-                          autoFocus
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={editingPriceVal}
-                          onChange={e => setEditingPriceVal(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') savePrice(p.id)
-                            if (e.key === 'Escape') setEditingPriceId(null)
-                          }}
-                          style={{
-                            width: 60, padding: '2px 4px', border: `1.5px solid ${BLUE}`,
-                            borderRadius: 5, fontSize: 12, fontWeight: 700, color: NAVY,
-                            fontFamily: 'inherit', outline: 'none',
-                          }}
-                        />
-                        <button
-                          onClick={e => { e.stopPropagation(); savePrice(p.id) }}
-                          style={{ background: GREEN, border: 'none', borderRadius: 5, padding: '2px 5px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                        >
-                          <FontAwesomeIcon icon={faCheck} style={{ fontSize: 10, color: 'white' }} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: GREEN }}>
-                          {formatCurrency(price)}
-                        </span>
-                        <button
-                          onClick={e => {
-                            e.stopPropagation()
-                            setEditingPriceId(p.id)
-                            setEditingPriceVal(String(p.precoPdv > 0 ? p.precoPdv : price))
-                          }}
-                          title="Clique para editar o preço do PDV"
-                          style={{
-                            background: '#eff6ff', border: 'none', cursor: 'pointer',
-                            padding: '3px 6px', borderRadius: 5, color: BLUE,
-                            display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600,
-                          }}
-                        >
-                          <FontAwesomeIcon icon={faPencil} style={{ fontSize: 10 }} />
-                          preço
-                        </button>
-                      </div>
-                    )}
-
-                    <span style={{ fontSize: 11, color: '#9ca3af' }}>{p.unidade}</span>
-                    <span style={{
-                      display: 'inline-block',
-                      marginTop: 2,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      padding: '2px 7px',
-                      borderRadius: 10,
-                      background: lowStock ? '#f3f4f6' : p.estoque < 10 ? `${ORANGE}20` : `${GREEN}20`,
-                      color: lowStock ? '#9ca3af' : p.estoque < 10 ? ORANGE : GREEN,
-                    }}>
-                      {lowStock ? 'Estoque não registrado' : `Estoque: ${p.estoque}`}
-                    </span>
+        {/* Dropdown de resultados */}
+        {searchOpen && q.length >= 1 && (
+          <div style={{
+            position: 'absolute', top: '100%', left: 16, right: 16, zIndex: 200,
+            background: 'white', border: '1.5px solid #e5e7eb', borderRadius: 10,
+            boxShadow: '0 6px 24px rgba(0,0,0,0.12)', maxHeight: 280, overflowY: 'auto',
+          }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding: '14px 16px', fontSize: 13, color: '#9ca3af', textAlign: 'center' }}>Nenhum produto encontrado</div>
+            ) : filtered.map(p => {
+              const price = p.precoPromocional > 0 ? p.precoPromocional : p.precoPdv > 0 ? p.precoPdv : p.precoVenda
+              return (
+                <div
+                  key={p.id}
+                  onMouseDown={() => { addToCart(p); setQ(''); setSearchOpen(false) }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = '#f9fafb'}
+                  onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'white'}
+                >
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{p.nome.toUpperCase()}</div>
+                    <div style={{ fontSize: 11, color: '#9ca3af' }}>{p.unidade} · {p.estoque > 0 ? `Estoque: ${p.estoque}` : 'Estoque não registrado'}</div>
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: GREEN, whiteSpace: 'nowrap', marginLeft: 12 }}>{formatCurrency(price)}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
-      {/* ═══════ COLUNA DIREITA — carrinho ═══════ */}
-      <div className="pdv-carrinho">
+      {/* ═══════ CARRINHO (ocupa o resto) ═══════ */}
+      <div className="pdv-carrinho" style={{ flex: 1, minHeight: 0 }}>
 
         {/* Cabeçalho do carrinho */}
         <div style={{ padding: '16px 16px 10px', borderBottom: '1px solid #f3f4f6', background: 'white' }}>
@@ -494,42 +384,56 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
                       <FontAwesomeIcon icon={faXmark} style={{ fontSize: 13 }} />
                     </button>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <button
-                        onClick={() => updateQty(item.itemId, item.quantidade - 1)}
-                        style={{
-                          width: 24, height: 24, borderRadius: 6, border: '1px solid #e5e7eb',
-                          background: 'white', cursor: 'pointer', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center', color: NAVY,
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faMinus} style={{ fontSize: 10 }} />
-                      </button>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    {/* Quantidade manual */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ fontSize: 11, color: '#9ca3af' }}>Qtde</span>
                       <input
                         type="number"
-                        min="1"
-                        value={item.quantidade}
-                        onChange={e => updateQty(item.itemId, parseInt(e.target.value) || 1)}
+                        min="0"
+                        value={item.quantidade === 0 ? '' : item.quantidade}
+                        onChange={e => updateQty(item.itemId, parseInt(e.target.value) || 0)}
                         style={{
-                          width: 44, textAlign: 'center', padding: '2px 4px',
-                          border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13,
-                          fontWeight: 600, color: NAVY, fontFamily: 'inherit', outline: 'none',
+                          width: 54, textAlign: 'center', padding: '4px 6px',
+                          border: '1.5px solid #e5e7eb', borderRadius: 7, fontSize: 13,
+                          fontWeight: 700, color: NAVY, fontFamily: 'inherit', outline: 'none',
                         }}
                       />
-                      <button
-                        onClick={() => updateQty(item.itemId, item.quantidade + 1)}
-                        style={{
-                          width: 24, height: 24, borderRadius: 6, border: '1px solid #e5e7eb',
-                          background: 'white', cursor: 'pointer', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center', color: NAVY,
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10 }} />
-                      </button>
                     </div>
+                    {/* Preço editável */}
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 11, color: '#9ca3af' }}>{formatCurrency(item.valorUnit)} / un</div>
+                      {editingPriceId === item.itemId ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                          <span style={{ fontSize: 11, color: '#9ca3af' }}>R$</span>
+                          <input
+                            autoFocus
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={editingPriceVal}
+                            onChange={e => setEditingPriceVal(e.target.value)}
+                            onBlur={() => saveCartPrice(item.itemId)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') saveCartPrice(item.itemId)
+                              if (e.key === 'Escape') setEditingPriceId(null)
+                            }}
+                            style={{
+                              width: 64, padding: '2px 5px', border: `1.5px solid ${BLUE}`,
+                              borderRadius: 6, fontSize: 12, fontWeight: 700, color: NAVY,
+                              fontFamily: 'inherit', outline: 'none', textAlign: 'right',
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setEditingPriceId(item.itemId); setEditingPriceVal(String(item.valorUnit)) }}
+                          title="Clique para editar o preço"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}
+                        >
+                          <span style={{ fontSize: 11, color: '#9ca3af' }}>{formatCurrency(item.valorUnit)} / un</span>
+                          <FontAwesomeIcon icon={faPencil} style={{ fontSize: 9, color: BLUE }} />
+                        </button>
+                      )}
                       <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{formatCurrency(item.total)}</div>
                     </div>
                   </div>
@@ -694,37 +598,89 @@ export default function PdvClient({ produtos, clientes }: { produtos: Produto[];
               {/* Corpo do modal */}
               <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', flex: 1 }}>
 
-                {/* Cliente (obrigatório) */}
-                <div>
+                {/* Cliente (obrigatório) — autocomplete */}
+                <div style={{ position: 'relative' }}>
                   <label style={{ fontSize: 12, fontWeight: 700, color: NAVY, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     Cliente <span style={{ color: PINK }}>*</span>
                   </label>
-                  <div style={{ position: 'relative', marginBottom: 6 }}>
+                  <div style={{ position: 'relative' }}>
                     <FontAwesomeIcon
                       icon={faMagnifyingGlass}
                       style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 12, pointerEvents: 'none' }}
                     />
                     <input
+                      autoComplete="off"
                       value={clienteSearch}
-                      onChange={e => setClienteSearch(e.target.value)}
-                      placeholder="Buscar cliente pelo nome..."
-                      style={{ ...inp, paddingLeft: 30, fontSize: 13 }}
+                      onChange={e => {
+                        setClienteSearch(e.target.value)
+                        setClienteId('')
+                        setClienteDropdown(true)
+                      }}
+                      onFocus={() => setClienteDropdown(true)}
+                      onBlur={() => setTimeout(() => setClienteDropdown(false), 150)}
+                      placeholder="Digite o nome do cliente..."
+                      style={{ ...inp, paddingLeft: 30, fontSize: 13, borderColor: clienteError ? PINK : clienteId ? GREEN : '#e5e7eb' }}
                     />
+                    {clienteId && (
+                      <button
+                        onClick={() => { setClienteId(''); setClienteSearch(''); setClienteDropdown(false) }}
+                        style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2 }}
+                      >
+                        <FontAwesomeIcon icon={faXmark} style={{ fontSize: 12 }} />
+                      </button>
+                    )}
                   </div>
-                  <select
-                    value={clienteId}
-                    onChange={e => { setClienteId(e.target.value); if (e.target.value) setClienteError(false) }}
-                    style={{ ...inp, borderColor: clienteError ? PINK : '#e5e7eb' }}
-                  >
-                    <option value="">Selecione um cliente...</option>
-                    {clientesFiltrados.map(c => (
-                      <option key={c.id} value={c.id}>{c.nome}</option>
-                    ))}
-                  </select>
+                  {clienteDropdown && clienteSearch.length >= 1 && clienteSearch.length < 2 && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: 'white', border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
+                      Digite mais uma letra para buscar...
+                    </div>
+                  )}
+                  {clienteDropdown && clientesFiltrados.length > 0 && (
+                    <div style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                      background: 'white', border: '1.5px solid #e5e7eb', borderRadius: 8,
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.12)', maxHeight: 200, overflowY: 'auto',
+                      marginTop: 2,
+                    }}>
+                      {clientesFiltrados.map(c => (
+                        <div
+                          key={c.id}
+                          onMouseDown={() => {
+                            setClienteId(c.id)
+                            setClienteSearch(c.nome)
+                            setClienteDropdown(false)
+                            setClienteError(false)
+                          }}
+                          style={{
+                            padding: '10px 14px', fontSize: 13, cursor: 'pointer', color: NAVY,
+                            borderBottom: '1px solid #f3f4f6', fontWeight: clienteId === c.id ? 700 : 400,
+                            background: clienteId === c.id ? '#eff6ff' : 'white',
+                          }}
+                          onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = '#f9fafb'}
+                          onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = clienteId === c.id ? '#eff6ff' : 'white'}
+                        >
+                          {c.nome}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {clienteError && (
                     <p style={{ margin: '4px 0 0', fontSize: 12, color: PINK }}>Selecione um cliente para continuar.</p>
                   )}
                 </div>
+
+                {/* Aviso saldo Carteira */}
+                {saldoCarteira > 0 && (
+                  <div style={{ background: '#fff7ed', border: '1.5px solid #fed7aa', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>⚠️</span>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: ORANGE }}>Cliente com saldo em aberto na Carteira</div>
+                      <div style={{ fontSize: 12, color: '#92400e', marginTop: 2 }}>
+                        Pendente: <strong>{formatCurrency(saldoCarteira)}</strong>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Resumo do pedido */}
                 <div style={{ background: '#f9fafb', borderRadius: 10, padding: '12px 14px' }}>

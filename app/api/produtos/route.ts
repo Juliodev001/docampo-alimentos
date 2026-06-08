@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 import { memCache } from '@/lib/mem-cache'
+import { s } from '@/lib/serialize'
 
 const KEY = 'produtos'
 
@@ -17,7 +18,7 @@ export async function GET() {
     }),
     60_000,
   )
-  return NextResponse.json(produtos)
+  return NextResponse.json(s(produtos))
 }
 
 export async function POST(req: NextRequest) {
@@ -79,5 +80,5 @@ export async function POST(req: NextRequest) {
   }
 
   memCache.invalidate(KEY)
-  return NextResponse.json(produto, { status: 201 })
+  return NextResponse.json(s(produto), { status: 201 })
 }

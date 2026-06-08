@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
+import { s } from '@/lib/serialize'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
@@ -8,7 +9,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params
   const { aprovado } = await req.json()
   const updated = await prisma.colheitaDiaria.update({ where: { id }, data: { aprovado } })
-  return NextResponse.json(updated)
+  return NextResponse.json(s(updated))
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -46,7 +47,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         observacao:      body.observacao ?? undefined,
       },
     })
-    return NextResponse.json(updated)
+    return NextResponse.json(s(updated))
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

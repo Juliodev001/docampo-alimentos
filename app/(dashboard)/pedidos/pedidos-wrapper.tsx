@@ -77,7 +77,7 @@ export default function PedidosWrapper({ pedidos, clientes, fornecedores, produt
       {/* Tab content */}
       <div style={{ background: 'white', borderRadius: '0 0 14px 14px', padding: activeTab === 'pdv' ? 0 : 24, minHeight: 400 }}>
         {activeTab === 'pdv' ? (
-          <PdvClient produtos={produtosPdv} clientes={clientes} />
+          <PdvClient produtos={produtosPdv} clientes={clientes} pedidos={pedidos} />
         ) : (
           <PedidosClient
             pedidos={pedidos}
