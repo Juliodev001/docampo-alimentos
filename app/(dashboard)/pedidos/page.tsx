@@ -35,7 +35,7 @@ export default async function PedidosPage() {
     <PedidosWrapper
       pedidos={pedidos.map(p => ({
         id: p.id, numero: p.numero, tipo: p.tipo, data: p.data.toISOString(),
-        status: p.status, totalValor: p.totalValor, frete: p.frete, outrasTaxas: p.outrasTaxas,
+        status: p.status, totalValor: Number(p.totalValor), frete: Number(p.frete), outrasTaxas: Number(p.outrasTaxas),
         formaPagamento: p.formaPagamento, observacao: p.observacao,
         obsInternas: p.obsInternas, obsCliente: p.obsCliente,
         cliente: p.cliente ? {
@@ -49,14 +49,14 @@ export default async function PedidosPage() {
           endereco: mapEndereco(p.fornecedor.enderecos[0]),
         } : null,
         transportadora: p.transportadora ? { id: p.transportadora.id, nome: p.transportadora.nome } : null,
-        itens: p.itens.map(it => ({ id: it.id, produto: it.produto, unidade: it.unidade, quantidade: it.quantidade, valorUnit: it.valorUnit, desconto: it.desconto, total: it.total })),
+        itens: p.itens.map(it => ({ id: it.id, produto: it.produto, unidade: it.unidade, quantidade: it.quantidade, valorUnit: Number(it.valorUnit), desconto: Number(it.desconto), total: Number(it.total) })),
       }))}
       clientes={clientes.map(c => ({ id: c.id, nome: c.nome }))}
       fornecedores={fornecedores.map(f => ({ id: f.id, nome: f.nome }))}
       produtos={produtos.map(p => ({ id: p.id, nome: p.nome, unidade: p.unidade }))}
       produtosPdv={rawProdutosPdv.map(p => ({
-        id: p.id, nome: p.nome, precoVenda: p.precoVenda, precoPromocional: p.precoPromocional,
-        precoPdv: p.precoPdv,
+        id: p.id, nome: p.nome, precoVenda: Number(p.precoVenda), precoPromocional: p.precoPromocional != null ? Number(p.precoPromocional) : null,
+        precoPdv: p.precoPdv != null ? Number(p.precoPdv) : null,
         unidade: p.unidade, categoria: p.categoria, ativo: p.ativo,
         estoqueVinculadoId: p.estoqueVinculadoId ?? null,
         estoque: p.estoqueVinculado
