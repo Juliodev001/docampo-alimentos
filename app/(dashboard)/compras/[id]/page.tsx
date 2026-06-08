@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { s } from '@/lib/serialize'
 import CompraDetalheClient from './compra-detalhe-client'
 
 export default async function CompraDetalhePage({ params }: { params: Promise<{ id: string }> }) {
@@ -9,5 +10,5 @@ export default async function CompraDetalhePage({ params }: { params: Promise<{ 
     include: { fornecedor: true, centroCusto: true, itens: true },
   })
   if (!compra) notFound()
-  return <CompraDetalheClient compra={compra} />
+  return <CompraDetalheClient compra={s(compra)} />
 }

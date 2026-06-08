@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { s } from '@/lib/serialize'
 import DevolucoesClient from './devolucoes-client'
 
 export default async function DevolucoesPage() {
@@ -14,7 +15,7 @@ export default async function DevolucoesPage() {
 
   return (
     <DevolucoesClient
-      devolucoes={devolucoes}
+      devolucoes={s(devolucoes)}
       total={total}
       totalValor={totalValor}
       pendentes={pendentes}
