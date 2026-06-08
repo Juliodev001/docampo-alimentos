@@ -11,9 +11,9 @@ export function s<T>(data: T): T {
     data !== null &&
     'constructor' in data &&
     (data as { constructor: { name: string } }).constructor.name === 'Decimal' &&
-    typeof (data as { toNumber?: () => number }).toNumber === 'function'
+    typeof (data as unknown as { toNumber?: () => number }).toNumber === 'function'
   ) {
-    return (data as { toNumber: () => number }).toNumber() as unknown as T
+    return (data as unknown as { toNumber: () => number }).toNumber() as unknown as T
   }
   if (Array.isArray(data)) return data.map(s) as unknown as T
   if (data instanceof Date) return data

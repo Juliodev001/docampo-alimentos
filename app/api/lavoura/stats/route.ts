@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
   const totalColhido = colheitas.reduce((s, c) => s + c.quantidadeTotal, 0)
   const totalDono = colheitas.reduce((s, c) => s + c.quantidadeDono, 0)
   const totalParceiro = colheitas.reduce((s, c) => s + c.quantidadeParceiro, 0)
-  const totalReceita = saidas.reduce((s, c) => s + c.totalValor, 0)
+  const totalReceita = saidas.reduce((s, c) => s + Number(c.totalValor), 0)
   const totalVendido = saidas.reduce((s, c) => s + c.quantidade, 0)
 
   const porProdutoMap: Record<string, { nome: string; total: number }> = {}

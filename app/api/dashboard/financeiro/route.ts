@@ -61,14 +61,14 @@ export async function GET(req: NextRequest) {
   ])
 
   /* ── COMPETÊNCIA ── */
-  const comprasMesTotal = comprasMesArr.reduce((s, c) => s + c.totalValor, 0)
-  const pdvMesTotal     = pdvMesArr.reduce((s, p) => s + p.totalValor, 0)
-  const vendasMesTotal  = nfesMesArr.reduce((s, n) => s + n.totalValor, 0) + pdvMesTotal
+  const comprasMesTotal = comprasMesArr.reduce((s, c) => s + Number(c.totalValor), 0)
+  const pdvMesTotal     = pdvMesArr.reduce((s, p) => s + Number(p.totalValor), 0)
+  const vendasMesTotal  = nfesMesArr.reduce((s, n) => s + Number(n.totalValor), 0) + pdvMesTotal
 
   /* ── CAIXA ── */
-  const comprasPaga     = comprasMesArr.filter(c => c.status === 'PAGO').reduce((s, c) => s + c.totalValor, 0)
-  const pdvAVista       = pdvMesArr.filter(p => p.formaPagamento !== 'FIADO').reduce((s, p) => s + p.totalValor, 0)
-  const vendasRecebida  = nfesMesArr.filter(n => n.statusFinanceiro === 'RECEBIDO').reduce((s, n) => s + n.totalValor, 0) + pdvAVista
+  const comprasPaga     = comprasMesArr.filter(c => c.status === 'PAGO').reduce((s, c) => s + Number(c.totalValor), 0)
+  const pdvAVista       = pdvMesArr.filter(p => p.formaPagamento !== 'FIADO').reduce((s, p) => s + Number(p.totalValor), 0)
+  const vendasRecebida  = nfesMesArr.filter(n => n.statusFinanceiro === 'RECEBIDO').reduce((s, n) => s + Number(n.totalValor), 0) + pdvAVista
 
   /* ── TOTAIS (all-time) ── */
   const totalPago     = totalPagoAll._sum.totalValor    ?? 0
@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
   /* ── DRE – agrupar por fornecedor ── */
   const fornMap: Record<string, number> = {}
   comprasMesArr.forEach(c => {
-    fornMap[c.fornecedor.nome] = (fornMap[c.fornecedor.nome] ?? 0) + c.totalValor
+    fornMap[c.fornecedor.nome] = (fornMap[c.fornecedor.nome] ?? 0) + Number(c.totalValor)
   })
   const fornecedores = Object.entries(fornMap)
     .map(([nome, valor]) => ({ nome, valor }))

@@ -17,7 +17,7 @@ export async function POST() {
       porProduto[c.produtoId] = { quantidade: 0, preco: 0, ultimaData: c.data }
     }
     porProduto[c.produtoId].quantidade += c.quantidadeTotal
-    if (c.preco > porProduto[c.produtoId].preco) porProduto[c.produtoId].preco = c.preco
+    if (Number(c.preco) > porProduto[c.produtoId].preco) porProduto[c.produtoId].preco = Number(c.preco)
     if (c.data > porProduto[c.produtoId].ultimaData) porProduto[c.produtoId].ultimaData = c.data
   }
 

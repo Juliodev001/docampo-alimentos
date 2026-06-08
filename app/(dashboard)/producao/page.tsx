@@ -140,8 +140,8 @@ export default async function ProducaoPage() {
                     <td style={{ padding: '10px 14px', fontSize: 12, color: '#6b7280' }}>{formatDate(new Date(c.data))}</td>
                     <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600, color: NAVY }}>{c.produto.nome}</td>
                     <td style={{ padding: '10px 14px', fontSize: 13, color: NAVY }}>{c.quantidadeTotal} cx</td>
-                    <td style={{ padding: '10px 14px', fontSize: 13, color: c.preco > 0 ? GREEN : '#9ca3af', fontWeight: 600 }}>
-                      {c.preco > 0 ? formatCurrency(c.preco) : '—'}
+                    <td style={{ padding: '10px 14px', fontSize: 13, color: Number(c.preco) > 0 ? GREEN : '#9ca3af', fontWeight: 600 }}>
+                      {Number(c.preco) > 0 ? formatCurrency(Number(c.preco)) : '—'}
                     </td>
                   </tr>
                 ))}

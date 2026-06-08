@@ -42,8 +42,8 @@ export async function GET(req: NextRequest) {
         where: { ...(de || ate ? { data: dateFilter } : {}) },
       }),
     ])
-    const receita = nfes.reduce((s, n) => s + n.totalValor, 0)
-    const despesa = compras.reduce((s, c) => s + c.totalValor, 0)
+    const receita = nfes.reduce((s, n) => s + Number(n.totalValor), 0)
+    const despesa = compras.reduce((s, c) => s + Number(c.totalValor), 0)
     return NextResponse.json({ receita, despesa, resultado: receita - despesa, nfes: nfes.length, compras: compras.length })
   }
 
@@ -53,9 +53,9 @@ export async function GET(req: NextRequest) {
       include: { cliente: true, itens: true },
       orderBy: { dataEmissao: 'desc' },
     })
-    const total = nfes.reduce((s, n) => s + n.totalValor, 0)
-    const aReceber = nfes.filter(n => n.statusFinanceiro === 'A_RECEBER').reduce((s, n) => s + n.totalValor, 0)
-    const recebido = nfes.filter(n => n.statusFinanceiro === 'RECEBIDO').reduce((s, n) => s + n.totalValor, 0)
+    const total = nfes.reduce((s, n) => s + Number(n.totalValor), 0)
+    const aReceber = nfes.filter(n => n.statusFinanceiro === 'A_RECEBER').reduce((s, n) => s + Number(n.totalValor), 0)
+    const recebido = nfes.filter(n => n.statusFinanceiro === 'RECEBIDO').reduce((s, n) => s + Number(n.totalValor), 0)
     return NextResponse.json({ nfes, total, aReceber, recebido })
   }
 
