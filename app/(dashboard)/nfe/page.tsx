@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { s } from '@/lib/serialize'
 import NfeClient from './nfe-client'
 
 export default async function NFePage() {
@@ -7,5 +8,5 @@ export default async function NFePage() {
     prisma.notaFiscal.findMany({ where: { status: { not: 'RASCUNHO' } }, include: { cliente: true }, orderBy: { dataEmissao: 'desc' } }),
   ])
 
-  return <NfeClient rascunhos={rascunhos} emitidas={emitidas} />
+  return <NfeClient rascunhos={s(rascunhos) as never} emitidas={s(emitidas) as never} />
 }

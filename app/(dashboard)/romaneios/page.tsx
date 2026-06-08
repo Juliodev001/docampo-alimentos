@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { s } from '@/lib/serialize'
 import RomaneiosClient from './romaneios-client'
 
 export default async function RomaneiosPage() {
@@ -9,5 +10,5 @@ export default async function RomaneiosPage() {
     }),
     prisma.cliente.findMany({ orderBy: { nome: 'asc' } }),
   ])
-  return <RomaneiosClient romaneios={romaneios} clientes={clientes} />
+  return <RomaneiosClient romaneios={s(romaneios) as never} clientes={s(clientes) as never} />
 }
