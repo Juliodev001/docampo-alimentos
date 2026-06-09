@@ -12,6 +12,10 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
+vi.mock('server-only', () => ({}))
+vi.mock('next/cache', () => ({ revalidateTag: vi.fn() }))
+vi.mock('@/lib/mem-cache', () => ({ memCache: { fetch: vi.fn((_, fn: () => unknown) => fn()), invalidate: vi.fn() } }))
+
 vi.mock('@/lib/session', () => ({
   getSession: vi.fn(),
 }))

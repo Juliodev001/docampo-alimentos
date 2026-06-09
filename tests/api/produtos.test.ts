@@ -1,16 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+vi.mock('server-only', () => ({}))
+
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     produto: {
       findMany: vi.fn(),
-      create: vi.fn(),
+      create:   vi.fn(),
+      count:    vi.fn().mockResolvedValue(0),
     },
   },
 }))
 
-vi.mock('@/lib/session', () => ({
-  getSession: vi.fn(),
+vi.mock('@/lib/session', () => ({ getSession: vi.fn() }))
+vi.mock('@/lib/mem-cache', () => ({
+  memCache: {
+    fetch: vi.fn((_, fn: () => unknown) => fn()),
+    invalidate: vi.fn(),
+  },
 }))
 
 import { prisma } from '@/lib/prisma'

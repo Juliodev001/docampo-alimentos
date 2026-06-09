@@ -6,11 +6,18 @@ vi.mock('server-only', () => ({}))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     produtor: {
-      findMany:  vi.fn(),
+      findMany:   vi.fn(),
       findUnique: vi.fn(),
-      create:    vi.fn(),
-      update:    vi.fn(),
-      delete:    vi.fn(),
+      create:     vi.fn(),
+      update:     vi.fn(),
+      delete:     vi.fn(),
+      count:      vi.fn(),
+    },
+    colheitaDiaria: {
+      updateMany: vi.fn(),
+    },
+    fechamentoPagamento: {
+      deleteMany: vi.fn(),
     },
   },
 }))
@@ -55,6 +62,11 @@ const params = Promise.resolve({ id: 'prod-1' })
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(memCache.invalidate).mockReturnValue(undefined)
+  vi.mocked(prisma.produtor.count).mockResolvedValue(0)
+  // findUnique retorna null por padrão (sem conflito de código/CPF)
+  vi.mocked(prisma.produtor.findUnique).mockResolvedValue(null)
+  vi.mocked(prisma.colheitaDiaria.updateMany).mockResolvedValue({ count: 0 })
+  vi.mocked(prisma.fechamentoPagamento.deleteMany).mockResolvedValue({ count: 0 })
 })
 
 // ─── GET /api/produtores ──────────────────────────────────────────────────────
@@ -112,7 +124,8 @@ describe('POST /api/produtores', () => {
 
   it('retorna 400 com CPF duplicado', async () => {
     vi.mocked(getSession).mockResolvedValue(session)
-    vi.mocked(prisma.produtor.findUnique).mockResolvedValue(mockProdutor as never)
+    // Simula CPF já cadastrado
+    vi.mocked(prisma.produtor.findUnique).mockResolvedValueOnce(mockProdutor as never)
     const res = await POST(makeReq({ nome: 'Outro', cpf: '12345678901', parceiros: [] }))
     expect(res.status).toBe(400)
     const data = await res.json()

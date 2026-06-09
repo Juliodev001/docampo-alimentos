@@ -7,14 +7,15 @@ vi.hoisted(() => { process.env.SESSION_SECRET = 'test-secret-key-minimo-32-chars
 
 const {
   mockClienteCreate, mockFornecedorCreate, mockProdutorCreate,
-  mockProdutorFindUnique, mockCompraFindMany, mockCompraUpdate,
+  mockProdutorFindUnique, mockProdutorCount, mockCompraFindMany, mockCompraUpdate,
 } = vi.hoisted(() => ({
-  mockClienteCreate:     vi.fn(),
-  mockFornecedorCreate:  vi.fn(),
-  mockProdutorCreate:    vi.fn(),
-  mockProdutorFindUnique: vi.fn(),
-  mockCompraFindMany:    vi.fn(),
-  mockCompraUpdate:      vi.fn(),
+  mockClienteCreate:      vi.fn(),
+  mockFornecedorCreate:   vi.fn(),
+  mockProdutorCreate:     vi.fn(),
+  mockProdutorFindUnique: vi.fn().mockResolvedValue(null),
+  mockProdutorCount:      vi.fn().mockResolvedValue(0),
+  mockCompraFindMany:     vi.fn(),
+  mockCompraUpdate:       vi.fn(),
 }))
 
 vi.mock('@/lib/session', () => ({ getSession: vi.fn().mockResolvedValue({ userId: 'u-1' }) }))
@@ -25,7 +26,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     cliente:    { create: mockClienteCreate, findMany: vi.fn().mockResolvedValue([]) },
     fornecedor: { create: mockFornecedorCreate, findMany: vi.fn().mockResolvedValue([]) },
-    produtor:   { create: mockProdutorCreate, findUnique: mockProdutorFindUnique, findMany: vi.fn().mockResolvedValue([]) },
+    produtor:   { create: mockProdutorCreate, findUnique: mockProdutorFindUnique, findMany: vi.fn().mockResolvedValue([]), count: mockProdutorCount },
     compra:     { findMany: mockCompraFindMany, update: mockCompraUpdate },
   },
 }))

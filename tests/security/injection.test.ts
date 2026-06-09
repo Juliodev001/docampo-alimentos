@@ -24,7 +24,7 @@ vi.mock('next/cache', () => ({ revalidateTag: vi.fn() }))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     user: { findUnique: mockUserFindUnique, create: mockUserCreate },
-    produtor: { findUnique: mockProdutorFindUnique, create: mockProdutorCreate },
+    produtor: { findUnique: mockProdutorFindUnique, create: mockProdutorCreate, count: vi.fn().mockResolvedValue(0) },
   },
 }))
 vi.mock('bcryptjs', () => ({
