@@ -5,18 +5,18 @@
  */
 export function s<T>(data: T): T {
   if (data === null || data === undefined) return data
-  // Prisma Decimal tem constructor.name === 'Decimal' e método toNumber()
+  if (data instanceof Date) return data
+  // Prisma Decimal (decimal.js): detecta pelo método toNumber(), que é estável
+  // mesmo quando o nome da classe é minificado no bundle do Prisma runtime.
+  // (O check antigo por constructor.name === 'Decimal' falhava no bundle.)
   if (
     typeof data === 'object' &&
     data !== null &&
-    'constructor' in data &&
-    (data as { constructor: { name: string } }).constructor.name === 'Decimal' &&
-    typeof (data as unknown as { toNumber?: () => number }).toNumber === 'function'
+    typeof (data as { toNumber?: unknown }).toNumber === 'function'
   ) {
     return (data as unknown as { toNumber: () => number }).toNumber() as unknown as T
   }
   if (Array.isArray(data)) return data.map(s) as unknown as T
-  if (data instanceof Date) return data
   if (typeof data === 'object') {
     return Object.fromEntries(
       Object.entries(data as Record<string, unknown>).map(([k, v]) => [k, s(v)])

@@ -16,7 +16,7 @@ const { mockSession, mockUserFindUnique, mockProdutorFindUnique, mockProdutorCre
 
 vi.mock('@/lib/session', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/session')>()
-  return { ...actual, getSession: vi.fn().mockResolvedValue({ userId: 'u-1' }) }
+  return { ...actual, getSession: vi.fn().mockResolvedValue(mockSession) }
 })
 vi.mock('next/headers', () => ({ cookies: vi.fn(() => Promise.resolve({ get: vi.fn(), set: vi.fn(), delete: vi.fn() })) }))
 vi.mock('@/lib/mem-cache', () => ({ memCache: { fetch: vi.fn((_, fn) => fn()), invalidate: vi.fn() } }))
@@ -239,7 +239,7 @@ describe('Mass assignment — campos não permitidos', () => {
     )
   })
 
-  it('campo "role" DONO não pode ser definido via endpoint público de usuário', async () => {
+  it('campo "role" DONO é sanitizado para GERENTE — mesmo DONO não cria outro DONO via API', async () => {
     mockUserFindUnique.mockResolvedValue(null)
     mockUserCreate.mockResolvedValue({ id: 'u-1', name: 'João', email: 'j@j.com', role: 'GERENTE', ativo: true, createdAt: new Date() })
 
@@ -248,7 +248,9 @@ describe('Mass assignment — campos não permitidos', () => {
       body: JSON.stringify({ name: 'João', email: 'j@j.com', password: '123456', role: 'DONO' }),
     })
     await postUsuario(req)
-    // A API aceita "role" do body — documentar que controle de role deve ser via admin
-    expect(mockUserCreate).toHaveBeenCalled()
+    // role: 'DONO' no body é rebaixado para GERENTE pelo servidor
+    expect(mockUserCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ role: 'GERENTE' }) })
+    )
   })
 })

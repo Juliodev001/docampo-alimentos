@@ -5,6 +5,7 @@ import { getSession } from '@/lib/session'
 export async function GET(req: NextRequest) {
   const session = await getSession()
   if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (session.role !== 'DONO') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { searchParams } = new URL(req.url)
   const cpf = searchParams.get('cpf')?.replace(/\D/g, '')

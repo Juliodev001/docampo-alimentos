@@ -71,13 +71,13 @@ function ImprimirPagamentoMeeiro() {
   const percMeeiro = meeiro.percentual
   const fator = percMeeiro / 100
 
-  const totalFaturaBruto = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
+  const totalFaturaBruto = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * Number(c.preco), 0)
   const totalFatura = totalFaturaBruto * fator
-  const dedCombustivel = combustivel * fator
-  const dedBandeja = bandejaEmbalagem * fator
-  const dedValesDinheiro = valesDinheiro * fator
-  const dedCreditos = creditos * fator
-  const dedDebitos = debitosAnteriores * fator
+  const dedCombustivel = Number(combustivel) * fator
+  const dedBandeja = Number(bandejaEmbalagem) * fator
+  const dedValesDinheiro = Number(valesDinheiro) * fator
+  const dedCreditos = Number(creditos) * fator
+  const dedDebitos = Number(debitosAnteriores) * fator
   const totalDeducoes = dedCombustivel + dedBandeja + dedValesDinheiro + dedCreditos + dedDebitos
   const aReceber = totalFatura - totalDeducoes
 
@@ -151,7 +151,7 @@ function ImprimirPagamentoMeeiro() {
           <tbody>
             {colheitas.map(c => {
               const liquido = c.quantidadeTotal - c.descarte
-              const subBruto = liquido * c.preco
+              const subBruto = liquido * Number(c.preco)
               const subParte = subBruto * fator
               return (
                 <tr key={c.id}>
@@ -164,7 +164,7 @@ function ImprimirPagamentoMeeiro() {
                   <td style={td}>{c.quantidadeTotal.toFixed(1)}</td>
                   <td style={{ ...td, color: PINK }}>{c.descarte > 0 ? c.descarte.toFixed(1) : '—'}</td>
                   <td style={{ ...td, fontWeight: 600 }}>{liquido.toFixed(1)}</td>
-                  <td style={td}>{fmtBRL(c.preco)}</td>
+                  <td style={td}>{fmtBRL(Number(c.preco))}</td>
                   <td style={{ ...td, textAlign: 'right', color: '#6b7280' }}>{fmtBRL(subBruto)}</td>
                   <td style={{ ...td, fontWeight: 700, color: PURPLE, textAlign: 'right' }}>{fmtBRL(subParte)}</td>
                 </tr>
