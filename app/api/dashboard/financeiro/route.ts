@@ -33,7 +33,11 @@ export async function GET(req: NextRequest) {
     ...(dateFilter ? { data: dateFilter } : {}),
   }
 
-  const [comprasMesArr, nfesMesArr, pdvMesArr, totalPagoAll, totalRecebidoAll] = await Promise.all([
+  const saidaLavourWhere = {
+    ...(dateFilter ? { data: dateFilter } : {}),
+  }
+
+  const [comprasMesArr, nfesMesArr, pdvMesArr, totalPagoAll, totalRecebidoAll, saidaLavouraAgg] = await Promise.all([
     prisma.compra.findMany({
       where: comprasWhere,
       select: {
@@ -58,12 +62,17 @@ export async function GET(req: NextRequest) {
       where: { statusFinanceiro: 'RECEBIDO' },
       _sum: { totalValor: true },
     }),
+    prisma.saidaLavoura.aggregate({
+      where: saidaLavourWhere,
+      _sum: { totalValor: true },
+    }),
   ])
 
   /* ── COMPETÊNCIA ── */
-  const comprasMesTotal = comprasMesArr.reduce((s, c) => s + Number(c.totalValor), 0)
-  const pdvMesTotal     = pdvMesArr.reduce((s, p) => s + Number(p.totalValor), 0)
-  const vendasMesTotal  = nfesMesArr.reduce((s, n) => s + Number(n.totalValor), 0) + pdvMesTotal
+  const comprasMesTotal  = comprasMesArr.reduce((s, c) => s + Number(c.totalValor), 0)
+  const pdvMesTotal      = pdvMesArr.reduce((s, p) => s + Number(p.totalValor), 0)
+  const vendasMesTotal   = nfesMesArr.reduce((s, n) => s + Number(n.totalValor), 0) + pdvMesTotal
+  const vendaLavouraTotal = Number(saidaLavouraAgg._sum.totalValor ?? 0)
 
   /* ── CAIXA ── */
   const comprasPaga     = comprasMesArr.filter(c => c.status === 'PAGO').reduce((s, c) => s + Number(c.totalValor), 0)
@@ -83,10 +92,12 @@ export async function GET(req: NextRequest) {
     .map(([nome, valor]) => ({ nome, valor }))
     .sort((a, b) => b.valor - a.valor)
 
+  const dreVendasTotal = vendasMesTotal + vendaLavouraTotal
+
   return NextResponse.json({
-    competencia: { comprasMes: comprasMesTotal, vendasMes: vendasMesTotal },
+    competencia: { comprasMes: comprasMesTotal, vendasMes: vendasMesTotal, vendaLavoura: vendaLavouraTotal },
     caixa:       { comprasPaga, vendasRecebida },
     totais:      { totalPago, totalRecebido },
-    dre:         { vendas: vendasMesTotal, compras: comprasMesTotal, fornecedores },
+    dre:         { vendas: dreVendasTotal, compras: comprasMesTotal, fornecedores },
   })
 }

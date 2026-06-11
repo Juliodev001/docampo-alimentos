@@ -12,24 +12,30 @@ export default async function CaixaPage() {
     prisma.centroCusto.findMany({ select: { id: true, nome: true }, orderBy: { nome: 'asc' } }),
   ])
 
-  const todasMovimentacoes = contas
+  const contasSerializadas = contas.map((c) => ({
+    ...c,
+    saldoInicial: Number(c.saldoInicial),
+    movimentacoes: c.movimentacoes.map((m) => ({ ...m, valor: Number(m.valor) })),
+  }))
+
+  const todasMovimentacoes = contasSerializadas
     .flatMap((c) => c.movimentacoes.map((m) => ({ ...m, contaNome: c.nome })))
     .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
 
-  const saldoTotal = contas.reduce((s, c) => {
-    const entradas = c.movimentacoes.filter((m) => m.tipo === 'ENTRADA').reduce((acc, m) => acc + Number(m.valor), 0)
-    const saidas   = c.movimentacoes.filter((m) => m.tipo === 'SAIDA').reduce((acc, m) => acc + Number(m.valor), 0)
-    return s + Number(c.saldoInicial) + entradas - saidas
+  const saldoTotal = contasSerializadas.reduce((s, c) => {
+    const entradas = c.movimentacoes.filter((m) => m.tipo === 'ENTRADA').reduce((acc, m) => acc + m.valor, 0)
+    const saidas   = c.movimentacoes.filter((m) => m.tipo === 'SAIDA').reduce((acc, m) => acc + m.valor, 0)
+    return s + c.saldoInicial + entradas - saidas
   }, 0)
 
-  const entradPeriodo = todasMovimentacoes.filter((m) => m.tipo === 'ENTRADA').reduce((s, m) => s + Number(m.valor), 0)
-  const saidPeriodo   = todasMovimentacoes.filter((m) => m.tipo === 'SAIDA').reduce((s, m) => s + Number(m.valor), 0)
+  const entradPeriodo = todasMovimentacoes.filter((m) => m.tipo === 'ENTRADA').reduce((s, m) => s + m.valor, 0)
+  const saidPeriodo   = todasMovimentacoes.filter((m) => m.tipo === 'SAIDA').reduce((s, m) => s + m.valor, 0)
   const pendentes     = todasMovimentacoes.filter((m) => !m.conciliado).length
 
   return (
     <CaixaClient
-      contas={contas as never}
-      todasMovimentacoes={todasMovimentacoes as never}
+      contas={contasSerializadas}
+      todasMovimentacoes={todasMovimentacoes}
       saldoTotal={saldoTotal}
       entradPeriodo={entradPeriodo}
       saidPeriodo={saidPeriodo}

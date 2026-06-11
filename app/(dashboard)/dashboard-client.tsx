@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faCartShopping, faArrowTrendUp, faChartBar, faCalendar, faSliders } from '@fortawesome/free-solid-svg-icons'
+import { faCartShopping, faArrowTrendUp, faChartBar, faCalendar, faSliders, faSeedling } from '@fortawesome/free-solid-svg-icons'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import { formatCurrency } from '@/lib/utils'
 
@@ -11,7 +11,7 @@ const PINK  = '#e8255a'
 const BLUE  = '#3b82f6'
 
 type DashData = {
-  competencia: { comprasMes: number; vendasMes: number }
+  competencia: { comprasMes: number; vendasMes: number; vendaLavoura: number }
   caixa:       { comprasPaga: number; vendasRecebida: number }
   totais:      { totalPago: number; totalRecebido: number }
   dre: { vendas: number; compras: number; fornecedores: { nome: string; valor: number }[] }
@@ -19,7 +19,7 @@ type DashData = {
 type CentroCusto = { id: string; nome: string }
 
 const EMPTY: DashData = {
-  competencia: { comprasMes: 0, vendasMes: 0 },
+  competencia: { comprasMes: 0, vendasMes: 0, vendaLavoura: 0 },
   caixa:       { comprasPaga: 0, vendasRecebida: 0 },
   totais:      { totalPago: 0, totalRecebido: 0 },
   dre:         { vendas: 0, compras: 0, fornecedores: [] },
@@ -203,7 +203,7 @@ export default function DashboardClient({ centrosCusto }: { centrosCusto: Centro
   }, [mes, rocaId])
 
   const { competencia, caixa, totais, dre } = data
-  const saldoMes     = competencia.vendasMes   - competencia.comprasMes
+  const saldoMes     = competencia.vendasMes + competencia.vendaLavoura - competencia.comprasMes
   const saldoCaixa   = caixa.vendasRecebida    - caixa.comprasPaga
   const saldoTotal   = totais.totalRecebido    - totais.totalPago
   const dreResultado = dre.vendas              - dre.compras
@@ -257,10 +257,11 @@ export default function DashboardClient({ centrosCusto }: { centrosCusto: Centro
         <p style={{ fontSize: 13, color: '#6b7280', margin: '8px 0 16px' }}>
           Recorte por data de emissão da conta no período (competência contábil).
         </p>
-        <div className="kpi-grid-3" style={{ marginBottom: 0 }}>
-          <MetricCard label="compras do mês"  value={competencia.comprasMes}  color={PINK}  icon={faCartShopping}  />
-          <MetricCard label="venda do mês"    value={competencia.vendasMes}   color={GREEN} icon={faArrowTrendUp}  />
-          <MetricCard label="saldo do mês"    value={saldoMes}                color={BLUE}  icon={faChartBar}      />
+        <div className="kpi-grid-4" style={{ marginBottom: 0 }}>
+          <MetricCard label="compras do mês"   value={competencia.comprasMes}    color={PINK}    icon={faCartShopping}  />
+          <MetricCard label="venda NF / PDV"   value={competencia.vendasMes}     color={GREEN}   icon={faArrowTrendUp}  />
+          <MetricCard label="receita lavoura"  value={competencia.vendaLavoura}  color="#8b5cf6" icon={faSeedling}       />
+          <MetricCard label="saldo do mês"     value={saldoMes}                  color={BLUE}    icon={faChartBar}      />
         </div>
 
         <Hr />
@@ -352,7 +353,25 @@ export default function DashboardClient({ centrosCusto }: { centrosCusto: Centro
               </thead>
               <tbody>
                 <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  <td style={{ padding: '13px 14px', fontSize: 14, color: NAVY }}>Vendas</td>
+                  <td style={{ padding: '13px 14px', fontSize: 14, color: NAVY }}>Vendas (NF / PDV)</td>
+                  <td style={{ padding: '13px 14px', fontSize: 14, color: NAVY, fontWeight: 600 }}>
+                    {formatCurrency(competencia.vendasMes)}
+                  </td>
+                  <td style={{ padding: '13px 14px', fontSize: 14, color: '#6b7280' }}>
+                    {dre.vendas > 0 ? ((competencia.vendasMes / dre.vendas) * 100).toFixed(0) : 0}%
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={{ padding: '13px 14px', fontSize: 14, color: '#8b5cf6' }}>Receita Lavoura</td>
+                  <td style={{ padding: '13px 14px', fontSize: 14, color: '#8b5cf6', fontWeight: 600 }}>
+                    {formatCurrency(competencia.vendaLavoura)}
+                  </td>
+                  <td style={{ padding: '13px 14px', fontSize: 14, color: '#6b7280' }}>
+                    {dre.vendas > 0 ? ((competencia.vendaLavoura / dre.vendas) * 100).toFixed(0) : 0}%
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #f3f4f6', background: '#f9fafb' }}>
+                  <td style={{ padding: '13px 14px', fontSize: 14, color: NAVY, fontWeight: 600 }}>Total Vendas</td>
                   <td style={{ padding: '13px 14px', fontSize: 14, color: NAVY, fontWeight: 600 }}>
                     {formatCurrency(dre.vendas)}
                   </td>
