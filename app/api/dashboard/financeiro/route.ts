@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     }),
     prisma.pedido.findMany({
       where: pdvWhere,
-      select: { totalValor: true, formaPagamento: true },
+      select: { totalValor: true, formaPagamento: true, status: true },
     }),
     prisma.compra.aggregate({
       where: { status: 'PAGO', ...(rocaId ? { centroCustoId: rocaId } : {}) },
@@ -76,8 +76,8 @@ export async function GET(req: NextRequest) {
 
   /* ── CAIXA ── */
   const comprasPaga     = comprasMesArr.filter(c => c.status === 'PAGO').reduce((s, c) => s + Number(c.totalValor), 0)
-  const pdvAVista       = pdvMesArr.filter(p => p.formaPagamento !== 'FIADO').reduce((s, p) => s + Number(p.totalValor), 0)
-  const vendasRecebida  = nfesMesArr.filter(n => n.statusFinanceiro === 'RECEBIDO').reduce((s, n) => s + Number(n.totalValor), 0) + pdvAVista
+  const pdvRecebido     = pdvMesArr.filter(p => p.formaPagamento !== 'FIADO' || p.status === 'PAGO').reduce((s, p) => s + Number(p.totalValor), 0)
+  const vendasRecebida  = nfesMesArr.filter(n => n.statusFinanceiro === 'RECEBIDO').reduce((s, n) => s + Number(n.totalValor), 0) + pdvRecebido
 
   /* ── TOTAIS (all-time) ── */
   const totalPago     = totalPagoAll._sum.totalValor    ?? 0
