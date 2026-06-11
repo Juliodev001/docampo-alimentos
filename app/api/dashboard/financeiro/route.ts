@@ -78,6 +78,7 @@ export async function GET(req: NextRequest) {
   const comprasPaga     = comprasMesArr.filter(c => c.status === 'PAGO').reduce((s, c) => s + Number(c.totalValor), 0)
   const pdvRecebido     = pdvMesArr.filter(p => p.formaPagamento !== 'FIADO' || p.status === 'PAGO').reduce((s, p) => s + Number(p.totalValor), 0)
   const vendasRecebida  = nfesMesArr.filter(n => n.statusFinanceiro === 'RECEBIDO').reduce((s, n) => s + Number(n.totalValor), 0) + pdvRecebido
+  const carteiraPendente = pdvMesArr.filter(p => p.formaPagamento === 'FIADO' && p.status !== 'PAGO' && p.status !== 'CANCELADO').reduce((s, p) => s + Number(p.totalValor), 0)
 
   /* ── TOTAIS (all-time) ── */
   const totalPago     = totalPagoAll._sum.totalValor    ?? 0
@@ -96,7 +97,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     competencia: { comprasMes: comprasMesTotal, vendasMes: vendasMesTotal, vendaLavoura: vendaLavouraTotal },
-    caixa:       { comprasPaga, vendasRecebida },
+    caixa:       { comprasPaga, vendasRecebida, carteiraPendente },
     totais:      { totalPago, totalRecebido },
     dre:         { vendas: dreVendasTotal, compras: comprasMesTotal, fornecedores },
   })

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faCartShopping, faArrowTrendUp, faChartBar, faCalendar, faSliders, faSeedling } from '@fortawesome/free-solid-svg-icons'
+import { faCartShopping, faArrowTrendUp, faChartBar, faCalendar, faSliders, faSeedling, faHandHoldingDollar } from '@fortawesome/free-solid-svg-icons'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import { formatCurrency } from '@/lib/utils'
 
@@ -12,7 +12,7 @@ const BLUE  = '#3b82f6'
 
 type DashData = {
   competencia: { comprasMes: number; vendasMes: number; vendaLavoura: number }
-  caixa:       { comprasPaga: number; vendasRecebida: number }
+  caixa:       { comprasPaga: number; vendasRecebida: number; carteiraPendente: number }
   totais:      { totalPago: number; totalRecebido: number }
   dre: { vendas: number; compras: number; fornecedores: { nome: string; valor: number }[] }
 }
@@ -20,7 +20,7 @@ type CentroCusto = { id: string; nome: string }
 
 const EMPTY: DashData = {
   competencia: { comprasMes: 0, vendasMes: 0, vendaLavoura: 0 },
-  caixa:       { comprasPaga: 0, vendasRecebida: 0 },
+  caixa:       { comprasPaga: 0, vendasRecebida: 0, carteiraPendente: 0 },
   totais:      { totalPago: 0, totalRecebido: 0 },
   dre:         { vendas: 0, compras: 0, fornecedores: [] },
 }
@@ -271,10 +271,11 @@ export default function DashboardClient({ centrosCusto }: { centrosCusto: Centro
         <p style={{ fontSize: 13, color: '#6b7280', margin: '8px 0 16px' }}>
           Efetivação financeira conforme datas de pagamento e recebimentos.
         </p>
-        <div className="kpi-grid-3" style={{ marginBottom: 0 }}>
-          <MetricCard label="compras paga"      value={caixa.comprasPaga}      color={PINK}  icon={faCartShopping}  />
-          <MetricCard label="vendas recebida"   value={caixa.vendasRecebida}   color={GREEN} icon={faArrowTrendUp}  />
-          <MetricCard label="saldo"             value={saldoCaixa}             color={BLUE}  icon={faChartBar}      />
+        <div className="kpi-grid-4" style={{ marginBottom: 0 }}>
+          <MetricCard label="compras paga"       value={caixa.comprasPaga}        color={PINK}    icon={faCartShopping}      />
+          <MetricCard label="vendas recebida"    value={caixa.vendasRecebida}     color={GREEN}   icon={faArrowTrendUp}      />
+          <MetricCard label="carteira a receber" value={caixa.carteiraPendente}   color="#e87320" icon={faHandHoldingDollar}  />
+          <MetricCard label="saldo"              value={saldoCaixa}               color={BLUE}    icon={faChartBar}          />
         </div>
 
         <Hr />
