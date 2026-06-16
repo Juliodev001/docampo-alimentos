@@ -236,7 +236,7 @@ export default function RocasClient({
   const [lancForm, setLancForm]                           = useState(emptyLancForm)
   const [savingLanc, setSavingLanc]                       = useState(false)
   const [lancError, setLancError]                         = useState('')
-  type LancItem = { produtoId: string; produtoNome: string; quantidade: number; preco: number }
+  type LancItem = { produtoId: string; produtoNome: string; quantidade: number; preco: number; bandeja: number }
   const [lancItems, setLancItems]                         = useState<LancItem[]>([])
   const [lancMenuId, setLancMenuId]                       = useState<string | null>(null)
   const [lancMenuPos, setLancMenuPos]                     = useState({ top: 0, right: 0 })
@@ -621,8 +621,8 @@ export default function RocasClient({
   function addLancItem() {
     if (!lancForm.produtoId || !lancForm.quantidade) return
     const prod = produtosState.find(p => p.id === lancForm.produtoId); if (!prod) return
-    setLancItems(prev => [...prev, { produtoId: lancForm.produtoId, produtoNome: prod.nome, quantidade: parseFloat(lancForm.quantidade) || 0, preco: parseFloat(lancForm.preco) || 0 }])
-    setLancForm(f => ({ ...f, produtoId: '', quantidade: '', preco: '' }))
+    setLancItems(prev => [...prev, { produtoId: lancForm.produtoId, produtoNome: prod.nome, quantidade: parseFloat(lancForm.quantidade) || 0, preco: parseFloat(lancForm.preco) || 0, bandeja: parseFloat(lancForm.bandejaEmbalagem) || 0 }])
+    setLancForm(f => ({ ...f, produtoId: '', quantidade: '', preco: '', bandejaEmbalagem: '0' }))
   }
   function removeLancItem(idx: number) { setLancItems(prev => prev.filter((_, i) => i !== idx)) }
   function toggleMeeiro(id: string) {
@@ -671,11 +671,11 @@ export default function RocasClient({
           body: JSON.stringify({ produtoId: item.produtoId, quantidade: item.quantidade, valorUnit: item.preco, data: lancForm.data, observacao: `Lançamento roça — ${item.produtoNome}` }),
         })
       }
-      const totalCxLanc = lancItems.reduce((s, i) => s + i.quantidade, 0)
+      const bandejaTotalLanc = lancItems.reduce((s, i) => s + (i.bandeja || 0) * i.quantidade, 0)
       const custoPayload = {
         data: lancForm.data, produtorId: lancForm.produtorId || null, rocaId: lancForm.rocaId || null,
         combustivel: parseFloat(lancForm.combustivel) || 0,
-        bandejaEmbalagem: (parseFloat(lancForm.bandejaEmbalagem) || 0) * totalCxLanc,
+        bandejaEmbalagem: bandejaTotalLanc,
         valesDinheiro: parseFloat(lancForm.valesDinheiro) || 0,
         creditos: parseFloat(lancForm.creditos) || 0,
         debitosAnteriores: parseFloat(lancForm.debitosAnteriores) || 0,
@@ -2765,7 +2765,11 @@ export default function RocasClient({
                       <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Preço un.</label>
                       <input type="number" min="0" step="0.01" value={lancForm.preco} onChange={e => setLancForm(f => ({ ...f, preco: e.target.value }))} placeholder="0,00" style={inputStyle} />
                     </div>
-                    <button onClick={addLancItem} disabled={!lancForm.produtoId || !lancForm.quantidade} style={{ background: !lancForm.produtoId || !lancForm.quantidade ? '#9ca3af' : BLUE, color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: !lancForm.produtoId || !lancForm.quantidade ? 'not-allowed' : 'pointer', height: 38, whiteSpace: 'nowrap' }}>+ Adicionar</button>
+                    <div style={{ flex: 1, minWidth: 100 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Bandeja (R$/cx)</label>
+                      <input type="number" min="0" step="0.01" value={lancForm.bandejaEmbalagem} onChange={e => setLancForm(f => ({ ...f, bandejaEmbalagem: e.target.value }))} placeholder="0,00" style={inputStyle} />
+                    </div>
+                    <button onClick={addLancItem} disabled={!lancForm.produtoId || !lancForm.quantidade} style={{ background: !lancForm.produtoId || !lancForm.quantidade ? '#9ca3af' : BLUE, color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: !lancForm.produtoId || !lancForm.quantidade ? 'not-allowed' : 'pointer', height: 38, whiteSpace: 'nowrap' }}><FontAwesomeIcon icon={faPlus} style={{ fontSize: 11, marginRight: 6 }} />Adicionar</button>
                   </div>
                   {lancItems.length > 0 && (
                     <div style={{ marginTop: 14, borderTop: '1px solid #f3f4f6', paddingTop: 12 }}>
@@ -2773,6 +2777,7 @@ export default function RocasClient({
                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f9fafb' }}>
                           <span style={{ fontSize: 13, color: NAVY }}>
                             <strong>{item.produtoNome}</strong> · {fmtNum(item.quantidade, 0)} × {fmtCurrency(item.preco)}
+                            {item.bandeja > 0 && <span style={{ color: ORANGE }}> · bandeja {fmtCurrency(item.bandeja)}/cx</span>}
                           </span>
                           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                             <span style={{ fontSize: 13, fontWeight: 600, color: GREEN }}>{fmtCurrency(item.quantidade * item.preco)}</span>
@@ -2791,22 +2796,15 @@ export default function RocasClient({
                 <div style={{ border: '1.5px solid #e5e7eb', borderRadius: 12, padding: 18 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Insumos</div>
                   <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 14 }}>Custos de materiais utilizados neste lançamento.</div>
-                  <div className="grid-2">
-                    <FormField label="Combustível (R$)">
-                      <input type="number" min="0" step="0.01" value={lancForm.combustivel}
-                        onChange={e => setLancForm(f => ({ ...f, combustivel: e.target.value }))} style={inputStyle} />
-                    </FormField>
-                    <div>
-                      <label style={{ fontSize: 13, fontWeight: 600, color: NAVY, display: 'block', marginBottom: 6 }}>Embalagem (R$/cx)</label>
-                      <input type="number" min="0" step="0.01" value={lancForm.bandejaEmbalagem}
-                        onChange={e => setLancForm(f => ({ ...f, bandejaEmbalagem: e.target.value }))} style={inputStyle} />
-                      {parseFloat(lancForm.bandejaEmbalagem) > 0 && lancItems.length > 0 && (() => {
-                        const totalCx = lancItems.reduce((s, i) => s + i.quantidade, 0)
-                        const total = parseFloat(lancForm.bandejaEmbalagem) * totalCx
-                        return <p style={{ fontSize: 11, color: ORANGE, margin: '4px 0 0' }}>{fmtCurrency(parseFloat(lancForm.bandejaEmbalagem))} × {fmtNum(totalCx, 0)} cx = <strong>{fmtCurrency(total)}</strong></p>
-                      })()}
-                    </div>
-                  </div>
+                  <FormField label="Combustível (R$)">
+                    <input type="number" min="0" step="0.01" value={lancForm.combustivel}
+                      onChange={e => setLancForm(f => ({ ...f, combustivel: e.target.value }))} style={inputStyle} />
+                  </FormField>
+                  {lancItems.some(i => i.bandeja > 0) && (
+                    <p style={{ fontSize: 11, color: ORANGE, margin: '10px 0 0' }}>
+                      Total de bandeja/embalagem: <strong>{fmtCurrency(lancItems.reduce((s, i) => s + i.bandeja * i.quantidade, 0))}</strong>
+                    </p>
+                  )}
                 </div>
 
 
