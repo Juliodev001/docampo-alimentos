@@ -246,6 +246,10 @@ export default function RocasClient({
   const [savingLancEdit, setSavingLancEdit]               = useState(false)
 
   const [pagamentoStatus, setPagamentoStatus]             = useState<'aberto' | 'quitado'>('aberto')
+  const [searchPagamento, setSearchPagamento]             = useState('')
+  const [pagamentoFiltroProdutor, setPagamentoFiltroProdutor] = useState('')
+  const [showPagamentoFiltros, setShowPagamentoFiltros]   = useState(false)
+  const [showHistoricoPag, setShowHistoricoPag]           = useState(false)
 
   const [notasProdId, setNotasProdId]         = useState('')
   const [notasRocaId, setNotasRocaId]         = useState('')
@@ -263,7 +267,7 @@ export default function RocasClient({
   const [empDateF, setEmpDateF]               = useState('')
   const [empRocaId, setEmpRocaId]             = useState('')
 
-  type PagItem = { id: string; nome: string; chavePix: string | null; valorReceber: number; emprestimo: number; descEmprestimo: number; valorFinal: number }
+  type PagItem = { id: string; nome: string; chavePix: string | null; valorReceber: number; emprestimo: number; descEmprestimo: number; valorFinal: number; produtorId: string; produtorNome: string }
   const [pagarMenuId, setPagarMenuId]         = useState<string | null>(null)
   const [pagarModal, setPagarModal]           = useState<PagItem | null>(null)
   const [pagarFormaPag, setPagarFormaPag]     = useState('PIX')
@@ -731,7 +735,7 @@ export default function RocasClient({
       .reduce((s, p) => s + p.valor, 0)
     temMovimento = temMovimento || totalPago > 0
     const saldo = Math.max(0, valorTotal - totalPago)
-    return { id: m.id, nome: m.nome, chavePix: m.chavePix, valorReceber: saldo, emprestimo: 0, descEmprestimo: 0, valorFinal: saldo, temMovimento }
+    return { id: m.id, nome: m.nome, chavePix: m.chavePix, valorReceber: saldo, emprestimo: 0, descEmprestimo: 0, valorFinal: saldo, temMovimento, produtorId: m.produtorId, produtorNome: m.produtorNome }
   }), [colheitas, parceirosState, pagamentosState, fechamentosState])
 
   const custosPorProdutor = useMemo(() => {
@@ -1586,7 +1590,11 @@ export default function RocasClient({
       {activeTab === 'pagamento' && (() => {
         const filtradosAberto = pagamentosMeeiros.filter(p => p.valorReceber > 0)
         const filtradosQuitados = pagamentosMeeiros.filter(p => p.valorReceber === 0 && p.temMovimento)
-        const lista = pagamentoStatus === 'aberto' ? filtradosAberto : filtradosQuitados
+        const listaStatus = pagamentoStatus === 'aberto' ? filtradosAberto : filtradosQuitados
+        const lista = listaStatus.filter(p =>
+          p.nome.toLowerCase().includes(searchPagamento.toLowerCase()) &&
+          (!pagamentoFiltroProdutor || p.produtorId === pagamentoFiltroProdutor)
+        )
         return (
           <div>
             <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1602,15 +1610,33 @@ export default function RocasClient({
               </button>
               <div style={{ flex: 1, minWidth: 240, position: 'relative' }}>
                 <FontAwesomeIcon icon={faMagnifyingGlass} style={{ fontSize: 14, position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
-                <input placeholder="Buscar por meeiro..." style={{ width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px 8px 34px', fontSize: 13, color: NAVY, outline: 'none', boxSizing: 'border-box', background: '#fff' }} />
+                <input value={searchPagamento} onChange={e => setSearchPagamento(e.target.value)} placeholder="Buscar por meeiro..." style={{ width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 12px 8px 34px', fontSize: 13, color: NAVY, outline: 'none', boxSizing: 'border-box', background: '#fff' }} />
               </div>
-              <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
-                <FontAwesomeIcon icon={faFilter} style={{ fontSize: 14 }} /> Filtros
-              </button>
-              <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => setShowPagamentoFiltros(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: pagamentoFiltroProdutor ? BLUE + '12' : '#fff', color: pagamentoFiltroProdutor ? BLUE : '#374151', border: pagamentoFiltroProdutor ? `1.5px solid ${BLUE}` : '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+                  <FontAwesomeIcon icon={faFilter} style={{ fontSize: 14 }} /> Filtros{pagamentoFiltroProdutor ? ' (1)' : ''}
+                </button>
+                {showPagamentoFiltros && (
+                  <>
+                    <div onClick={() => setShowPagamentoFiltros(false)} style={{ position: 'fixed', inset: 0, zIndex: 49 }} />
+                    <div style={{ position: 'absolute', top: '110%', right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 50, padding: 16, width: 240 }}>
+                      <FormField label="Produtor">
+                        <select value={pagamentoFiltroProdutor} onChange={e => setPagamentoFiltroProdutor(e.target.value)} style={inputStyle}>
+                          <option value="">Todos os produtores</option>
+                          {produtoresState.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                        </select>
+                      </FormField>
+                      {pagamentoFiltroProdutor && (
+                        <button onClick={() => setPagamentoFiltroProdutor('')} style={{ marginTop: 10, background: 'none', border: 'none', color: PINK, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>Limpar filtro</button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+              <button onClick={() => setActiveTab('notas')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
                 <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 14 }} /> Relatórios
               </button>
-              <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+              <button onClick={() => setShowHistoricoPag(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', color: '#374151', border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
                 <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 14 }} /> Histórico de pagamentos
               </button>
             </div>
@@ -1626,7 +1652,9 @@ export default function RocasClient({
                 </thead>
                 <tbody>
                   {lista.length === 0 ? (
-                    <tr><td colSpan={7} style={{ padding: '48px 0', textAlign: 'center', color: '#9ca3af' }}>{pagamentoStatus === 'aberto' ? 'Nenhum pagamento em aberto' : 'Nenhum pagamento quitado'}</td></tr>
+                    <tr><td colSpan={7} style={{ padding: '48px 0', textAlign: 'center', color: '#9ca3af' }}>
+                      {searchPagamento || pagamentoFiltroProdutor ? 'Nenhum resultado encontrado' : pagamentoStatus === 'aberto' ? 'Nenhum pagamento em aberto' : 'Nenhum pagamento quitado'}
+                    </td></tr>
                   ) : lista.map(p => (
                     <tr key={p.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                       <td style={{ padding: '16px', fontSize: 13, color: BLUE, fontWeight: 600, textTransform: 'uppercase' }}>{p.nome}</td>
@@ -2346,6 +2374,59 @@ export default function RocasClient({
                     📄 Só relatório
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL HISTÓRICO DE PAGAMENTOS */}
+      <AnimatePresence>
+        {showHistoricoPag && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.4 }} exit={{ opacity: 0 }} onClick={() => setShowHistoricoPag(false)} style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 60 }} />
+            <motion.div initial={{ opacity: 0, scale: 0.95, x: '-50%', y: '-50%' }} animate={{ opacity: 1, scale: 1, x: '-50%', y: '-50%' }} exit={{ opacity: 0, scale: 0.95, x: '-50%', y: '-50%' }}
+              style={{ position: 'fixed', top: '50%', left: '50%', background: '#fff', borderRadius: 16, width: 640, maxWidth: '95vw', zIndex: 70, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', maxHeight: '85vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '20px 24px', borderBottom: '1px solid #f3f4f6' }}>
+                <div>
+                  <h2 style={{ fontSize: 17, fontWeight: 700, color: NAVY, margin: 0 }}>Histórico de pagamentos</h2>
+                  <p style={{ fontSize: 13, color: '#6b7280', margin: '4px 0 0' }}>Pagamentos confirmados aos meeiros.</p>
+                </div>
+                <button onClick={() => setShowHistoricoPag(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}><FontAwesomeIcon icon={faXmark} style={{ fontSize: 20 }} /></button>
+              </div>
+              <div style={{ padding: '12px 24px 24px' }}>
+                {(() => {
+                  const historico = [...pagamentosState]
+                    .filter(p => p.status === 'CONFIRMADO')
+                    .sort((a, b) => new Date(b.dataPag).getTime() - new Date(a.dataPag).getTime())
+                  if (historico.length === 0) return <p style={{ textAlign: 'center', color: '#9ca3af', padding: '32px 0' }}>Nenhum pagamento registrado</p>
+                  return (
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                          {['Meeiro', 'Valor', 'Forma', 'Data', 'Conta', 'Observação'].map(h => (
+                            <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6b7280' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {historico.map(p => {
+                          const meeiro = parceirosState.find(m => m.id === p.parceiroId)
+                          return (
+                            <tr key={p.id} style={{ borderBottom: '1px solid #f9fafb' }}>
+                              <td style={{ padding: '10px 12px', fontSize: 13, color: BLUE, fontWeight: 600, textTransform: 'uppercase' }}>{meeiro?.nome ?? '—'}</td>
+                              <td style={{ padding: '10px 12px', fontSize: 13, color: GREEN, fontWeight: 600 }}>{fmtCurrency(p.valor)}</td>
+                              <td style={{ padding: '10px 12px', fontSize: 13, color: '#374151' }}>{p.formaPag}</td>
+                              <td style={{ padding: '10px 12px', fontSize: 13, color: '#374151' }}>{fmtDate(p.dataPag)}</td>
+                              <td style={{ padding: '10px 12px', fontSize: 13, color: '#374151' }}>{p.conta ?? '—'}</td>
+                              <td style={{ padding: '10px 12px', fontSize: 13, color: '#374151' }}>{p.observacao ?? '—'}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  )
+                })()}
               </div>
             </motion.div>
           </>
