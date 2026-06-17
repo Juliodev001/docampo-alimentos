@@ -69,6 +69,30 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
   const [extraCats, setExtraCats] = useState<string[]>([])
   const [confirmDel, setConfirmDel] = useState<string | null>(null)
 
+  /* valor padrão de embalagem (global, usado para pré-preencher o lançamento de roça) */
+  const [embalagemPadrao, setEmbalagemPadrao] = useState('1.40')
+  const [savingEmbalagem, setSavingEmbalagem] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/configuracoes?chave=valorEmbalagemPadrao')
+      .then(r => r.json())
+      .then(d => { if (d?.valor != null) setEmbalagemPadrao((parseFloat(d.valor) || 0).toFixed(2)) })
+      .catch(() => {})
+  }, [])
+
+  async function salvarEmbalagemPadrao(valor: string) {
+    const num = parseFloat(valor) || 0
+    setSavingEmbalagem(true)
+    try {
+      const res = await fetch('/api/configuracoes', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ valorEmbalagemPadrao: num.toFixed(2) }),
+      })
+      if (res.ok) { setEmbalagemPadrao(num.toFixed(2)); toast.success('Valor padrão de embalagem atualizado') }
+      else toast.error('Erro ao atualizar valor padrão de embalagem')
+    } finally { setSavingEmbalagem(false) }
+  }
+
   /* fornecedores for dropdown */
   const [fornecedores, setFornecedores] = useState<FornecedorItem[]>([])
 
@@ -198,6 +222,7 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
     if (res.ok) setProdutos(prev => prev.map(p => p.id === id ? { ...p, ativo: novoAtivo } : p))
   }, [])
 
+
   async function handleDelete(id: string) {
     setLoading(true)
     try {
@@ -258,6 +283,32 @@ export default function ProdutosClient({ produtos: inicial }: { produtos: Produt
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', backgroundColor: BLUE, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
             <FontAwesomeIcon icon={faPlus} style={{ fontSize: 15 }} /> Criar Produto
           </motion.button>
+        </div>
+      </motion.div>
+
+      {/* ── Valor padrão de embalagem (global) ── */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.3 }}
+        style={{ display: 'flex', alignItems: 'center', gap: 14, backgroundColor: 'white', borderRadius: 12, padding: '14px 18px', marginBottom: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+        <div style={{ width: 38, height: 38, borderRadius: 9, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <FontAwesomeIcon icon={faTag} style={{ fontSize: 15, color: BLUE }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: NAVY, margin: 0 }}>Valor padrão de embalagem</p>
+          <p style={{ fontSize: 12, color: '#9ca3af', margin: '2px 0 0' }}>
+            Pré-preenche o campo &quot;Embalagem (R$)&quot; ao lançar uma colheita na Roça.
+          </p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 13, color: '#6b7280' }}>R$</span>
+          <input
+            type="number" step="0.01" min="0"
+            value={embalagemPadrao}
+            onChange={e => setEmbalagemPadrao(e.target.value)}
+            onBlur={e => salvarEmbalagemPadrao(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+            disabled={savingEmbalagem}
+            style={{ width: 90, padding: '8px 10px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 14, fontWeight: 600, color: NAVY, fontFamily: 'inherit', outline: 'none' }}
+          />
         </div>
       </motion.div>
 

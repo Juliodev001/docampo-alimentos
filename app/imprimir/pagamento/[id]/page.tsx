@@ -3,12 +3,13 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 
 type Produto = { id: string; nome: string }
-type Parceiro = { nome: string; percentual: number }
+type Parceiro = { id: string; nome: string; percentual: number }
 type Produtor = { nome: string; cpf: string | null; codigo: string | null; parceiros: Parceiro[] }
 type Colheita = {
   id: string; data: string; produto: Produto
   quantidadeTotal: number; preco: number; qualidade: string | null
   descarte: number; nrDoc: string | null
+  parceiroId: string | null; percParceiro: number; bandeja: number
 }
 type Fechamento = {
   produtor: Produtor
@@ -19,7 +20,7 @@ type Fechamento = {
 }
 
 function fmtN(v: number) { return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
-function fmtDate(d: string) { return new Date(d).toLocaleDateString('pt-BR') }
+function fmtDate(d: string) { return new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) }
 
 export default function ImprimirPagamento() {
   const { id } = useParams<{ id: string }>()
@@ -45,14 +46,32 @@ export default function ImprimirPagamento() {
 
   const { produtor, colheitas, dataInicio, dataFim, dataPagamento, combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores } = fechamento
 
-  const totalParceirosPct = produtor.parceiros.reduce((s, p) => s + p.percentual, 0)
-  const percProdutor = Math.max(0, 100 - totalParceirosPct)
-
   const totalBruto = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
   const totalQtd   = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
   const totalDed   = combustivel + bandejaEmbalagem + valesDinheiro + creditos + debitosAnteriores
   const valorLiquido = totalBruto - totalDed
-  const aReceberProdutor = valorLiquido * (percProdutor / 100)
+
+  // Valor bruto de cada meeiro é a soma dos lançamentos (colheitas) que de fato pertencem a ele,
+  // não um percentual fixo aplicado sobre o total de todos os meeiros.
+  const meeiroBrutoMap = new Map<string, number>()
+  const meeiroPercMap = new Map<string, number>()
+  for (const c of colheitas) {
+    if (!c.parceiroId) continue
+    const valorColheita = (c.quantidadeTotal - c.descarte) * c.preco
+    const valorMeeiro = valorColheita * (c.percParceiro / 100)
+    meeiroBrutoMap.set(c.parceiroId, (meeiroBrutoMap.get(c.parceiroId) ?? 0) + valorMeeiro)
+    meeiroPercMap.set(c.parceiroId, c.percParceiro)
+  }
+  const totalMeeirosBruto = Array.from(meeiroBrutoMap.values()).reduce((s, v) => s + v, 0)
+  const donoBruto = totalBruto - totalMeeirosBruto
+
+  // Deduções (combustível, embalagem, vales...) são rateadas proporcionalmente ao bruto de cada parte
+  const rateado = (valorBruto: number) => {
+    const fracao = totalBruto > 0 ? valorBruto / totalBruto : 0
+    return valorBruto - totalDed * fracao
+  }
+  const aReceberProdutor = rateado(donoBruto)
+  const percProdutor = totalBruto > 0 ? (donoBruto / totalBruto) * 100 : 100
 
   const B: React.CSSProperties = { border: '1px solid #000' }
   const cell: React.CSSProperties = { ...B, padding: '3px 6px', fontSize: 11 }
@@ -123,6 +142,7 @@ export default function ImprimirPagamento() {
               <th style={hd}>Nº Doc.</th>
               <th style={{ ...hd, textAlign: 'right' as const }}>Quant.</th>
               <th style={hd}>Produto / Qualidade</th>
+              <th style={{ ...hd, textAlign: 'right' as const }}>Embalagem</th>
               <th style={{ ...hd, textAlign: 'right' as const }}>Preço</th>
               <th style={{ ...hd, textAlign: 'right' as const }}>Sub-total</th>
               <th style={{ ...hd, textAlign: 'right' as const }}>Descarte</th>
@@ -138,6 +158,7 @@ export default function ImprimirPagamento() {
                   <td style={{ ...cell, textAlign: 'center' as const }}>{c.nrDoc ?? '0000'}</td>
                   <td style={{ ...cell, textAlign: 'right' as const }}>{liquido.toFixed(0)}</td>
                   <td style={cell}>{c.produto.nome}{c.qualidade ? ` — ${c.qualidade}` : ''}</td>
+                  <td style={{ ...cell, textAlign: 'right' as const }}>{c.bandeja > 0 ? fmtN(c.bandeja) : '—'}</td>
                   <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(c.preco)}</td>
                   <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(sub)}</td>
                   <td style={{ ...cell, textAlign: 'right' as const }}>{c.descarte > 0 ? c.descarte.toFixed(0) : '0'}</td>
@@ -209,19 +230,23 @@ export default function ImprimirPagamento() {
                 </tr>
               </thead>
               <tbody>
-                {produtor.parceiros.map(p => (
-                  <tr key={p.nome}>
-                    <td style={cell}>{p.nome}</td>
-                    <td style={{ ...cell, textAlign: 'right' as const }}>{p.percentual.toFixed(0)}%</td>
-                    <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 700 }}>
-                      {fmtN(valorLiquido * p.percentual / 100)}
-                    </td>
-                  </tr>
-                ))}
+                {produtor.parceiros.map(p => {
+                  const bruto = meeiroBrutoMap.get(p.id) ?? 0
+                  const percReal = meeiroPercMap.get(p.id) ?? p.percentual
+                  return (
+                    <tr key={p.id}>
+                      <td style={cell}>{p.nome}</td>
+                      <td style={{ ...cell, textAlign: 'right' as const }}>{percReal.toFixed(0)}%</td>
+                      <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 700 }}>
+                        {fmtN(rateado(bruto))}
+                      </td>
+                    </tr>
+                  )
+                })}
                 <tr>
                   <td style={{ ...cell, fontWeight: 700 }} colSpan={2}>Total Meeiros</td>
                   <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 800 }}>
-                    {fmtN(valorLiquido * totalParceirosPct / 100)}
+                    {fmtN(rateado(totalMeeirosBruto))}
                   </td>
                 </tr>
               </tbody>

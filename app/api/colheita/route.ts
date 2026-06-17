@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   const session = await getSession()
   if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data, produtoId, produtorId, rocaId, parceiroId, quantidadeTotal, observacao, preco, qualidade, descarte, nrDoc, percDono: percDonoIn, percParceiro: percParceiroIn } = await req.json()
+  const { data, produtoId, produtorId, rocaId, parceiroId, quantidadeTotal, observacao, preco, qualidade, descarte, bandeja, nrDoc, percDono: percDonoIn, percParceiro: percParceiroIn } = await req.json()
   if (!produtoId || !quantidadeTotal) {
     return NextResponse.json({ error: 'Produto e quantidade obrigatórios' }, { status: 400 })
   }
@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
         preco: preco ?? 0,
         qualidade: qualidade || null,
         descarte: descarte ?? 0,
+        bandeja: bandeja ?? 0,
         nrDoc: nrDoc || null,
         responsavelId: session.userId,
         observacao: observacao || null,

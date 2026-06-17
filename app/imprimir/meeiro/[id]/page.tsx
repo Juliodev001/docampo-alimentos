@@ -8,12 +8,12 @@ type Parceiro = { id: string; nome: string; cpf: string | null; percentual: numb
 type Colheita = {
   id: string; data: string; produto: Produto
   quantidadeTotal: number; preco: number; qualidade: string | null
-  descarte: number; nrDoc: string | null
+  descarte: number; nrDoc: string | null; bandeja: number
 }
 type Data = { parceiro: Parceiro; colheitas: Colheita[] }
 
 function fmtN(v: number) { return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
-function fmtDate(d: string) { return new Date(d).toLocaleDateString('pt-BR') }
+function fmtDate(d: string) { return new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) }
 
 export default function ImprimirMeeiro() {
   const { id } = useParams<{ id: string }>()
@@ -43,7 +43,7 @@ export default function ImprimirMeeiro() {
   const totalBruto   = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
   const totalQtd     = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
   const bruteMeeiro  = totalBruto * (parceiro.percentual / 100)       // 40% do bruto — sem desconto
-  const descEmba     = totalQtd * (parceiro.valorEmba ?? 0)           // desconto embalagem
+  const descEmba     = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * (c.bandeja ?? 0), 0) // desconto embalagem
   const aReceber     = bruteMeeiro - descEmba                         // valor líquido a receber
 
   const dataInicio = colheitas.length > 0 ? fmtDate(colheitas[0].data) : '—'
@@ -120,6 +120,7 @@ export default function ImprimirMeeiro() {
               <th style={hd}>Nº Doc.</th>
               <th style={{ ...hd, textAlign: 'right' as const }}>Quant.</th>
               <th style={hd}>Produto / Qualidade</th>
+              <th style={{ ...hd, textAlign: 'right' as const }}>Embalagem</th>
               <th style={{ ...hd, textAlign: 'right' as const }}>Preço</th>
               <th style={{ ...hd, textAlign: 'right' as const }}>Sub-total</th>
               <th style={{ ...hd, textAlign: 'right' as const }}>Descarte</th>
@@ -127,7 +128,7 @@ export default function ImprimirMeeiro() {
           </thead>
           <tbody>
             {colheitas.length === 0 ? (
-              <tr><td colSpan={7} style={{ ...cell, textAlign: 'center' as const, color: '#666' }}>Nenhum lançamento</td></tr>
+              <tr><td colSpan={8} style={{ ...cell, textAlign: 'center' as const, color: '#666' }}>Nenhum lançamento</td></tr>
             ) : colheitas.map(c => {
               const liquido = c.quantidadeTotal - c.descarte
               const sub = liquido * c.preco
@@ -137,6 +138,7 @@ export default function ImprimirMeeiro() {
                   <td style={{ ...cell, textAlign: 'center' as const }}>{c.nrDoc ?? '0000'}</td>
                   <td style={{ ...cell, textAlign: 'right' as const }}>{liquido.toFixed(0)}</td>
                   <td style={cell}>{c.produto.nome}{c.qualidade ? ` — ${c.qualidade}` : ''}</td>
+                  <td style={{ ...cell, textAlign: 'right' as const }}>{c.bandeja > 0 ? fmtN(c.bandeja) : '—'}</td>
                   <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(c.preco)}</td>
                   <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(sub)}</td>
                   <td style={{ ...cell, textAlign: 'right' as const }}>{c.descarte > 0 ? c.descarte.toFixed(0) : '0'}</td>
