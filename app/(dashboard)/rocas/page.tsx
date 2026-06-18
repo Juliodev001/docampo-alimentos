@@ -117,7 +117,7 @@ export default async function RocasPage() {
         qualidade:       c.qualidade,
         nrDoc:           c.nrDoc,
         descarte:        c.descarte,
-        bandeja:         c.bandeja,
+        bandeja:         Number(c.bandeja),
       }))}
       parceiros={parceiros.map(p => ({
         id:          p.id,

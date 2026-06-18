@@ -84,7 +84,7 @@ model ColheitaDiaria {
   preco              Decimal       @default(0) @db.Decimal(12, 4)
   qualidade          String?
   descarte           Float         @default(0)
-  bandeja            Float         @default(0)
+  bandeja            Decimal       @default(0) @db.Decimal(12, 4)
   nrDoc              String?
   responsavelId      String
   responsavel        User          @relation(fields: [responsavelId], references: [id])
