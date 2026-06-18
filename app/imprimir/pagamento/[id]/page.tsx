@@ -91,6 +91,10 @@ export default function ImprimirPagamento() {
 
       <div style={{ maxWidth: 750, margin: '0 auto', padding: '20px 0', fontFamily: 'Arial, sans-serif', fontSize: 12 }}>
 
+        {/* Marca d'água */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo01.png" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 480, opacity: 0.3, zIndex: -1, pointerEvents: 'none' }} />
+
         {/* Botão imprimir - só na tela */}
         <div className="no-print" style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
           <button onClick={() => window.print()} style={{ padding: '8px 20px', background: '#2d3561', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
@@ -103,6 +107,8 @@ export default function ImprimirPagamento() {
 
         {/* Título */}
         <div style={{ textAlign: 'center', marginBottom: 10 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo01.png" alt="Do Campo Alimentos" style={{ height: 44, margin: '0 auto 6px', display: 'block' }} />
           <div style={{ fontSize: 14, fontWeight: 700, textDecoration: 'underline', textTransform: 'uppercase' }}>
             Pagamento de Produtores
           </div>
@@ -138,33 +144,50 @@ export default function ImprimirPagamento() {
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
           <thead>
             <tr>
+              <th style={hd}>Parceiro</th>
               <th style={hd}>Data</th>
-              <th style={hd}>Nº Doc.</th>
-              <th style={{ ...hd, textAlign: 'right' as const }}>Quant.</th>
-              <th style={hd}>Produto / Qualidade</th>
-              <th style={{ ...hd, textAlign: 'right' as const }}>Embalagem</th>
+              <th style={hd}>Produto</th>
+              <th style={{ ...hd, textAlign: 'right' as const }}>Qtd</th>
               <th style={{ ...hd, textAlign: 'right' as const }}>Preço</th>
-              <th style={{ ...hd, textAlign: 'right' as const }}>Sub-total</th>
-              <th style={{ ...hd, textAlign: 'right' as const }}>Descarte</th>
+              <th style={{ ...hd, textAlign: 'right' as const }}>Sub Total</th>
+              <th style={{ ...hd, textAlign: 'right' as const }}>Embalagem</th>
+              <th style={{ ...hd, textAlign: 'right' as const }}>A Receber</th>
             </tr>
           </thead>
           <tbody>
             {colheitas.map(c => {
               const liquido = c.quantidadeTotal - c.descarte
               const sub = liquido * c.preco
+              const embalagemTotal = liquido * c.bandeja
+              const meeiroNome = produtor.parceiros.find(p => p.id === c.parceiroId)?.nome
+              const aReceberLinha = c.parceiroId
+                ? (sub - embalagemTotal) * (c.percParceiro / 100)
+                : (sub - embalagemTotal)
               return (
                 <tr key={c.id}>
+                  <td style={cell}>{meeiroNome ?? '—'}</td>
                   <td style={cell}>{fmtDate(c.data)}</td>
-                  <td style={{ ...cell, textAlign: 'center' as const }}>{c.nrDoc ?? '0000'}</td>
-                  <td style={{ ...cell, textAlign: 'right' as const }}>{liquido.toFixed(0)}</td>
                   <td style={cell}>{c.produto.nome}{c.qualidade ? ` — ${c.qualidade}` : ''}</td>
-                  <td style={{ ...cell, textAlign: 'right' as const }}>{c.bandeja > 0 ? fmtN(c.bandeja) : '—'}</td>
+                  <td style={{ ...cell, textAlign: 'right' as const }}>{liquido.toFixed(0)}</td>
                   <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(c.preco)}</td>
                   <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(sub)}</td>
-                  <td style={{ ...cell, textAlign: 'right' as const }}>{c.descarte > 0 ? c.descarte.toFixed(0) : '0'}</td>
+                  <td style={{ ...cell, textAlign: 'right' as const }}>{embalagemTotal > 0 ? fmtN(embalagemTotal) : '—'}</td>
+                  <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 700 }}>{fmtN(aReceberLinha)}</td>
                 </tr>
               )
             })}
+            <tr>
+              <td style={{ ...cell, fontWeight: 700 }} colSpan={7}>Total</td>
+              <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 800 }}>
+                {fmtN(colheitas.reduce((s, c) => {
+                  const liquido = c.quantidadeTotal - c.descarte
+                  const sub = liquido * c.preco
+                  const embalagemTotal = liquido * c.bandeja
+                  const valor = c.parceiroId ? (sub - embalagemTotal) * (c.percParceiro / 100) : (sub - embalagemTotal)
+                  return s + valor
+                }, 0))}
+              </td>
+            </tr>
           </tbody>
         </table>
 

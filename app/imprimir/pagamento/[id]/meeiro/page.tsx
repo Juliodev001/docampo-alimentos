@@ -97,6 +97,10 @@ function ImprimirPagamentoMeeiro() {
 
       <div style={{ maxWidth: 750, margin: '0 auto', padding: '20px 0', fontFamily: 'Arial, sans-serif', fontSize: 12 }}>
 
+        {/* Marca d'água */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo01.png" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 480, opacity: 0.3, zIndex: -1, pointerEvents: 'none' }} />
+
         {/* Botão imprimir - só na tela */}
         <div className="no-print" style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
           <button onClick={() => window.print()} style={{ padding: '8px 20px', background: '#2d3561', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
@@ -109,6 +113,8 @@ function ImprimirPagamentoMeeiro() {
 
         {/* Título */}
         <div style={{ textAlign: 'center', marginBottom: 10 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo01.png" alt="Do Campo Alimentos" style={{ height: 44, margin: '0 auto 6px', display: 'block' }} />
           <div style={{ fontSize: 14, fontWeight: 700, textDecoration: 'underline', textTransform: 'uppercase' }}>
             Pagamento de Meeiro
           </div>

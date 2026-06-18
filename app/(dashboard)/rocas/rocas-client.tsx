@@ -470,6 +470,38 @@ type LancamentoCustoRecord = {
   createdAt: string;
 };
 
+type ValeRecord = {
+  id: string;
+  produtorId: string | null;
+  parceiroId: string | null;
+  valor: number;
+  data: string;
+  observacao: string | null;
+  status: string;
+  fechamentoId: string | null;
+  fechamentoMeeiroId: string | null;
+  createdAt: string;
+};
+
+type FechamentoMeeiroRecord = {
+  id: string;
+  parceiroId: string;
+  dataInicio: string;
+  dataFim: string;
+  dataPagamento: string;
+  valorBruto: number;
+  combustivel: number;
+  bandejaEmbalagem: number;
+  valesDinheiro: number;
+  creditos: number;
+  debitosAnteriores: number;
+  valesDeduzidos: number;
+  valorPago: number;
+  status: string;
+  observacao: string | null;
+  createdAt: string;
+};
+
 export default function RocasClient({
   rocas: initialRocas,
   produtores,
@@ -479,6 +511,8 @@ export default function RocasClient({
   pagamentosMeeiro: initialPagamentos,
   fechamentos: initialFechamentos,
   custos: initialCustos,
+  vales: initialVales,
+  fechamentosMeeiro: initialFechamentosMeeiro,
 }: {
   rocas: Roca[];
   produtores: Produtor[];
@@ -488,6 +522,8 @@ export default function RocasClient({
   pagamentosMeeiro: PagamentoMeeiroRecord[];
   fechamentos: FechamentoRecord[];
   custos: LancamentoCustoRecord[];
+  vales: ValeRecord[];
+  fechamentosMeeiro: FechamentoMeeiroRecord[];
 }) {
   const toast = useToast();
   const router = useRouter();
@@ -503,6 +539,10 @@ export default function RocasClient({
   const [produtosState, setProdutosState] = useState<Produto[]>(produtos);
   const [custosState, setCustosState] =
     useState<LancamentoCustoRecord[]>(initialCustos);
+  const [valesState, setValesState] = useState<ValeRecord[]>(initialVales);
+  const [fechamentosMeeiroState, setFechamentosMeeiroState] = useState<
+    FechamentoMeeiroRecord[]
+  >(initialFechamentosMeeiro);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [filterRoca, setFilterRoca] = useState("todas");
 
@@ -627,6 +667,59 @@ export default function RocasClient({
   const [pagarObs, setPagarObs] = useState("");
   const [pagarMenuPos, setPagarMenuPos] = useState({ top: 0, right: 0 });
 
+  const [fecharMeeiroModal, setFecharMeeiroModal] = useState<PagItem | null>(
+    null,
+  );
+  const [fecharValesSelecionados, setFecharValesSelecionados] = useState<
+    string[]
+  >([]);
+  const [fecharDataInicio, setFecharDataInicio] = useState("");
+  const [fecharDataFim, setFecharDataFim] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [fecharDataPagamento, setFecharDataPagamento] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [savingFecharMeeiro, setSavingFecharMeeiro] = useState(false);
+  const [fecharMeeiroError, setFecharMeeiroError] = useState("");
+  const [fecharBruto, setFecharBruto] = useState(0);
+  const [fecharAjustar, setFecharAjustar] = useState(false);
+  const [fecharDedForm, setFecharDedForm] = useState({
+    combustivel: "0",
+    bandejaEmbalagem: "0",
+    valesDinheiro: "0",
+    creditos: "0",
+    debitosAnteriores: "0",
+  });
+
+  function openFecharMeeiro(item: PagItem) {
+    setFecharMeeiroError("");
+    setFecharValesSelecionados([]);
+    setFecharAjustar(false);
+    setFecharDedForm({
+      combustivel: "0",
+      bandejaEmbalagem: "0",
+      valesDinheiro: "0",
+      creditos: "0",
+      debitosAnteriores: "0",
+    });
+    setFecharBruto(item.valorReceber);
+    const fechsDoParceiro = fechamentosMeeiroState
+      .filter((f) => f.parceiroId === item.id)
+      .sort((a, b) => (a.dataFim < b.dataFim ? 1 : -1));
+    const csParceiro = colheitas
+      .filter((c) => c.parceiroId === item.id)
+      .sort((a, b) => (a.data < b.data ? -1 : 1));
+    const inicio = fechsDoParceiro[0]
+      ? fechsDoParceiro[0].dataFim.slice(0, 10)
+      : (csParceiro[0]?.data.slice(0, 10) ??
+        new Date().toISOString().slice(0, 10));
+    setFecharDataInicio(inicio);
+    setFecharDataFim(new Date().toISOString().slice(0, 10));
+    setFecharDataPagamento(new Date().toISOString().slice(0, 10));
+    setFecharMeeiroModal(item);
+  }
+
   const [fechamentosState, setFechamentosState] = useState<FechamentoRecord[]>(
     initialFechamentos ?? [],
   );
@@ -638,6 +731,10 @@ export default function RocasClient({
     useState<FechamentoRecord | null>(null);
   const [deletingFech, setDeletingFech] = useState(false);
   const [fechAjustar, setFechAjustar] = useState(false);
+  const [fechDebitarBandeja, setFechDebitarBandeja] = useState(true);
+  const [fechValesSelecionados, setFechValesSelecionados] = useState<
+    string[]
+  >([]);
   const [fechProdutorFilter, setFechProdutorFilter] = useState("");
   const [fechStatusFilter, setFechStatusFilter] = useState<
     "TODOS" | "PENDENTE" | "PAGO"
@@ -1495,8 +1592,11 @@ export default function RocasClient({
         const totalPago = pagamentosState
           .filter((p) => p.parceiroId === m.id && p.status === "CONFIRMADO")
           .reduce((s, p) => s + p.valor, 0);
-        temMovimento = temMovimento || totalPago > 0;
-        const saldo = Math.max(0, valorTotal - totalPago);
+        const totalFechado = fechamentosMeeiroState
+          .filter((f) => f.parceiroId === m.id && f.status === "PAGO")
+          .reduce((s, f) => s + f.valorPago, 0);
+        temMovimento = temMovimento || totalPago > 0 || totalFechado > 0;
+        const saldo = Math.max(0, valorTotal - totalPago - totalFechado);
         return {
           id: m.id,
           nome: m.nome,
@@ -1510,7 +1610,7 @@ export default function RocasClient({
           produtorNome: m.produtorNome,
         };
       }),
-    [colheitas, parceirosState, pagamentosState, fechamentosState],
+    [colheitas, parceirosState, pagamentosState, fechamentosState, fechamentosMeeiroState],
   );
 
   const custosPorProdutor = useMemo(() => {
@@ -3932,6 +4032,7 @@ export default function RocasClient({
               overflow: "hidden",
             }}
           >
+            <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr
@@ -4120,6 +4221,7 @@ export default function RocasClient({
                 )}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Menu flutuante dos 3 pontos */}
@@ -5243,6 +5345,14 @@ export default function RocasClient({
             setSavingFech(true);
             setFechError("");
             try {
+              const valesAvulsosTotal = valesState
+                .filter(
+                  (v) =>
+                    v.produtorId === fechForm.produtorId &&
+                    v.status === "ABERTO" &&
+                    fechValesSelecionados.includes(v.id),
+                )
+                .reduce((s, v) => s + v.valor, 0);
               const res = await fetch("/api/fechamento", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -5252,10 +5362,15 @@ export default function RocasClient({
                   dataFim: fechForm.dataFim,
                   dataPagamento: fechForm.dataPagamento,
                   combustivel: Number(fechForm.combustivel) || 0,
-                  bandejaEmbalagem: Number(fechForm.bandejaEmbalagem) || 0,
-                  valesDinheiro: Number(fechForm.valesDinheiro) || 0,
+                  bandejaEmbalagem: fechDebitarBandeja
+                    ? Number(fechForm.bandejaEmbalagem) || 0
+                    : 0,
+                  valesDinheiro:
+                    (Number(fechForm.valesDinheiro) || 0) +
+                    valesAvulsosTotal,
                   creditos: Number(fechForm.creditos) || 0,
                   debitosAnteriores: Number(fechForm.debitosAnteriores) || 0,
+                  valeIds: fechValesSelecionados,
                 }),
               });
               if (!res.ok) throw new Error();
@@ -5279,6 +5394,17 @@ export default function RocasClient({
                 createdAt: saved.createdAt,
               };
               setFechamentosState((prev) => [record, ...prev]);
+              if (fechValesSelecionados.length > 0) {
+                setValesState((prev) =>
+                  prev.map((v) =>
+                    fechValesSelecionados.includes(v.id)
+                      ? { ...v, status: "DESCONTADO", fechamentoId: saved.id }
+                      : v,
+                  ),
+                );
+              }
+              setFechValesSelecionados([]);
+              setFechDebitarBandeja(true);
               setShowFechModal(false);
               toast.success("Fechamento criado", produtor?.nome ?? "");
             } catch {
@@ -5415,6 +5541,8 @@ export default function RocasClient({
                                 produtorId: prod.id,
                               });
                               setFechAjustar(false);
+                              setFechDebitarBandeja(true);
+                              setFechValesSelecionados([]);
                               setShowFechModal(true);
                             }}
                             style={{
@@ -5572,6 +5700,8 @@ export default function RocasClient({
                     onClick={() => {
                       setFechError("");
                       setFechForm(emptyFechForm);
+                      setFechDebitarBandeja(true);
+                      setFechValesSelecionados([]);
                       setShowFechModal(true);
                     }}
                     style={{
@@ -6164,6 +6294,8 @@ export default function RocasClient({
                                   produtorId: e.target.value,
                                 }));
                                 setFechAjustar(false);
+                                setFechDebitarBandeja(true);
+                                setFechValesSelecionados([]);
                               }}
                             >
                               <option value="">Selecione o produtor</option>
@@ -6196,10 +6328,24 @@ export default function RocasClient({
                                 (s, c) => s + c.quantidadeTotal * c.preco,
                                 0,
                               );
+                              const valesAbertosProd = valesState.filter(
+                                (v) =>
+                                  v.produtorId === fechForm.produtorId &&
+                                  v.status === "ABERTO",
+                              );
+                              const valesAvulsos = valesAbertosProd
+                                .filter((v) =>
+                                  fechValesSelecionados.includes(v.id),
+                                )
+                                .reduce((s, v) => s + v.valor, 0);
                               const ded =
                                 (parseFloat(fechForm.combustivel) || 0) +
-                                (parseFloat(fechForm.bandejaEmbalagem) || 0) +
+                                (fechDebitarBandeja
+                                  ? parseFloat(fechForm.bandejaEmbalagem) ||
+                                    0
+                                  : 0) +
                                 (parseFloat(fechForm.valesDinheiro) || 0) +
+                                valesAvulsos +
                                 (parseFloat(fechForm.creditos) || 0) +
                                 (parseFloat(fechForm.debitosAnteriores) || 0);
                               const liquido = bruto - ded;
@@ -6298,6 +6444,181 @@ export default function RocasClient({
                                       }
                                     />
                                   </FormField>
+
+                                  {/* Vales em aberto */}
+                                  {valesAbertosProd.length > 0 && (
+                                    <div
+                                      style={{
+                                        background: "#fff7ed",
+                                        border: "1.5px solid #fed7aa",
+                                        borderRadius: 10,
+                                        padding: "10px 14px",
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: 700,
+                                          color: "#b45309",
+                                          textTransform: "uppercase",
+                                          marginBottom: 6,
+                                        }}
+                                      >
+                                        Vales em aberto — descontar?
+                                      </div>
+                                      <div
+                                        style={{
+                                          display: "flex",
+                                          flexDirection: "column",
+                                          gap: 6,
+                                        }}
+                                      >
+                                        {valesAbertosProd.map((v) => (
+                                          <label
+                                            key={v.id}
+                                            style={{
+                                              display: "flex",
+                                              alignItems: "center",
+                                              justifyContent: "space-between",
+                                              gap: 10,
+                                              cursor: "pointer",
+                                              fontSize: 12,
+                                              color: "#374151",
+                                            }}
+                                          >
+                                            <span
+                                              style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 8,
+                                              }}
+                                            >
+                                              <input
+                                                type="checkbox"
+                                                checked={fechValesSelecionados.includes(
+                                                  v.id,
+                                                )}
+                                                onChange={(e) =>
+                                                  setFechValesSelecionados(
+                                                    (prev) =>
+                                                      e.target.checked
+                                                        ? [...prev, v.id]
+                                                        : prev.filter(
+                                                            (id) =>
+                                                              id !== v.id,
+                                                          ),
+                                                  )
+                                                }
+                                              />
+                                              {fmtDate(v.data)}
+                                              {v.observacao
+                                                ? ` — ${v.observacao}`
+                                                : ""}
+                                            </span>
+                                            <span
+                                              style={{
+                                                fontWeight: 700,
+                                                color: "#b45309",
+                                              }}
+                                            >
+                                              {fmtCurrency(v.valor)}
+                                            </span>
+                                          </label>
+                                        ))}
+                                      </div>
+                                      {valesAvulsos > 0 && (
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            marginTop: 8,
+                                            paddingTop: 8,
+                                            borderTop: "1px solid #fed7aa",
+                                            fontSize: 12,
+                                          }}
+                                        >
+                                          <span
+                                            style={{
+                                              fontWeight: 700,
+                                              color: "#b45309",
+                                            }}
+                                          >
+                                            Total a descontar
+                                          </span>
+                                          <span
+                                            style={{
+                                              fontWeight: 800,
+                                              color: "#b45309",
+                                            }}
+                                          >
+                                            {fmtCurrency(valesAvulsos)}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Debitar bandeja/embalagem? */}
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "center",
+                                      background: "#f9fafb",
+                                      border: "1px solid #e5e7eb",
+                                      borderRadius: 10,
+                                      padding: "10px 14px",
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        color: "#374151",
+                                      }}
+                                    >
+                                      Descontar bandeja/embalagem neste
+                                      fechamento?
+                                    </span>
+                                    <div style={{ display: "flex", gap: 6 }}>
+                                      {(
+                                        [
+                                          { val: true, label: "Sim" },
+                                          { val: false, label: "Não" },
+                                        ] as const
+                                      ).map((opt) => (
+                                        <button
+                                          key={String(opt.val)}
+                                          type="button"
+                                          onClick={() =>
+                                            setFechDebitarBandeja(opt.val)
+                                          }
+                                          style={{
+                                            padding: "5px 14px",
+                                            borderRadius: 8,
+                                            border: `1.5px solid ${
+                                              fechDebitarBandeja === opt.val
+                                                ? NAVY
+                                                : "#e5e7eb"
+                                            }`,
+                                            background:
+                                              fechDebitarBandeja === opt.val
+                                                ? NAVY
+                                                : "#fff",
+                                            color:
+                                              fechDebitarBandeja === opt.val
+                                                ? "#fff"
+                                                : "#374151",
+                                            fontSize: 12,
+                                            fontWeight: 600,
+                                            cursor: "pointer",
+                                          }}
+                                        >
+                                          {opt.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
 
                                   {/* Resumo financeiro */}
                                   <div
@@ -7353,73 +7674,76 @@ export default function RocasClient({
               overflow: "hidden",
             }}
           >
-            <button
-              onClick={() => {
-                setPagarMenuId(null);
-                setActiveTab("meeiros");
-              }}
-              style={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                padding: "10px 16px",
-                fontSize: 13,
-                color: "#374151",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                borderBottom: "1px solid #f3f4f6",
-              }}
-            >
-              ✏️ Editar
-            </button>
-            <button
-              onClick={() => {
-                setPagarMenuId(null);
-                window.open(`/imprimir/meeiro/${pagarMenuId}`, "_blank");
-              }}
-              style={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                padding: "10px 16px",
-                fontSize: 13,
-                color: "#374151",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                borderBottom: "1px solid #f3f4f6",
-              }}
-            >
-              📄 PDF
-            </button>
             {(() => {
               const item = pagamentosMeeiros.find((m) => m.id === pagarMenuId);
-              return item ? (
-                <button
-                  onClick={() => {
-                    setPagarMenuId(null);
-                    setPagarModal(item);
-                    setPagarFormaPag("PIX");
-                    setPagarConta("");
-                    setPagarData(new Date().toISOString().slice(0, 10));
-                    setPagarObs("");
-                  }}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "10px 16px",
-                    fontSize: 13,
-                    color: "#374151",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  💰 Pagar
-                </button>
-              ) : null;
+              if (!item) return null;
+              return (
+                <>
+                  <button
+                    onClick={() => {
+                      setPagarMenuId(null);
+                      openFecharMeeiro(item);
+                    }}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "10px 16px",
+                      fontSize: 13,
+                      color: "#374151",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      borderBottom: "1px solid #f3f4f6",
+                    }}
+                  >
+                    ✏️ Editar Fechamento
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPagarMenuId(null);
+                      window.open(`/imprimir/meeiro/${pagarMenuId}`, "_blank");
+                    }}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "10px 16px",
+                      fontSize: 13,
+                      color: "#374151",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      borderBottom: "1px solid #f3f4f6",
+                    }}
+                  >
+                    📄 PDF
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPagarMenuId(null);
+                      setPagarModal(item);
+                      setPagarFormaPag("PIX");
+                      setPagarConta("");
+                      setPagarData(new Date().toISOString().slice(0, 10));
+                      setPagarObs("");
+                    }}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "10px 16px",
+                      fontSize: 13,
+                      color: "#374151",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    💰 Pagar
+                  </button>
+                </>
+              );
             })()}
           </div>
         </>
@@ -7920,6 +8244,631 @@ export default function RocasClient({
             </motion.div>
           </>
         )}
+      </AnimatePresence>
+
+      {/* MODAL FECHAR PAGAMENTO DE MEEIRO */}
+      <AnimatePresence>
+        {fecharMeeiroModal &&
+          (() => {
+            const meeiro = fecharMeeiroModal;
+            const valesAbertosMeeiro = valesState.filter(
+              (v) => v.parceiroId === meeiro.id && v.status === "ABERTO",
+            );
+            const valesDeduzidos = valesAbertosMeeiro
+              .filter((v) => fecharValesSelecionados.includes(v.id))
+              .reduce((s, v) => s + v.valor, 0);
+            const dedManual =
+              (parseFloat(fecharDedForm.combustivel) || 0) +
+              (parseFloat(fecharDedForm.bandejaEmbalagem) || 0) +
+              (parseFloat(fecharDedForm.valesDinheiro) || 0) +
+              (parseFloat(fecharDedForm.creditos) || 0) +
+              (parseFloat(fecharDedForm.debitosAnteriores) || 0);
+            const valorPago = Math.max(
+              0,
+              fecharBruto - dedManual - valesDeduzidos,
+            );
+            const historico = fechamentosMeeiroState.filter(
+              (f) => f.parceiroId === meeiro.id,
+            );
+
+            async function handleCriarFechamentoMeeiro() {
+              if (!fecharDataInicio || !fecharDataFim || !fecharDataPagamento) {
+                setFecharMeeiroError("Datas são obrigatórias");
+                return;
+              }
+              setSavingFecharMeeiro(true);
+              setFecharMeeiroError("");
+              try {
+                const res = await fetch("/api/fechamento-meeiro", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    parceiroId: meeiro.id,
+                    dataInicio: fecharDataInicio,
+                    dataFim: fecharDataFim,
+                    dataPagamento: fecharDataPagamento,
+                    valorBruto: fecharBruto,
+                    combustivel: parseFloat(fecharDedForm.combustivel) || 0,
+                    bandejaEmbalagem:
+                      parseFloat(fecharDedForm.bandejaEmbalagem) || 0,
+                    valesDinheiro:
+                      parseFloat(fecharDedForm.valesDinheiro) || 0,
+                    creditos: parseFloat(fecharDedForm.creditos) || 0,
+                    debitosAnteriores:
+                      parseFloat(fecharDedForm.debitosAnteriores) || 0,
+                    valeIds: fecharValesSelecionados,
+                  }),
+                });
+                if (!res.ok) throw new Error();
+                const saved = await res.json();
+                const record: FechamentoMeeiroRecord = {
+                  id: saved.id,
+                  parceiroId: saved.parceiroId,
+                  dataInicio: saved.dataInicio,
+                  dataFim: saved.dataFim,
+                  dataPagamento: saved.dataPagamento,
+                  valorBruto: saved.valorBruto,
+                  combustivel: saved.combustivel,
+                  bandejaEmbalagem: saved.bandejaEmbalagem,
+                  valesDinheiro: saved.valesDinheiro,
+                  creditos: saved.creditos,
+                  debitosAnteriores: saved.debitosAnteriores,
+                  valesDeduzidos: saved.valesDeduzidos,
+                  valorPago: saved.valorPago,
+                  status: saved.status,
+                  observacao: saved.observacao,
+                  createdAt: saved.createdAt,
+                };
+                setFechamentosMeeiroState((prev) => [record, ...prev]);
+                if (fecharValesSelecionados.length > 0) {
+                  setValesState((prev) =>
+                    prev.map((v) =>
+                      fecharValesSelecionados.includes(v.id)
+                        ? {
+                            ...v,
+                            status: "DESCONTADO",
+                            fechamentoMeeiroId: saved.id,
+                          }
+                        : v,
+                    ),
+                  );
+                }
+                setFecharValesSelecionados([]);
+                toast.success("Fechamento criado", meeiro.nome);
+              } catch {
+                setFecharMeeiroError("Erro ao salvar");
+              } finally {
+                setSavingFecharMeeiro(false);
+              }
+            }
+
+            async function handleMarcarPagoMeeiro(id: string) {
+              try {
+                const res = await fetch(`/api/fechamento-meeiro/${id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ status: "PAGO" }),
+                });
+                if (!res.ok) throw new Error();
+                setFechamentosMeeiroState((prev) =>
+                  prev.map((f) =>
+                    f.id === id ? { ...f, status: "PAGO" } : f,
+                  ),
+                );
+                toast.success("Marcado como pago");
+              } catch {
+                toast.error("Erro ao atualizar");
+              }
+            }
+
+            return (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0.5 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setFecharMeeiroModal(null)}
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    background: "#000",
+                    zIndex: 60,
+                  }}
+                />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96, x: "-50%", y: "-50%" }}
+                  animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+                  exit={{ opacity: 0, scale: 0.96, x: "-50%", y: "-50%" }}
+                  style={{
+                    position: "fixed",
+                    top: "50%",
+                    left: "50%",
+                    background: "#fff",
+                    borderRadius: 16,
+                    width: 480,
+                    maxWidth: "95vw",
+                    maxHeight: "90vh",
+                    overflowY: "auto",
+                    zIndex: 70,
+                    boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "20px 24px",
+                      borderBottom: "1px solid #f3f4f6",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div>
+                      <h3
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 700,
+                          color: NAVY,
+                          margin: 0,
+                        }}
+                      >
+                        Fechar Pagamento — {meeiro.nome}
+                      </h3>
+                      <p
+                        style={{
+                          fontSize: 12,
+                          color: "#6b7280",
+                          margin: "2px 0 0",
+                        }}
+                      >
+                        {meeiro.produtorNome}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setFecharMeeiroModal(null)}
+                      style={{
+                        background: "#f3f4f6",
+                        border: "none",
+                        borderRadius: 8,
+                        padding: 6,
+                        cursor: "pointer",
+                        color: "#6b7280",
+                      }}
+                    >
+                      <FontAwesomeIcon
+                        icon={faXmark}
+                        style={{ fontSize: 15 }}
+                      />
+                    </button>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: "20px 24px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 14,
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: "#f8faff",
+                        border: "1.5px solid #e0e7ff",
+                        borderRadius: 10,
+                        padding: "12px 14px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: "#6b7280",
+                        }}
+                      >
+                        Saldo atual
+                      </span>
+                      <span
+                        style={{ fontSize: 18, fontWeight: 800, color: NAVY }}
+                      >
+                        {fmtCurrency(fecharBruto)}
+                      </span>
+                    </div>
+
+                    <div className="grid-3" style={{ gap: 10 }}>
+                      <FormField label="Início do período">
+                        <input
+                          type="date"
+                          style={inputStyle}
+                          value={fecharDataInicio}
+                          onChange={(e) =>
+                            setFecharDataInicio(e.target.value)
+                          }
+                        />
+                      </FormField>
+                      <FormField label="Fim do período">
+                        <input
+                          type="date"
+                          style={inputStyle}
+                          value={fecharDataFim}
+                          onChange={(e) => setFecharDataFim(e.target.value)}
+                        />
+                      </FormField>
+                      <FormField label="Data de pagamento">
+                        <input
+                          type="date"
+                          style={inputStyle}
+                          value={fecharDataPagamento}
+                          onChange={(e) =>
+                            setFecharDataPagamento(e.target.value)
+                          }
+                        />
+                      </FormField>
+                    </div>
+
+                    <div
+                      style={{
+                        background: "#f9fafb",
+                        borderRadius: 10,
+                        padding: "10px 14px",
+                        border: "1px solid #e5e7eb",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <span style={{ fontSize: 13, color: "#6b7280" }}>
+                          Deduções (embalagem, vales, débitos)
+                          <button
+                            onClick={() => setFecharAjustar((v) => !v)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              fontSize: 11,
+                              color: NAVY,
+                              marginLeft: 6,
+                              textDecoration: "underline",
+                              padding: 0,
+                            }}
+                          >
+                            {fecharAjustar ? "ocultar" : "ajustar"}
+                          </button>
+                        </span>
+                        <span
+                          style={{ fontWeight: 600, color: PINK }}
+                        >
+                          - {fmtCurrency(dedManual)}
+                        </span>
+                      </div>
+                      {fecharAjustar && (
+                        <div
+                          className="grid-2"
+                          style={{
+                            background: "#fff",
+                            borderRadius: 8,
+                            padding: "10px 12px",
+                            border: "1px solid #e0e7ff",
+                            marginTop: 10,
+                            gap: 8,
+                          }}
+                        >
+                          {(
+                            [
+                              { label: "Embalagem", key: "bandejaEmbalagem" as const },
+                              { label: "Vales Dinheiro", key: "valesDinheiro" as const },
+                              { label: "Débitos Anteriores", key: "debitosAnteriores" as const },
+                            ]
+                          ).map(({ label, key }) => (
+                            <div key={key}>
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  color: "#6b7280",
+                                  marginBottom: 3,
+                                }}
+                              >
+                                {label}
+                              </div>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                style={{
+                                  ...inputStyle,
+                                  fontSize: 13,
+                                  padding: "7px 10px",
+                                }}
+                                value={fecharDedForm[key]}
+                                onChange={(e) =>
+                                  setFecharDedForm((f) => ({
+                                    ...f,
+                                    [key]: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {valesAbertosMeeiro.length > 0 && (
+                      <div
+                        style={{
+                          background: "#fff7ed",
+                          border: "1.5px solid #fed7aa",
+                          borderRadius: 10,
+                          padding: "10px 14px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: "#b45309",
+                            textTransform: "uppercase",
+                            marginBottom: 6,
+                          }}
+                        >
+                          Vales em aberto — descontar?
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                          }}
+                        >
+                          {valesAbertosMeeiro.map((v) => (
+                            <label
+                              key={v.id}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 10,
+                                cursor: "pointer",
+                                fontSize: 12,
+                                color: "#374151",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={fecharValesSelecionados.includes(
+                                    v.id,
+                                  )}
+                                  onChange={(e) =>
+                                    setFecharValesSelecionados((prev) =>
+                                      e.target.checked
+                                        ? [...prev, v.id]
+                                        : prev.filter((id) => id !== v.id),
+                                    )
+                                  }
+                                />
+                                {fmtDate(v.data)}
+                                {v.observacao ? ` — ${v.observacao}` : ""}
+                              </span>
+                              <span
+                                style={{ fontWeight: 700, color: "#b45309" }}
+                              >
+                                {fmtCurrency(v.valor)}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "12px 14px",
+                        background: "#f0fdf4",
+                        border: "1.5px solid #bbf7d0",
+                        borderRadius: 10,
+                      }}
+                    >
+                      <span
+                        style={{ fontSize: 14, fontWeight: 700, color: NAVY }}
+                      >
+                        Valor líquido a pagar
+                      </span>
+                      <span
+                        style={{ fontSize: 20, fontWeight: 800, color: "#059669" }}
+                      >
+                        {fmtCurrency(valorPago)}
+                      </span>
+                    </div>
+
+                    {fecharMeeiroError && (
+                      <p
+                        style={{
+                          color: PINK,
+                          fontSize: 13,
+                          margin: 0,
+                          padding: "8px 12px",
+                          background: `${PINK}10`,
+                          borderRadius: 8,
+                        }}
+                      >
+                        {fecharMeeiroError}
+                      </p>
+                    )}
+
+                    <button
+                      onClick={handleCriarFechamentoMeeiro}
+                      disabled={savingFecharMeeiro}
+                      style={{
+                        width: "100%",
+                        padding: 13,
+                        background: NAVY,
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 10,
+                        fontSize: 14,
+                        fontWeight: 700,
+                        cursor: savingFecharMeeiro ? "not-allowed" : "pointer",
+                        opacity: savingFecharMeeiro ? 0.7 : 1,
+                      }}
+                    >
+                      {savingFecharMeeiro
+                        ? "Salvando..."
+                        : "Criar Fechamento"}
+                    </button>
+
+                    {historico.length > 0 && (
+                      <div
+                        style={{
+                          borderTop: "1px solid #f3f4f6",
+                          paddingTop: 14,
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: "#9ca3af",
+                            textTransform: "uppercase",
+                            marginBottom: 8,
+                          }}
+                        >
+                          Histórico de fechamentos
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                          }}
+                        >
+                          {historico.map((f) => (
+                            <div
+                              key={f.id}
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                fontSize: 12,
+                                padding: "8px 10px",
+                                background: "#f9fafb",
+                                borderRadius: 8,
+                              }}
+                            >
+                              <span style={{ color: "#374151" }}>
+                                {fmtDate(f.dataInicio)} a {fmtDate(f.dataFim)}
+                                {f.combustivel +
+                                  f.bandejaEmbalagem +
+                                  f.valesDinheiro +
+                                  f.creditos +
+                                  f.debitosAnteriores >
+                                0
+                                  ? ` · deduções: -${fmtCurrency(
+                                      f.combustivel +
+                                        f.bandejaEmbalagem +
+                                        f.valesDinheiro +
+                                        f.creditos +
+                                        f.debitosAnteriores,
+                                    )}`
+                                  : ""}
+                                {f.valesDeduzidos > 0
+                                  ? ` · vales: -${fmtCurrency(f.valesDeduzidos)}`
+                                  : ""}
+                              </span>
+                              <span
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                }}
+                              >
+                                <strong style={{ color: NAVY }}>
+                                  {fmtCurrency(f.valorPago)}
+                                </strong>
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    padding: "2px 8px",
+                                    borderRadius: 12,
+                                    background:
+                                      f.status === "PAGO"
+                                        ? "#f0fdf4"
+                                        : "#fff7ed",
+                                    color:
+                                      f.status === "PAGO"
+                                        ? "#16a34a"
+                                        : "#b45309",
+                                  }}
+                                >
+                                  {f.status === "PAGO"
+                                    ? "Pago"
+                                    : "Pendente"}
+                                </span>
+                                <button
+                                  onClick={() =>
+                                    window.open(
+                                      `/imprimir/fechamento-meeiro/${f.id}`,
+                                      "_blank",
+                                    )
+                                  }
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    color: "#6b7280",
+                                    background: "none",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    textDecoration: "underline",
+                                    padding: 0,
+                                  }}
+                                >
+                                  imprimir
+                                </button>
+                                {f.status !== "PAGO" && (
+                                  <button
+                                    onClick={() =>
+                                      handleMarcarPagoMeeiro(f.id)
+                                    }
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: 600,
+                                      color: BLUE,
+                                      background: "none",
+                                      border: "none",
+                                      cursor: "pointer",
+                                      textDecoration: "underline",
+                                      padding: 0,
+                                    }}
+                                  >
+                                    marcar pago
+                                  </button>
+                                )}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              </>
+            );
+          })()}
       </AnimatePresence>
 
       {/* MODAL HISTÓRICO DE PAGAMENTOS */}

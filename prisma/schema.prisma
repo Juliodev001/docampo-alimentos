@@ -242,6 +242,7 @@ model Produtor {
   colheitas         ColheitaDiaria[]
   fechamentos       FechamentoPagamento[]
   rocas             ControleRoca[]
+  vales             Vale[]
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
 }
@@ -259,26 +260,29 @@ model FechamentoPagamento {
   creditos          Decimal  @default(0) @db.Decimal(12, 4)
   debitosAnteriores Decimal  @default(0) @db.Decimal(12, 4)
   status            String   @default("PENDENTE")
+  vales             Vale[]
   createdAt         DateTime @default(now())
 }
 
 model Parceiro {
-  id           String           @id @default(cuid())
-  codigo       String?          @unique
-  produtorId   String
-  produtor     Produtor         @relation(fields: [produtorId], references: [id], onDelete: Cascade)
-  nome         String
-  nomeFantasia String?
-  cpf          String?
-  chavePix     String?
-  percentual   Float
-  valorEmba    Decimal          @default(0) @db.Decimal(12, 4)
-  endereco     String?
-  telefone     String?
-  colheitas    ColheitaDiaria[]
-  pagamentos   PagamentoMeeiro[]
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @default(now()) @updatedAt
+  id              String             @id @default(cuid())
+  codigo          String?            @unique
+  produtorId      String
+  produtor        Produtor           @relation(fields: [produtorId], references: [id], onDelete: Cascade)
+  nome            String
+  nomeFantasia    String?
+  cpf             String?
+  chavePix        String?
+  percentual      Float
+  valorEmba       Decimal            @default(0) @db.Decimal(12, 4)
+  endereco        String?
+  telefone        String?
+  colheitas       ColheitaDiaria[]
+  pagamentos      PagamentoMeeiro[]
+  vales           Vale[]
+  fechamentos     FechamentoMeeiro[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @default(now()) @updatedAt
 }
 
 model PagamentoMeeiro {
@@ -292,6 +296,44 @@ model PagamentoMeeiro {
   observacao String?
   status     String   @default("CONFIRMADO")
   createdAt  DateTime @default(now())
+}
+
+model Vale {
+  id                 String               @id @default(cuid())
+  produtorId         String?
+  produtor           Produtor?            @relation(fields: [produtorId], references: [id])
+  parceiroId         String?
+  parceiro           Parceiro?            @relation(fields: [parceiroId], references: [id])
+  valor              Decimal              @db.Decimal(12, 4)
+  data               DateTime
+  observacao         String?
+  status             String               @default("ABERTO")
+  fechamentoId       String?
+  fechamento         FechamentoPagamento? @relation(fields: [fechamentoId], references: [id])
+  fechamentoMeeiroId String?
+  fechamentoMeeiro   FechamentoMeeiro?    @relation(fields: [fechamentoMeeiroId], references: [id])
+  createdAt          DateTime             @default(now())
+}
+
+model FechamentoMeeiro {
+  id                String   @id @default(cuid())
+  parceiroId        String
+  parceiro          Parceiro @relation(fields: [parceiroId], references: [id])
+  dataInicio        DateTime
+  dataFim           DateTime
+  dataPagamento     DateTime
+  valorBruto        Decimal  @db.Decimal(12, 4)
+  combustivel       Decimal  @default(0) @db.Decimal(12, 4)
+  bandejaEmbalagem  Decimal  @default(0) @db.Decimal(12, 4)
+  valesDinheiro     Decimal  @default(0) @db.Decimal(12, 4)
+  creditos          Decimal  @default(0) @db.Decimal(12, 4)
+  debitosAnteriores Decimal  @default(0) @db.Decimal(12, 4)
+  valesDeduzidos    Decimal  @default(0) @db.Decimal(12, 4)
+  valorPago         Decimal  @db.Decimal(12, 4)
+  status            String   @default("PENDENTE")
+  observacao        String?
+  vales             Vale[]
+  createdAt         DateTime @default(now())
 }
 
 model Cliente {

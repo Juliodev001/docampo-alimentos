@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma'
 import RocasClient from './rocas-client'
 
 export default async function RocasPage() {
-  const [rocas, produtores, colheitas, parceiros, produtos, pagamentosMeeiro, rawFechamentos, rawCustos] = await Promise.all([
+  const [rocas, produtores, colheitas, parceiros, produtos, pagamentosMeeiro, rawFechamentos, rawCustos, rawVales, rawFechamentosMeeiro] = await Promise.all([
     prisma.controleRoca.findMany({
       include: {
         produtor: true,
@@ -47,6 +47,8 @@ export default async function RocasPage() {
       orderBy: { createdAt: 'desc' },
     }),
     prisma.lancamentoCusto.findMany({ orderBy: { data: 'desc' } }),
+    prisma.vale.findMany({ orderBy: { data: 'desc' } }),
+    prisma.fechamentoMeeiro.findMany({ orderBy: { createdAt: 'desc' } }),
   ])
 
   return (
@@ -180,6 +182,36 @@ export default async function RocasPage() {
         debitosAnteriores: Number(c.debitosAnteriores),
         observacao:        c.observacao,
         createdAt:         c.createdAt.toISOString(),
+      }))}
+      vales={rawVales.map(v => ({
+        id:                 v.id,
+        produtorId:         v.produtorId,
+        parceiroId:         v.parceiroId,
+        valor:              Number(v.valor),
+        data:               v.data.toISOString(),
+        observacao:         v.observacao,
+        status:             v.status,
+        fechamentoId:       v.fechamentoId,
+        fechamentoMeeiroId: v.fechamentoMeeiroId,
+        createdAt:          v.createdAt.toISOString(),
+      }))}
+      fechamentosMeeiro={rawFechamentosMeeiro.map(f => ({
+        id:             f.id,
+        parceiroId:     f.parceiroId,
+        dataInicio:     f.dataInicio.toISOString(),
+        dataFim:        f.dataFim.toISOString(),
+        dataPagamento:  f.dataPagamento.toISOString(),
+        valorBruto:     Number(f.valorBruto),
+        combustivel:    Number(f.combustivel),
+        bandejaEmbalagem: Number(f.bandejaEmbalagem),
+        valesDinheiro:  Number(f.valesDinheiro),
+        creditos:       Number(f.creditos),
+        debitosAnteriores: Number(f.debitosAnteriores),
+        valesDeduzidos: Number(f.valesDeduzidos),
+        valorPago:      Number(f.valorPago),
+        status:         f.status,
+        observacao:     f.observacao,
+        createdAt:      f.createdAt.toISOString(),
       }))}
     />
   )

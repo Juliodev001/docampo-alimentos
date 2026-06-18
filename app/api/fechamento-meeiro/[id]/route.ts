@@ -8,22 +8,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-  const fechamento = await prisma.fechamentoPagamento.findUnique({
+  const fechamento = await prisma.fechamentoMeeiro.findUnique({
     where: { id },
-    include: { produtor: { include: { parceiros: true } } },
+    include: { parceiro: { include: { produtor: true } }, vales: true },
   })
   if (!fechamento) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 })
-
-  const colheitas = await prisma.colheitaDiaria.findMany({
-    where: {
-      produtorId: fechamento.produtorId,
-      data: { gte: fechamento.dataInicio, lte: fechamento.dataFim },
-    },
-    include: { produto: true },
-    orderBy: { data: 'asc' },
-  })
-
-  return NextResponse.json(s({ ...fechamento, colheitas }))
+  return NextResponse.json(s(fechamento))
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -33,18 +23,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params
   const body = await req.json()
 
-  const fechamento = await prisma.fechamentoPagamento.update({
+  const fechamento = await prisma.fechamentoMeeiro.update({
     where: { id },
     data: {
       ...(body.status && { status: body.status }),
       ...(body.dataPagamento && { dataPagamento: new Date(body.dataPagamento) }),
-      ...(body.combustivel !== undefined && { combustivel: body.combustivel }),
-      ...(body.bandejaEmbalagem !== undefined && { bandejaEmbalagem: body.bandejaEmbalagem }),
-      ...(body.valesDinheiro !== undefined && { valesDinheiro: body.valesDinheiro }),
-      ...(body.creditos !== undefined && { creditos: body.creditos }),
-      ...(body.debitosAnteriores !== undefined && { debitosAnteriores: body.debitosAnteriores }),
+      ...(body.observacao !== undefined && { observacao: body.observacao?.trim() || null }),
     },
-    include: { produtor: true },
+    include: { parceiro: true },
   })
   return NextResponse.json(s(fechamento))
 }
@@ -56,10 +42,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params
   await prisma.$transaction([
     prisma.vale.updateMany({
-      where: { fechamentoId: id },
-      data: { status: 'ABERTO', fechamentoId: null },
+      where: { fechamentoMeeiroId: id },
+      data: { status: 'ABERTO', fechamentoMeeiroId: null },
     }),
-    prisma.fechamentoPagamento.delete({ where: { id } }),
+    prisma.fechamentoMeeiro.delete({ where: { id } }),
   ])
   return NextResponse.json({ ok: true })
 }

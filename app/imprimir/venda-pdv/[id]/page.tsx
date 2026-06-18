@@ -55,6 +55,10 @@ export default function ImprimirVendaPDV() {
 
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '10px 0', fontFamily: 'Arial, sans-serif', fontSize: 11 }}>
 
+        {/* Marca d'água */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo01.png" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 420, opacity: 0.3, zIndex: -1, pointerEvents: 'none' }} />
+
         {/* Botões — só na tela */}
         <div className="no-print" style={{ marginBottom: 10, display: 'flex', gap: 8 }}>
           <button onClick={() => window.print()} style={{ padding: '7px 18px', background: '#2d3561', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
@@ -67,6 +71,8 @@ export default function ImprimirVendaPDV() {
 
         {/* Título */}
         <div style={{ textAlign: 'center', marginBottom: 7 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo01.png" alt="Do Campo Alimentos" style={{ height: 40, margin: '0 auto 6px', display: 'block' }} />
           <div style={{ fontSize: 13, fontWeight: 700, textDecoration: 'underline', textTransform: 'uppercase' }}>
             {isFiado ? 'Comprovante de Venda — Fiado' : 'Comprovante de Venda'}
           </div>

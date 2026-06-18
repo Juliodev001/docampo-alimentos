@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     ...(dateFilter ? { data: dateFilter } : {}),
   }
 
-  const [comprasMesArr, nfesMesArr, pdvMesArr, totalPagoAll, totalRecebidoAll, saidaLavouraAgg] = await Promise.all([
+  const [comprasMesArr, nfesMesArr, pdvMesArr, totalPagoAll, totalRecebidoAll, saidaLavouraAgg, fechamentosProdutor, fechamentosMeeiro] = await Promise.all([
     prisma.compra.findMany({
       where: comprasWhere,
       select: {
@@ -66,6 +66,15 @@ export async function GET(req: NextRequest) {
       where: saidaLavourWhere,
       _sum: { totalValor: true },
     }),
+    prisma.fechamentoPagamento.findMany({
+      select: {
+        id: true, produtorId: true, dataInicio: true, dataFim: true, status: true,
+        combustivel: true, bandejaEmbalagem: true, valesDinheiro: true, creditos: true, debitosAnteriores: true,
+      },
+    }),
+    prisma.fechamentoMeeiro.findMany({
+      select: { id: true, valorPago: true, status: true },
+    }),
   ])
 
   /* ── COMPETÊNCIA ── */
@@ -84,6 +93,46 @@ export async function GET(req: NextRequest) {
   const totalPago     = totalPagoAll._sum.totalValor    ?? 0
   const totalRecebido = totalRecebidoAll._sum.totalValor ?? 0
 
+  /* ── LAVOURA: a pagar / pago a produtores e meeiros ── */
+  const produtorIds = Array.from(new Set(fechamentosProdutor.map(f => f.produtorId)))
+  const colheitasLavoura = produtorIds.length > 0
+    ? await prisma.colheitaDiaria.findMany({
+        where: { produtorId: { in: produtorIds } },
+        select: { produtorId: true, data: true, quantidadeTotal: true, descarte: true, preco: true, parceiroId: true, percParceiro: true },
+      })
+    : []
+
+  let aPagarProdutor = 0
+  let pagoProdutor = 0
+  for (const f of fechamentosProdutor) {
+    const cx = colheitasLavoura.filter(c =>
+      c.produtorId === f.produtorId && c.data >= f.dataInicio && c.data <= f.dataFim,
+    )
+    const totalBruto = cx.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * Number(c.preco), 0)
+    const meeiroBruto = cx.reduce((s, c) => {
+      if (!c.parceiroId) return s
+      return s + (c.quantidadeTotal - c.descarte) * Number(c.preco) * (c.percParceiro / 100)
+    }, 0)
+    const donoBruto = totalBruto - meeiroBruto
+    const totalDed = Number(f.combustivel) + Number(f.bandejaEmbalagem) + Number(f.valesDinheiro) + Number(f.creditos) + Number(f.debitosAnteriores)
+    const fracao = totalBruto > 0 ? donoBruto / totalBruto : 0
+    const aReceberProdutor = donoBruto - totalDed * fracao
+    if (f.status === 'PAGO') pagoProdutor += aReceberProdutor
+    else aPagarProdutor += aReceberProdutor
+  }
+
+  let aPagarMeeiro = 0
+  let pagoMeeiro = 0
+  for (const f of fechamentosMeeiro) {
+    if (f.status === 'PAGO') pagoMeeiro += Number(f.valorPago)
+    else aPagarMeeiro += Number(f.valorPago)
+  }
+
+  const lavoura = {
+    aPagar: aPagarProdutor + aPagarMeeiro,
+    pago: pagoProdutor + pagoMeeiro,
+  }
+
   /* ── DRE – agrupar por fornecedor ── */
   const fornMap: Record<string, number> = {}
   comprasMesArr.forEach(c => {
@@ -99,6 +148,7 @@ export async function GET(req: NextRequest) {
     competencia: { comprasMes: comprasMesTotal, vendasMes: vendasMesTotal, vendaLavoura: vendaLavouraTotal },
     caixa:       { comprasPaga, vendasRecebida, carteiraPendente },
     totais:      { totalPago, totalRecebido },
+    lavoura,
     dre:         { vendas: dreVendasTotal, compras: comprasMesTotal, fornecedores },
   })
 }

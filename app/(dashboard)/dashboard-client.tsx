@@ -14,6 +14,7 @@ type DashData = {
   competencia: { comprasMes: number; vendasMes: number; vendaLavoura: number }
   caixa:       { comprasPaga: number; vendasRecebida: number; carteiraPendente: number }
   totais:      { totalPago: number; totalRecebido: number }
+  lavoura:     { aPagar: number; pago: number }
   dre: { vendas: number; compras: number; fornecedores: { nome: string; valor: number }[] }
 }
 type CentroCusto = { id: string; nome: string }
@@ -22,6 +23,7 @@ const EMPTY: DashData = {
   competencia: { comprasMes: 0, vendasMes: 0, vendaLavoura: 0 },
   caixa:       { comprasPaga: 0, vendasRecebida: 0, carteiraPendente: 0 },
   totais:      { totalPago: 0, totalRecebido: 0 },
+  lavoura:     { aPagar: 0, pago: 0 },
   dre:         { vendas: 0, compras: 0, fornecedores: [] },
 }
 
@@ -202,7 +204,7 @@ export default function DashboardClient({ centrosCusto }: { centrosCusto: Centro
       .then(d => setData(d))
   }, [mes, rocaId])
 
-  const { competencia, caixa, totais, dre } = data
+  const { competencia, caixa, totais, lavoura, dre } = data
   const saldoMes     = competencia.vendasMes + competencia.vendaLavoura - competencia.comprasMes
   const saldoCaixa   = caixa.vendasRecebida    - caixa.comprasPaga
   const saldoTotal   = totais.totalRecebido    - totais.totalPago
@@ -302,6 +304,19 @@ export default function DashboardClient({ centrosCusto }: { centrosCusto: Centro
           <MetricCard label="Total pago"              value={totais.totalPago}      color={PINK}  icon={faCartShopping}  />
           <MetricCard label="Total recebido"          value={totais.totalRecebido}  color={GREEN} icon={faArrowTrendUp}  />
           <MetricCard label="Saldo (caixa acumulado)" value={saldoTotal}            color={BLUE}  icon={faChartBar}      />
+        </div>
+
+        <Hr />
+
+        {/* ④ LAVOURA */}
+        <SubHeader n={4} badge="LAVOURA" title="Pagamentos a produtores e meeiros" />
+        <p style={{ fontSize: 13, color: '#6b7280', margin: '8px 0 16px' }}>
+          Fechamentos de pagamento (produtores e meeiros) — pendentes e já pagos.
+        </p>
+        <div className="kpi-grid-3" style={{ marginBottom: 0 }}>
+          <MetricCard label="A pagar"        value={lavoura.aPagar}              color="#e87320" icon={faHandHoldingDollar} />
+          <MetricCard label="Pago"           value={lavoura.pago}                color={GREEN}   icon={faArrowTrendUp}      />
+          <MetricCard label="Total lavoura"  value={lavoura.aPagar + lavoura.pago} color={BLUE}    icon={faChartBar}          />
         </div>
       </div>
 

@@ -11,7 +11,7 @@ import {
   faBars, faXmark, faAddressCard, faDollarSign, faBoxes,
   faWifi, faShield, faSliders, faChartBar, faChevronDown,
   faChevronLeft, faChevronRight, faTruck, faEllipsisH, faLeaf, faReceipt,
-  faBuilding, faCreditCard, faArrowsUpDown, faBell,
+  faBuilding, faCreditCard, faArrowsUpDown, faBell, faHandHoldingDollar,
 } from '@fortawesome/free-solid-svg-icons'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 
@@ -31,6 +31,7 @@ const MAIN_ITEMS: NavItem[] = [
   { href: '/',               label: 'Dashboard',        icon: faTableColumns,  color: '#6c7fc4' },
   { href: '/rocas',          label: 'Controle de Roça', icon: faLeaf,          color: '#16a34a' },
   { href: '/lavoura/pagamento', label: 'Demonstrativos',  icon: faSeedling,    color: '#84cc16' },
+  { href: '/vales',          label: 'Vales em Dinheiro',icon: faHandHoldingDollar, color: '#d97706' },
   { href: '/caixa',          label: 'Financeiro',       icon: faDollarSign,    color: '#10b981' },
   { href: '/compras',        label: 'Centro de Despesa',icon: faBuilding,      color: '#f59e0b' },
   { href: '/contas-pagar',   label: 'Contas a Pagar',   icon: faCreditCard,    color: '#e87320' },
