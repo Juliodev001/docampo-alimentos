@@ -11,16 +11,22 @@ type Pedido = {
   itens: Item[]
 }
 
+const NAVY = '#2d3561'
+
 function fmtN(v: number) { return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString('pt-BR') }
+function fmtDateTime(d: Date) { return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }
 
 export default function ImprimirVendaPDV() {
   const { id } = useParams<{ id: string }>()
   const [pedido, setPedido] = useState<Pedido | null>(null)
+  const [usuario, setUsuario] = useState('')
   const printed = useRef(false)
+  const [emitidoEm] = useState(() => new Date())
 
   useEffect(() => {
     fetch(`/api/pedidos/${id}`).then(r => r.json()).then(setPedido)
+    fetch('/api/me').then(r => r.ok ? r.json() : null).then(d => setUsuario(d?.name ?? ''))
   }, [id])
 
   useEffect(() => {
@@ -39,12 +45,14 @@ export default function ImprimirVendaPDV() {
   const isFiado = pedido.formaPagamento === 'FIADO'
   const B: React.CSSProperties = { border: '1px solid #000' }
   const cell: React.CSSProperties = { ...B, padding: '3px 6px', fontSize: 10 }
-  const hd: React.CSSProperties = { ...B, padding: '4px 6px', fontSize: 10, fontWeight: 700, backgroundColor: '#f0f0f0', textAlign: 'center' as const }
+  const hd: React.CSSProperties = { ...B, padding: '5px 6px', fontSize: 10, fontWeight: 700, backgroundColor: NAVY, color: '#fff', textAlign: 'center' as const }
+  const totHd: React.CSSProperties = { ...B, padding: '5px 6px', fontSize: 10, fontWeight: 700, backgroundColor: NAVY, color: '#fff', textAlign: 'center' as const }
+  const totCell: React.CSSProperties = { ...B, padding: '7px 6px', fontSize: 12, textAlign: 'center' as const, fontWeight: 700 }
 
   return (
     <>
       <style>{`
-        @page { size: A4 portrait; margin: 10mm 12mm; }
+        @page { size: A5 portrait; margin: 8mm 10mm; }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: Arial, sans-serif; background: #fff; color: #000; }
         @media print {
@@ -53,11 +61,11 @@ export default function ImprimirVendaPDV() {
         }
       `}</style>
 
-      <div style={{ maxWidth: 680, margin: '0 auto', padding: '10px 0', fontFamily: 'Arial, sans-serif', fontSize: 11 }}>
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '10px 0', fontFamily: 'Arial, sans-serif', fontSize: 10 }}>
 
         {/* Marca d'água */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo01.png" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 420, opacity: 0.3, zIndex: -1, pointerEvents: 'none' }} />
+        <img src="/logo01.png" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 320, opacity: 0.3, zIndex: -1, pointerEvents: 'none', filter: 'grayscale(100%)' }} />
 
         {/* Botões — só na tela */}
         <div className="no-print" style={{ marginBottom: 10, display: 'flex', gap: 8 }}>
@@ -70,24 +78,32 @@ export default function ImprimirVendaPDV() {
         </div>
 
         {/* Título */}
-        <div style={{ textAlign: 'center', marginBottom: 7 }}>
+        <div style={{ textAlign: 'center', marginBottom: 10 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo01.png" alt="Do Campo Alimentos" style={{ height: 40, margin: '0 auto 6px', display: 'block' }} />
-          <div style={{ fontSize: 13, fontWeight: 700, textDecoration: 'underline', textTransform: 'uppercase' }}>
+          <img src="/logo01.png" alt="Do Campo Alimentos" style={{ height: 30, margin: '0 auto 6px', display: 'block', filter: 'grayscale(100%)' }} />
+          <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>
             {isFiado ? 'Comprovante de Venda — Fiado' : 'Comprovante de Venda'}
           </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 10 }}>
+          <span>Usuário: {usuario || '—'}</span>
+          <span>Emitido em: {fmtDateTime(emitidoEm)}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, fontSize: 10 }}>
+          <span><strong>Vendedor:</strong> DO CAMPO ALIMENTOS</span>
+          <span><strong>Cliente:</strong> {pedido.cliente?.nome ?? '—'}</span>
         </div>
 
         {/* Dados do cliente */}
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 6 }}>
           <tbody>
             <tr>
-              <td style={{ ...cell, width: '55%' }}><strong>Cliente:</strong> {pedido.cliente?.nome ?? '—'}</td>
-              <td style={{ ...cell, width: '45%' }}><strong>CPF / CNPJ:</strong> {pedido.cliente?.cnpjCpf ?? '—'}</td>
+              <td style={{ ...cell, width: '55%' }}><strong>CPF / CNPJ:</strong> {pedido.cliente?.cnpjCpf ?? '—'}</td>
+              <td style={{ ...cell, width: '45%' }}><strong>Data da Compra:</strong> {fmtDate(pedido.data)}</td>
             </tr>
             <tr>
-              <td style={cell}><strong>Data da Compra:</strong> {fmtDate(pedido.data)}</td>
-              <td style={cell}>
+              <td style={cell} colSpan={2}>
                 {isFiado && pedido.dataCobranca
                   ? <><strong>Vencimento:</strong> {fmtDate(pedido.dataCobranca)}</>
                   : <><strong>Pagamento:</strong> {pedido.formaPagamento ?? '—'}</>
@@ -122,13 +138,15 @@ export default function ImprimirVendaPDV() {
         </table>
 
         {/* Total */}
-        <table style={{ borderCollapse: 'collapse', minWidth: 220, marginLeft: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 6 }}>
+          <thead>
+            <tr>
+              <th style={totHd}>Total</th>
+            </tr>
+          </thead>
           <tbody>
             <tr>
-              <td style={{ ...cell, fontWeight: 700, fontSize: 11 }}>Total</td>
-              <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 800, fontSize: 12, width: 100 }}>
-                R$ {fmtN(pedido.totalValor)}
-              </td>
+              <td style={{ ...totCell, color: NAVY }}>R$ {fmtN(pedido.totalValor)}</td>
             </tr>
           </tbody>
         </table>
@@ -139,21 +157,9 @@ export default function ImprimirVendaPDV() {
           </div>
         )}
 
-        {/* Assinaturas */}
-        <div style={{ marginTop: 22, display: 'flex', justifyContent: 'space-between' }}>
-          <div style={{ textAlign: 'center', width: '45%' }}>
-            <div style={{ borderTop: '1px solid #000', paddingTop: 3 }}>
-              <p style={{ fontSize: 9, margin: 0 }}>Assinatura do Cliente</p>
-              <p style={{ fontSize: 9, margin: '2px 0 0', color: '#555' }}>{pedido.cliente?.nome ?? ''}</p>
-            </div>
-          </div>
-          <div style={{ textAlign: 'center', width: '45%' }}>
-            <div style={{ borderTop: '1px solid #000', paddingTop: 3 }}>
-              <p style={{ fontSize: 9, margin: 0 }}>Responsável pela Empresa</p>
-              <p style={{ fontSize: 9, margin: '2px 0 0', color: '#555' }}>Do Campo Alimentos</p>
-            </div>
-          </div>
-        </div>
+        <p style={{ fontSize: 12, fontWeight: 700, margin: '14px 0 0' }}>
+          Total líquido da venda: <span style={{ color: NAVY }}>R$ {fmtN(pedido.totalValor)}</span>
+        </p>
 
       </div>
     </>

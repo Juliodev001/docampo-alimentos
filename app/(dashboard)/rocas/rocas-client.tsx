@@ -248,6 +248,7 @@ const emptyLancForm = {
   produtoId: "",
   quantidade: "",
   preco: "",
+  nrDoc: "",
   combustivel: "0",
   bandejaEmbalagem: "0",
   valesDinheiro: "0",
@@ -608,6 +609,7 @@ export default function RocasClient({
     quantidade: number;
     preco: number;
     bandeja: number;
+    nrDoc: string;
   };
   const [lancItems, setLancItems] = useState<LancItem[]>([]);
   const [lancMenuId, setLancMenuId] = useState<string | null>(null);
@@ -1383,6 +1385,7 @@ export default function RocasClient({
         quantidade: parseFloat(lancForm.quantidade) || 0,
         preco: parseFloat(lancForm.preco) || 0,
         bandeja: parseFloat(lancForm.bandejaEmbalagem) || 0,
+        nrDoc: lancForm.nrDoc.trim(),
       },
     ]);
     setLancForm((f) => ({
@@ -1390,6 +1393,7 @@ export default function RocasClient({
       produtoId: "",
       quantidade: "",
       preco: "",
+      nrDoc: "",
       bandejaEmbalagem: embalagemPadrao,
     }));
   }
@@ -1436,6 +1440,7 @@ export default function RocasClient({
               quantidadeTotal: item.quantidade,
               preco: item.preco,
               bandeja: item.bandeja,
+              nrDoc: item.nrDoc || null,
               percParceiro,
               percDono: 100 - percParceiro,
             }),
@@ -1541,14 +1546,19 @@ export default function RocasClient({
 
         if (fechDoProd.length > 0) {
           for (const fech of fechDoProd) {
-            const fechCs = colheitas.filter(
+            const todasCsFech = colheitas.filter(
               (c) =>
-                c.parceiroId === m.id &&
+                c.produtorId === fech.produtorId &&
                 c.data >= fech.dataInicio &&
                 c.data <= fech.dataFim,
             );
+            const fechCs = todasCsFech.filter((c) => c.parceiroId === m.id);
             if (fechCs.length === 0) continue;
             temMovimento = true;
+            const totalGeralBruto = todasCsFech.reduce(
+              (s, c) => s + c.quantidadeTotal * c.preco,
+              0,
+            );
             const totalBruto = fechCs.reduce(
               (s, c) => s + c.quantidadeTotal * c.preco,
               0,
@@ -1559,7 +1569,13 @@ export default function RocasClient({
               fech.valesDinheiro +
               fech.creditos +
               fech.debitosAnteriores;
-            const valorLiquido = Math.max(0, totalBruto - totalDed);
+            // Deduções (combustível, embalagem, vales...) são rateadas pela
+            // participação deste meeiro no bruto geral do fechamento — cada
+            // um paga só a parte proporcional às próprias caixas, nunca o
+            // valor total combinado com o produtor e os demais meeiros.
+            const fator =
+              totalGeralBruto > 0 ? totalBruto / totalGeralBruto : 0;
+            const valorLiquido = Math.max(0, totalBruto - totalDed * fator);
             valorTotal += valorLiquido * (m.percentual / 100);
           }
           // colheitas ainda não cobertas por nenhum fechamento
@@ -11053,6 +11069,31 @@ export default function RocasClient({
                         style={inputStyle}
                       />
                     </div>
+                    <div style={{ flex: 1, minWidth: 90 }}>
+                      <label
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "#374151",
+                          display: "block",
+                          marginBottom: 4,
+                        }}
+                      >
+                        Nº Doc.
+                      </label>
+                      <input
+                        type="text"
+                        value={lancForm.nrDoc}
+                        onChange={(e) =>
+                          setLancForm((f) => ({
+                            ...f,
+                            nrDoc: e.target.value,
+                          }))
+                        }
+                        placeholder="0000"
+                        style={inputStyle}
+                      />
+                    </div>
                     <button
                       onClick={addLancItem}
                       disabled={!lancForm.produtoId || !lancForm.quantidade}
@@ -11109,6 +11150,12 @@ export default function RocasClient({
                               <span style={{ color: ORANGE }}>
                                 {" "}
                                 · bandeja {fmtCurrency(item.bandeja)}/cx
+                              </span>
+                            )}
+                            {item.nrDoc && (
+                              <span style={{ color: "#6b7280" }}>
+                                {" "}
+                                · Nº Doc. {item.nrDoc}
                               </span>
                             )}
                           </span>

@@ -2,34 +2,51 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 
+const NAVY = '#2d3561'
+
 type Produto = { id: string; nome: string }
 type Parceiro = { id: string; nome: string; percentual: number }
-type Produtor = { nome: string; cpf: string | null; codigo: string | null; parceiros: Parceiro[] }
+type Produtor = { id: string; nome: string; cpf: string | null; codigo: string | null; inscricaoEstadual: string | null; parceiros: Parceiro[] }
 type Colheita = {
   id: string; data: string; produto: Produto
   quantidadeTotal: number; preco: number; qualidade: string | null
   descarte: number; nrDoc: string | null
   parceiroId: string | null; percParceiro: number; bandeja: number
+  roca: { nome: string } | null
 }
+type ValeLinked = { valor: number }
 type Fechamento = {
   produtor: Produtor
   dataInicio: string; dataFim: string; dataPagamento: string
   combustivel: number; bandejaEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number
   status: string
   colheitas: Colheita[]
+  vales: ValeLinked[]
 }
 
 function fmtN(v: number) { return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) }
+function fmtDateTime(d: Date) { return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }
 
 export default function ImprimirPagamento() {
   const { id } = useParams<{ id: string }>()
   const [fechamento, setFechamento] = useState<Fechamento | null>(null)
+  const [usuario, setUsuario] = useState('')
+  const [valesAbertos, setValesAbertos] = useState(0)
   const printed = useRef(false)
+  const [emitidoEm] = useState(() => new Date())
 
   useEffect(() => {
     fetch(`/api/fechamento/${id}`).then(r => r.json()).then(setFechamento)
+    fetch('/api/me').then(r => r.ok ? r.json() : null).then(d => setUsuario(d?.name ?? ''))
   }, [id])
+
+  useEffect(() => {
+    if (!fechamento?.produtor.id) return
+    fetch(`/api/vales?produtorId=${fechamento.produtor.id}&status=ABERTO`)
+      .then(r => r.json())
+      .then((vs: { valor: number }[]) => setValesAbertos(vs.reduce((s, v) => s + Number(v.valor), 0)))
+  }, [fechamento?.produtor.id])
 
   useEffect(() => {
     if (fechamento && !printed.current) {
@@ -44,43 +61,35 @@ export default function ImprimirPagamento() {
     </div>
   )
 
-  const { produtor, colheitas, dataInicio, dataFim, dataPagamento, combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores } = fechamento
+  const { produtor, colheitas, dataInicio, dataFim, dataPagamento, combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores, vales } = fechamento
 
   const totalBruto = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
   const totalQtd   = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
-  const totalDed   = combustivel + bandejaEmbalagem + valesDinheiro + creditos + debitosAnteriores
-  const valorLiquido = totalBruto - totalDed
 
-  // Valor bruto de cada meeiro é a soma dos lançamentos (colheitas) que de fato pertencem a ele,
-  // não um percentual fixo aplicado sobre o total de todos os meeiros.
-  const meeiroBrutoMap = new Map<string, number>()
-  const meeiroPercMap = new Map<string, number>()
-  for (const c of colheitas) {
-    if (!c.parceiroId) continue
-    const valorColheita = (c.quantidadeTotal - c.descarte) * c.preco
-    const valorMeeiro = valorColheita * (c.percParceiro / 100)
-    meeiroBrutoMap.set(c.parceiroId, (meeiroBrutoMap.get(c.parceiroId) ?? 0) + valorMeeiro)
-    meeiroPercMap.set(c.parceiroId, c.percParceiro)
-  }
-  const totalMeeirosBruto = Array.from(meeiroBrutoMap.values()).reduce((s, v) => s + v, 0)
+  const totalMeeirosBruto = colheitas.reduce((s, c) => {
+    if (!c.parceiroId) return s
+    return s + (c.quantidadeTotal - c.descarte) * c.preco * (c.percParceiro / 100)
+  }, 0)
   const donoBruto = totalBruto - totalMeeirosBruto
+  const fatorProdutor = totalBruto > 0 ? donoBruto / totalBruto : 0
 
-  // Deduções (combustível, embalagem, vales...) são rateadas proporcionalmente ao bruto de cada parte
-  const rateado = (valorBruto: number) => {
-    const fracao = totalBruto > 0 ? valorBruto / totalBruto : 0
-    return valorBruto - totalDed * fracao
-  }
-  const aReceberProdutor = rateado(donoBruto)
-  const percProdutor = totalBruto > 0 ? (donoBruto / totalBruto) * 100 : 100
+  const descEmb = bandejaEmbalagem * fatorProdutor
+  const outrasDeducoes = (combustivel + creditos + debitosAnteriores) * fatorProdutor
+  const abatimEmprestimo = vales.reduce((s, v) => s + Number(v.valor), 0)
+  const valorRecebido = donoBruto - descEmb - outrasDeducoes - abatimEmprestimo
+
+  const rocas = Array.from(new Set(colheitas.map(c => c.roca?.nome).filter(Boolean))) as string[]
 
   const B: React.CSSProperties = { border: '1px solid #000' }
   const cell: React.CSSProperties = { ...B, padding: '3px 6px', fontSize: 11 }
-  const hd: React.CSSProperties = { ...B, padding: '4px 6px', fontSize: 11, fontWeight: 700, backgroundColor: '#f0f0f0', textAlign: 'center' as const }
+  const hd: React.CSSProperties = { ...B, padding: '5px 6px', fontSize: 11, fontWeight: 700, backgroundColor: NAVY, color: '#fff', textAlign: 'center' as const }
+  const totHd: React.CSSProperties = { ...B, padding: '6px 6px', fontSize: 11, fontWeight: 700, backgroundColor: NAVY, color: '#fff', textAlign: 'center' as const }
+  const totCell: React.CSSProperties = { ...B, padding: '8px 6px', fontSize: 13, textAlign: 'center' as const, fontWeight: 700 }
 
   return (
     <>
       <style>{`
-        @page { margin: 12mm 14mm; size: A4; }
+        @page { margin: 8mm 10mm; size: A5; }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: Arial, sans-serif; background: #fff; color: #000; }
         @media print {
@@ -89,15 +98,14 @@ export default function ImprimirPagamento() {
         }
       `}</style>
 
-      <div style={{ maxWidth: 750, margin: '0 auto', padding: '20px 0', fontFamily: 'Arial, sans-serif', fontSize: 12 }}>
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '10px 0', fontFamily: 'Arial, sans-serif', fontSize: 10 }}>
 
         {/* Marca d'água */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo01.png" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 480, opacity: 0.3, zIndex: -1, pointerEvents: 'none' }} />
+        <img src="/logo01.png" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 320, opacity: 0.3, zIndex: -1, pointerEvents: 'none', filter: 'grayscale(100%)' }} />
 
-        {/* Botão imprimir - só na tela */}
         <div className="no-print" style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
-          <button onClick={() => window.print()} style={{ padding: '8px 20px', background: '#2d3561', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          <button onClick={() => window.print()} style={{ padding: '8px 20px', background: NAVY, color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             🖨️ Imprimir / PDF
           </button>
           <button onClick={() => window.close()} style={{ padding: '8px 16px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
@@ -105,146 +113,102 @@ export default function ImprimirPagamento() {
           </button>
         </div>
 
-        {/* Título */}
-        <div style={{ textAlign: 'center', marginBottom: 10 }}>
+        <div style={{ textAlign: 'center', marginBottom: 14 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo01.png" alt="Do Campo Alimentos" style={{ height: 44, margin: '0 auto 6px', display: 'block' }} />
-          <div style={{ fontSize: 14, fontWeight: 700, textDecoration: 'underline', textTransform: 'uppercase' }}>
-            Pagamento de Produtores
+          <img src="/logo01.png" alt="Do Campo Alimentos" style={{ height: 32, margin: '0 auto 6px', display: 'block', filter: 'grayscale(100%)' }} />
+          <div style={{ fontSize: 16, fontWeight: 700, color: NAVY }}>
+            Recibo de Repasse ao Produtor
           </div>
         </div>
 
-        {/* Período e data pagamento */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 11 }}>
-          <span>Período de <strong>{fmtDate(dataInicio)}</strong> a <strong>{fmtDate(dataFim)}</strong></span>
-          <span>Pagamento em <strong>{fmtDate(dataPagamento)}</strong></span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11 }}>
+          <span>Usuário: {usuario || '—'}</span>
+          <span>Emitido em: {fmtDateTime(emitidoEm)}</span>
+        </div>
+        <div style={{ marginBottom: 12, fontSize: 11 }}>
+          Período: {fmtDate(dataInicio)} a {fmtDate(dataFim)} — Pagamento em {fmtDate(dataPagamento)}
         </div>
 
-        {/* Dados do produtor */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
-          <tbody>
-            <tr>
-              <td style={{ ...cell, width: '50%' }}>
-                <strong>Produtor:</strong> {produtor.codigo ? `${produtor.codigo} — ` : ''}{produtor.nome}
-              </td>
-              <td style={{ ...cell, width: '30%' }}>
-                <strong>CPF / CNPJ:</strong> {produtor.cpf ?? ''}
-              </td>
-              <td style={{ ...cell, width: '20%' }}>
-                <strong>Part.:</strong> {percProdutor.toFixed(0)}%
-              </td>
-            </tr>
-            <tr>
-              <td style={{ ...cell }} colSpan={3}><strong>Região:</strong></td>
-            </tr>
-          </tbody>
-        </table>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11 }}>
+          <span><strong>Outorgante:</strong> DO CAMPO ALIMENTOS</span>
+          <span><strong>Outorgado:</strong> {produtor.codigo ? `${produtor.codigo} — ` : ''}{produtor.nome}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, fontSize: 11 }}>
+          <span><strong>Inscrição estadual:</strong> {produtor.inscricaoEstadual ?? '—'}</span>
+          <span><strong>Roça:</strong> {rocas.length > 0 ? rocas.join(', ') : '—'}</span>
+        </div>
 
-        {/* Tabela de colheitas */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 14 }}>
           <thead>
             <tr>
-              <th style={hd}>Parceiro</th>
               <th style={hd}>Data</th>
+              <th style={hd}>Nº Doc.</th>
+              <th style={hd}>Quant.</th>
               <th style={hd}>Produto</th>
-              <th style={{ ...hd, textAlign: 'right' as const }}>Qtd</th>
               <th style={{ ...hd, textAlign: 'right' as const }}>Preço</th>
-              <th style={{ ...hd, textAlign: 'right' as const }}>Sub Total</th>
-              <th style={{ ...hd, textAlign: 'right' as const }}>Embalagem</th>
-              <th style={{ ...hd, textAlign: 'right' as const }}>A Receber</th>
+              <th style={{ ...hd, textAlign: 'right' as const }}>Valor total</th>
+              <th style={{ ...hd, textAlign: 'right' as const }}>Repasse</th>
             </tr>
           </thead>
           <tbody>
             {colheitas.map(c => {
               const liquido = c.quantidadeTotal - c.descarte
               const sub = liquido * c.preco
-              const embalagemTotal = liquido * c.bandeja
-              const meeiroNome = produtor.parceiros.find(p => p.id === c.parceiroId)?.nome
-              const aReceberLinha = c.parceiroId
-                ? (sub - embalagemTotal) * (c.percParceiro / 100)
-                : (sub - embalagemTotal)
+              const percProdutorRow = c.parceiroId ? 100 - c.percParceiro : 100
+              const repasse = sub * (percProdutorRow / 100)
               return (
                 <tr key={c.id}>
-                  <td style={cell}>{meeiroNome ?? '—'}</td>
                   <td style={cell}>{fmtDate(c.data)}</td>
-                  <td style={cell}>{c.produto.nome}{c.qualidade ? ` — ${c.qualidade}` : ''}</td>
+                  <td style={{ ...cell, textAlign: 'center' as const }}>{c.nrDoc ?? '—'}</td>
                   <td style={{ ...cell, textAlign: 'right' as const }}>{liquido.toFixed(0)}</td>
+                  <td style={cell}>{c.produto.nome}{c.qualidade ? ` — ${c.qualidade}` : ''}</td>
                   <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(c.preco)}</td>
                   <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(sub)}</td>
-                  <td style={{ ...cell, textAlign: 'right' as const }}>{embalagemTotal > 0 ? fmtN(embalagemTotal) : '—'}</td>
-                  <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 700 }}>{fmtN(aReceberLinha)}</td>
+                  <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 700 }}>{fmtN(repasse)}</td>
                 </tr>
               )
             })}
+          </tbody>
+        </table>
+
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 6 }}>
+          <thead>
             <tr>
-              <td style={{ ...cell, fontWeight: 700 }} colSpan={7}>Total</td>
-              <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 800 }}>
-                {fmtN(colheitas.reduce((s, c) => {
-                  const liquido = c.quantidadeTotal - c.descarte
-                  const sub = liquido * c.preco
-                  const embalagemTotal = liquido * c.bandeja
-                  const valor = c.parceiroId ? (sub - embalagemTotal) * (c.percParceiro / 100) : (sub - embalagemTotal)
-                  return s + valor
-                }, 0))}
-              </td>
+              <th style={totHd}>Total caixas</th>
+              <th style={totHd}>Valor Repasse</th>
+              <th style={totHd}>Desc Emb.</th>
+              <th style={totHd}>Empr. em aberto</th>
+              <th style={totHd}>Abatim. emprést.</th>
+              <th style={totHd}>Valor recebido</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={totCell}>{totalQtd.toFixed(0)}</td>
+              <td style={totCell}>{fmtN(donoBruto)}</td>
+              <td style={totCell}>{fmtN(descEmb)}</td>
+              <td style={totCell}>{fmtN(valesAbertos)}</td>
+              <td style={totCell}>{fmtN(abatimEmprestimo)}</td>
+              <td style={{ ...totCell, color: NAVY }}>{fmtN(valorRecebido)}</td>
             </tr>
           </tbody>
         </table>
 
-        {/* Resumo + Meeiro lado a lado */}
-        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        {outrasDeducoes > 0 && (
+          <p style={{ fontSize: 10, color: '#555', margin: '0 0 10px' }}>
+            Outras deduções (combustível, créditos, débitos anteriores) já incluídas no valor recebido: - {fmtN(outrasDeducoes)}
+          </p>
+        )}
 
-          {/* Resumo financeiro */}
-          <table style={{ borderCollapse: 'collapse', minWidth: 320 }}>
-            <tbody>
-              <tr>
-                <td style={{ ...cell, fontWeight: 700, textAlign: 'right' as const }}>Total</td>
-                <td style={{ ...cell, textAlign: 'right' as const, width: 100 }}>{fmtN(totalQtd)}</td>
-              </tr>
-              <tr>
-                <td style={{ ...cell }}>Faturas</td>
-                <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(totalBruto)}</td>
-              </tr>
-              <tr>
-                <td style={{ ...cell }}>Vales de Embalagens e Outros</td>
-                <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(bandejaEmbalagem)}</td>
-              </tr>
-              <tr>
-                <td style={{ ...cell }}>Combustível</td>
-                <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(combustivel)}</td>
-              </tr>
-              <tr>
-                <td style={{ ...cell }}>Vales de Dinheiro</td>
-                <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(valesDinheiro)}</td>
-              </tr>
-              <tr>
-                <td style={{ ...cell }}>Créditos (Coleta e Filmagem)</td>
-                <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(creditos)}</td>
-              </tr>
-              <tr>
-                <td style={{ ...cell }}>Débitos Anteriores</td>
-                <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(debitosAnteriores)}</td>
-              </tr>
-              {totalDed > 0 && (
-                <tr>
-                  <td style={{ ...cell, fontSize: 10, color: '#555' }}>Valor Líquido Total</td>
-                  <td style={{ ...cell, textAlign: 'right' as const, fontSize: 10, color: '#555' }}>{fmtN(valorLiquido)}</td>
-                </tr>
-              )}
-              <tr>
-                <td style={{ ...cell, fontWeight: 700, fontSize: 13 }}>
-                  A Receber {percProdutor < 100 ? `(${percProdutor.toFixed(0)}%)` : ''}
-                </td>
-                <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 800, fontSize: 14 }}>
-                  {fmtN(aReceberProdutor)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <p style={{ fontSize: 13, fontWeight: 700, margin: '14px 0 0' }}>
+          Total líquido a receber pelo produtor: <span style={{ color: NAVY }}>{fmtN(valorRecebido)}</span>
+        </p>
 
-          {/* Tabela do meeiro — só aparece se tiver parceiros */}
-          {produtor.parceiros.length > 0 && (
-            <table style={{ borderCollapse: 'collapse', flex: 1 }}>
+        {/* Detalhamento por meeiro (informação complementar) */}
+        {produtor.parceiros.length > 0 && (
+          <div style={{ marginTop: 20 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: NAVY, margin: '0 0 6px' }}>Detalhamento por meeiro</p>
+            <table style={{ borderCollapse: 'collapse', minWidth: 320 }}>
               <thead>
                 <tr>
                   <th style={hd}>Meeiro</th>
@@ -254,44 +218,25 @@ export default function ImprimirPagamento() {
               </thead>
               <tbody>
                 {produtor.parceiros.map(p => {
-                  const bruto = meeiroBrutoMap.get(p.id) ?? 0
-                  const percReal = meeiroPercMap.get(p.id) ?? p.percentual
+                  const bruto = colheitas.reduce((s, c) => {
+                    if (c.parceiroId !== p.id) return s
+                    return s + (c.quantidadeTotal - c.descarte) * c.preco * (c.percParceiro / 100)
+                  }, 0)
+                  const fator = totalBruto > 0 ? bruto / totalBruto : 0
+                  const totalDed = combustivel + bandejaEmbalagem + valesDinheiro + creditos + debitosAnteriores
+                  const valorMeeiro = bruto - totalDed * fator
                   return (
                     <tr key={p.id}>
                       <td style={cell}>{p.nome}</td>
-                      <td style={{ ...cell, textAlign: 'right' as const }}>{percReal.toFixed(0)}%</td>
-                      <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 700 }}>
-                        {fmtN(rateado(bruto))}
-                      </td>
+                      <td style={{ ...cell, textAlign: 'right' as const }}>{p.percentual.toFixed(0)}%</td>
+                      <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 700 }}>{fmtN(valorMeeiro)}</td>
                     </tr>
                   )
                 })}
-                <tr>
-                  <td style={{ ...cell, fontWeight: 700 }} colSpan={2}>Total Meeiros</td>
-                  <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 800 }}>
-                    {fmtN(rateado(totalMeeirosBruto))}
-                  </td>
-                </tr>
               </tbody>
             </table>
-          )}
-        </div>
-
-        {/* Assinaturas */}
-        <div style={{ marginTop: 48, display: 'flex', justifyContent: 'space-between' }}>
-          <div style={{ textAlign: 'center', width: 200 }}>
-            <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>
-              <p style={{ fontSize: 10, margin: 0 }}>Assinatura do Produtor</p>
-              <p style={{ fontSize: 10, margin: '2px 0 0', color: '#555' }}>{produtor.nome}</p>
-            </div>
           </div>
-          <div style={{ textAlign: 'center', width: 200 }}>
-            <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>
-              <p style={{ fontSize: 10, margin: 0 }}>Responsável pela Empresa</p>
-              <p style={{ fontSize: 10, margin: '2px 0 0', color: '#555' }}>Do Campo Alimentos</p>
-            </div>
-          </div>
-        </div>
+        )}
 
       </div>
     </>

@@ -13,7 +13,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     include: { parceiro: { include: { produtor: true } }, vales: true },
   })
   if (!fechamento) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 })
-  return NextResponse.json(s(fechamento))
+
+  const colheitas = await prisma.colheitaDiaria.findMany({
+    where: {
+      parceiroId: fechamento.parceiroId,
+      data: { gte: fechamento.dataInicio, lte: fechamento.dataFim },
+    },
+    include: { produto: true, roca: { select: { nome: true } } },
+    orderBy: { data: 'asc' },
+  })
+
+  return NextResponse.json(s({ ...fechamento, colheitas }))
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

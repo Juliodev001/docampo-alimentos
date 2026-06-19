@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const colheitas = await prisma.colheitaDiaria.findMany({
     where: { parceiroId: id },
-    include: { produto: { select: { id: true, nome: true } } },
+    include: { produto: { select: { id: true, nome: true } }, roca: { select: { nome: true } } },
     orderBy: { data: 'asc' },
   })
 

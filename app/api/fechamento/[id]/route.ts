@@ -10,7 +10,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params
   const fechamento = await prisma.fechamentoPagamento.findUnique({
     where: { id },
-    include: { produtor: { include: { parceiros: true } } },
+    include: { produtor: { include: { parceiros: true } }, vales: true },
   })
   if (!fechamento) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 })
 
@@ -19,7 +19,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       produtorId: fechamento.produtorId,
       data: { gte: fechamento.dataInicio, lte: fechamento.dataFim },
     },
-    include: { produto: true },
+    include: { produto: true, roca: { select: { nome: true } } },
     orderBy: { data: 'asc' },
   })
 
