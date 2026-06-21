@@ -86,7 +86,7 @@ export default function ImprimirVendaPDV() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 10 }}>
+        <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 10 }}>
           <span>Usuário: {usuario || '—'}</span>
           <span>Emitido em: {fmtDateTime(emitidoEm)}</span>
         </div>

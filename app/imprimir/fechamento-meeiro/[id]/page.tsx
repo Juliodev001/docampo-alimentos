@@ -113,7 +113,7 @@ export default function ImprimirFechamentoMeeiro() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11 }}>
+        <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11 }}>
           <span>Usuário: {usuario || '—'}</span>
           <span>Emitido em: {fmtDateTime(emitidoEm)}</span>
         </div>
