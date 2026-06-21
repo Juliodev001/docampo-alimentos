@@ -214,6 +214,7 @@ export default function ImprimirPagamento() {
                   <th style={hd}>Meeiro</th>
                   <th style={{ ...hd, textAlign: 'right' as const }}>%</th>
                   <th style={{ ...hd, textAlign: 'right' as const }}>Valor Meeiro</th>
+                  <th style={{ ...hd, textAlign: 'right' as const }}>Valor Produtor</th>
                 </tr>
               </thead>
               <tbody>
@@ -222,14 +223,22 @@ export default function ImprimirPagamento() {
                     if (c.parceiroId !== p.id) return s
                     return s + (c.quantidadeTotal - c.descarte) * c.preco * (c.percParceiro / 100)
                   }, 0)
-                  const fator = totalBruto > 0 ? bruto / totalBruto : 0
+                  // Bruto do produtor referente às mesmas colheitas desse meeiro (a fatia complementar)
+                  const brutoProdutor = colheitas.reduce((s, c) => {
+                    if (c.parceiroId !== p.id) return s
+                    return s + (c.quantidadeTotal - c.descarte) * c.preco * ((100 - c.percParceiro) / 100)
+                  }, 0)
                   const totalDed = combustivel + bandejaEmbalagem + valesDinheiro + creditos + debitosAnteriores
+                  const fator = totalBruto > 0 ? bruto / totalBruto : 0
+                  const fatorProdutor = totalBruto > 0 ? brutoProdutor / totalBruto : 0
                   const valorMeeiro = bruto - totalDed * fator
+                  const valorProdutorMeeiro = brutoProdutor - totalDed * fatorProdutor
                   return (
                     <tr key={p.id}>
                       <td style={cell}>{p.nome}</td>
                       <td style={{ ...cell, textAlign: 'right' as const }}>{p.percentual.toFixed(0)}%</td>
                       <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 700 }}>{fmtN(valorMeeiro)}</td>
+                      <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 700 }}>{fmtN(valorProdutorMeeiro)}</td>
                     </tr>
                   )
                 })}
