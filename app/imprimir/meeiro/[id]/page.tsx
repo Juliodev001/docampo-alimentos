@@ -53,9 +53,9 @@ export default function ImprimirMeeiro() {
 
   const { parceiro, colheitas } = data
 
-  const totalQtd     = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
-  // Repasse e embalagem usam só a fatia do parceiro naquele lançamento (percParceiro),
-  // nunca a caixa inteira do lote — o lote é compartilhado com o produtor.
+  // Quantidade, repasse e embalagem usam só a fatia do parceiro naquele lançamento
+  // (percParceiro), nunca a caixa inteira do lote — o lote é compartilhado com o produtor.
+  const totalQtd     = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * ((c.percParceiro ?? parceiro.percentual) / 100), 0)
   const valorRepasse = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco * ((c.percParceiro ?? parceiro.percentual) / 100), 0)
   const descEmba     = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * (c.bandeja ?? 0) * ((c.percParceiro ?? parceiro.percentual) / 100), 0)
   const abatimEmprestimo = 0
@@ -140,16 +140,19 @@ export default function ImprimirMeeiro() {
               <tr><td colSpan={7} style={{ ...cell, textAlign: 'center' as const, color: '#666' }}>Nenhum lançamento</td></tr>
             ) : colheitas.map(c => {
               const liquido = c.quantidadeTotal - c.descarte
-              const sub = liquido * c.preco
-              const repasse = sub * ((c.percParceiro ?? parceiro.percentual) / 100)
+              const percShare = (c.percParceiro ?? parceiro.percentual) / 100
+              const qtdParceiro = liquido * percShare
+              const subParceiro = qtdParceiro * c.preco
+              const embalagemParceiro = qtdParceiro * (c.bandeja ?? 0)
+              const repasse = subParceiro - embalagemParceiro
               return (
                 <tr key={c.id}>
                   <td style={cell}>{fmtDate(c.data)}</td>
                   <td style={{ ...cell, textAlign: 'center' as const }}>{c.nrDoc ?? '—'}</td>
-                  <td style={{ ...cell, textAlign: 'right' as const }}>{liquido.toFixed(0)}</td>
+                  <td style={{ ...cell, textAlign: 'right' as const }}>{qtdParceiro.toFixed(0)}</td>
                   <td style={cell}>{c.produto.nome}{c.qualidade ? ` — ${c.qualidade}` : ''}</td>
                   <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(c.preco)}</td>
-                  <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(sub)}</td>
+                  <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(subParceiro)}</td>
                   <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 700 }}>{fmtN(repasse)}</td>
                 </tr>
               )
