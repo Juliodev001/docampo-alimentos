@@ -8267,18 +8267,24 @@ export default function RocasClient({
         {fecharMeeiroModal &&
           (() => {
             const meeiro = fecharMeeiroModal;
+            const percentualMeeiro =
+              parceirosState.find((p) => p.id === meeiro.id)?.percentual ?? 0;
             const valesAbertosMeeiro = valesState.filter(
               (v) => v.parceiroId === meeiro.id && v.status === "ABERTO",
             );
             const valesDeduzidos = valesAbertosMeeiro
               .filter((v) => fecharValesSelecionados.includes(v.id))
               .reduce((s, v) => s + v.valor, 0);
-            const dedManual =
+            const dedManualTotal =
               (parseFloat(fecharDedForm.combustivel) || 0) +
               (parseFloat(fecharDedForm.bandejaEmbalagem) || 0) +
               (parseFloat(fecharDedForm.valesDinheiro) || 0) +
               (parseFloat(fecharDedForm.creditos) || 0) +
               (parseFloat(fecharDedForm.debitosAnteriores) || 0);
+            // Os valores digitados em "ajustar" são o custo total do período (ex: embalagem
+            // de todas as caixas); o meeiro só paga a fatia proporcional ao seu percentual,
+            // nunca o valor cheio.
+            const dedManual = dedManualTotal * (percentualMeeiro / 100);
             const valorPago = Math.max(
               0,
               fecharBruto - dedManual - valesDeduzidos,
@@ -8304,14 +8310,21 @@ export default function RocasClient({
                     dataFim: fecharDataFim,
                     dataPagamento: fecharDataPagamento,
                     valorBruto: fecharBruto,
-                    combustivel: parseFloat(fecharDedForm.combustivel) || 0,
+                    combustivel:
+                      (parseFloat(fecharDedForm.combustivel) || 0) *
+                      (percentualMeeiro / 100),
                     bandejaEmbalagem:
-                      parseFloat(fecharDedForm.bandejaEmbalagem) || 0,
+                      (parseFloat(fecharDedForm.bandejaEmbalagem) || 0) *
+                      (percentualMeeiro / 100),
                     valesDinheiro:
-                      parseFloat(fecharDedForm.valesDinheiro) || 0,
-                    creditos: parseFloat(fecharDedForm.creditos) || 0,
+                      (parseFloat(fecharDedForm.valesDinheiro) || 0) *
+                      (percentualMeeiro / 100),
+                    creditos:
+                      (parseFloat(fecharDedForm.creditos) || 0) *
+                      (percentualMeeiro / 100),
                     debitosAnteriores:
-                      parseFloat(fecharDedForm.debitosAnteriores) || 0,
+                      (parseFloat(fecharDedForm.debitosAnteriores) || 0) *
+                      (percentualMeeiro / 100),
                     valeIds: fecharValesSelecionados,
                   }),
                 });
@@ -8539,7 +8552,9 @@ export default function RocasClient({
                         }}
                       >
                         <span style={{ fontSize: 13, color: "#6b7280" }}>
-                          Deduções (embalagem, vales, débitos)
+                          Deduções (embalagem, vales, débitos) — valor
+                          total do período; só a parte de {percentualMeeiro.toFixed(0)}%
+                          do meeiro é descontada
                           <button
                             onClick={() => setFecharAjustar((v) => !v)}
                             style={{
