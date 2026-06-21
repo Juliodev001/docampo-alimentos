@@ -10,7 +10,7 @@ type Parceiro = { id: string; nome: string; cpf: string | null; percentual: numb
 type Colheita = {
   id: string; data: string; produto: Produto
   quantidadeTotal: number; preco: number; qualidade: string | null
-  descarte: number; nrDoc: string | null; bandeja: number
+  descarte: number; nrDoc: string | null; bandeja: number; percParceiro: number
   roca: { nome: string } | null
 }
 type Data = { parceiro: Parceiro; colheitas: Colheita[] }
@@ -53,10 +53,11 @@ export default function ImprimirMeeiro() {
 
   const { parceiro, colheitas } = data
 
-  const totalBruto   = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
   const totalQtd     = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
-  const valorRepasse = totalBruto * (parceiro.percentual / 100)       // % do bruto — sem desconto
-  const descEmba     = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * (c.bandeja ?? 0), 0) // desconto embalagem
+  // Repasse e embalagem usam só a fatia do parceiro naquele lançamento (percParceiro),
+  // nunca a caixa inteira do lote — o lote é compartilhado com o produtor.
+  const valorRepasse = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco * ((c.percParceiro ?? parceiro.percentual) / 100), 0)
+  const descEmba     = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * (c.bandeja ?? 0) * ((c.percParceiro ?? parceiro.percentual) / 100), 0)
   const abatimEmprestimo = 0
   const valorRecebido = valorRepasse - descEmba - abatimEmprestimo
 
@@ -140,7 +141,7 @@ export default function ImprimirMeeiro() {
             ) : colheitas.map(c => {
               const liquido = c.quantidadeTotal - c.descarte
               const sub = liquido * c.preco
-              const repasse = sub * (parceiro.percentual / 100)
+              const repasse = sub * ((c.percParceiro ?? parceiro.percentual) / 100)
               return (
                 <tr key={c.id}>
                   <td style={cell}>{fmtDate(c.data)}</td>
