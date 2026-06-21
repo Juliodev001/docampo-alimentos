@@ -61,11 +61,11 @@ export default function ImprimirVendaPDV() {
         }
       `}</style>
 
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '10px 0', fontFamily: 'Arial, sans-serif', fontSize: 10 }}>
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '10px 0', fontFamily: 'Arial, sans-serif', fontSize: 10, position: 'relative' }}>
 
         {/* Marca d'água */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo01.png" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 320, opacity: 0.3, zIndex: -1, pointerEvents: 'none', filter: 'grayscale(100%)' }} />
+        <img src="/logo01.png" alt="" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 320, opacity: 0.3, zIndex: -1, pointerEvents: 'none', filter: 'grayscale(100%)' }} />
 
         {/* Botões — só na tela */}
         <div className="no-print" style={{ marginBottom: 10, display: 'flex', gap: 8 }}>
