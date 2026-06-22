@@ -214,6 +214,7 @@ export default function ImprimirPagamento() {
                   <th style={hd}>Meeiro</th>
                   <th style={{ ...hd, textAlign: 'right' as const }}>%</th>
                   <th style={{ ...hd, textAlign: 'right' as const }}>Valor Meeiro</th>
+                  <th style={{ border: 'none', backgroundColor: 'transparent', width: 24 }}></th>
                   <th style={{ ...hd, textAlign: 'right' as const }}>Valor Produtor</th>
                 </tr>
               </thead>
@@ -238,6 +239,7 @@ export default function ImprimirPagamento() {
                       <td style={cell}>{p.nome}</td>
                       <td style={{ ...cell, textAlign: 'right' as const }}>{p.percentual.toFixed(0)}%</td>
                       <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 700 }}>{fmtN(valorMeeiro)}</td>
+                      <td style={{ border: 'none' }}></td>
                       <td style={{ ...cell, textAlign: 'right' as const, fontWeight: 700 }}>{fmtN(valorProdutorMeeiro)}</td>
                     </tr>
                   )
