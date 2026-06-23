@@ -180,6 +180,110 @@ const since = (iso: string) => {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
 };
 
+type RelatorioPreviewData = {
+  prodNome: string;
+  prodCodigo: string | null;
+  inscricaoEstadual: string | null;
+  periodoStr: string;
+  colheitas: Colheita[];
+  totalQtd: number;
+  totalRepasseProdutor: number;
+  descEmb: number;
+  outrasDeducoes: number;
+  valesAbertos: number;
+  abatimEmprestimo: number;
+  valorRecebido: number;
+  meeiros: {
+    nome: string;
+    percentual: number;
+    valorMeeiro: number;
+    valorProdutor: number;
+  }[];
+};
+
+function buildRelatorioProdutor(
+  prod: {
+    nome: string;
+    codigo: string | null;
+    inscricaoEstadual?: string | null;
+    parceiros: { id: string; nome: string; percentual: number }[];
+  },
+  colheitasPeriodo: Colheita[],
+  deducoes: {
+    combustivel: number;
+    bandejaEmbalagem: number;
+    valesDinheiro: number;
+    creditos: number;
+    debitosAnteriores: number;
+  },
+  valesAbertos: number,
+  abatimEmprestimo: number,
+  periodoStr: string,
+): RelatorioPreviewData {
+  const totalBruto = colheitasPeriodo.reduce(
+    (s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco,
+    0,
+  );
+  const totalQtd = colheitasPeriodo.reduce(
+    (s, c) => s + (c.quantidadeTotal - c.descarte),
+    0,
+  );
+  const totalMeeirosBruto = colheitasPeriodo.reduce((s, c) => {
+    if (!c.parceiroId) return s;
+    return s + (c.quantidadeTotal - c.descarte) * c.preco * (c.percParceiro / 100);
+  }, 0);
+  const donoBruto = totalBruto - totalMeeirosBruto;
+  const fatorProdutor = totalBruto > 0 ? donoBruto / totalBruto : 0;
+  const descEmb = deducoes.bandejaEmbalagem * fatorProdutor;
+  const outrasDeducoes =
+    (deducoes.combustivel + deducoes.creditos + deducoes.debitosAnteriores) *
+    fatorProdutor;
+  const valorRecebido = donoBruto - descEmb - outrasDeducoes - abatimEmprestimo;
+
+  const totalDed =
+    deducoes.combustivel +
+    deducoes.bandejaEmbalagem +
+    deducoes.valesDinheiro +
+    deducoes.creditos +
+    deducoes.debitosAnteriores;
+  const meeiros = prod.parceiros.map((p) => {
+    const bruto = colheitasPeriodo.reduce((s, c) => {
+      if (c.parceiroId !== p.id) return s;
+      return s + (c.quantidadeTotal - c.descarte) * c.preco * (c.percParceiro / 100);
+    }, 0);
+    const brutoProdutor = colheitasPeriodo.reduce((s, c) => {
+      if (c.parceiroId !== p.id) return s;
+      return (
+        s + (c.quantidadeTotal - c.descarte) * c.preco * ((100 - c.percParceiro) / 100)
+      );
+    }, 0);
+    const fator = totalBruto > 0 ? bruto / totalBruto : 0;
+    const fatorP = totalBruto > 0 ? brutoProdutor / totalBruto : 0;
+    return {
+      nome: p.nome,
+      percentual: p.percentual,
+      valorMeeiro: bruto - totalDed * fator,
+      valorProdutor: brutoProdutor - totalDed * fatorP,
+    };
+  });
+
+  return {
+    prodNome: prod.nome,
+    prodCodigo: prod.codigo,
+    inscricaoEstadual: prod.inscricaoEstadual ?? null,
+    periodoStr,
+    colheitas: colheitasPeriodo,
+    totalQtd,
+    totalRepasseProdutor: donoBruto,
+    descEmb,
+    outrasDeducoes,
+    valesAbertos,
+    abatimEmprestimo,
+    valorRecebido,
+    meeiros,
+  };
+}
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
   border: "1.5px solid #e5e7eb",
@@ -726,6 +830,8 @@ export default function RocasClient({
     initialFechamentos ?? [],
   );
   const [showFechModal, setShowFechModal] = useState(false);
+  const [relatorioPreview, setRelatorioPreview] =
+    useState<RelatorioPreviewData | null>(null);
   const [fechForm, setFechForm] = useState(emptyFechForm);
   const [savingFech, setSavingFech] = useState(false);
   const [fechError, setFechError] = useState("");
@@ -5336,11 +5442,19 @@ export default function RocasClient({
                 (s, c) => s + c.quantidadeTotal * c.preco,
                 0,
               );
+              const periodoInicio = ultFech
+                ? desde
+                : abertas.length > 0
+                  ? new Date(
+                      Math.min(...abertas.map((c) => new Date(c.data).getTime())),
+                    )
+                  : new Date();
               return {
                 prod,
                 abertas,
                 bruto,
                 desde: ultFech ? since(ultFech.dataFim) : "sempre",
+                periodoInicio,
               };
             })
             .filter((x) => x.abertas.length > 0);
@@ -5494,7 +5608,7 @@ export default function RocasClient({
                   <div
                     style={{ display: "flex", flexDirection: "column", gap: 8 }}
                   >
-                    {pendentes.map(({ prod, abertas, bruto, desde }) => (
+                    {pendentes.map(({ prod, abertas, bruto, desde, periodoInicio }) => (
                       <div
                         key={prod.id}
                         style={{
@@ -5549,6 +5663,68 @@ export default function RocasClient({
                               {fmtCurrency(bruto)}
                             </div>
                           </div>
+                          <button
+                            onClick={() => {
+                              const hoje = new Date();
+                              const relevantes = custosState.filter(
+                                (c) =>
+                                  c.produtorId === prod.id &&
+                                  new Date(c.data) >= periodoInicio &&
+                                  new Date(c.data) <= hoje,
+                              );
+                              const valesAbertos = valesState
+                                .filter(
+                                  (v) =>
+                                    v.produtorId === prod.id &&
+                                    v.status === "ABERTO",
+                                )
+                                .reduce((s, v) => s + v.valor, 0);
+                              setRelatorioPreview(
+                                buildRelatorioProdutor(
+                                  prod,
+                                  abertas,
+                                  {
+                                    combustivel: relevantes.reduce(
+                                      (s, c) => s + c.combustivel,
+                                      0,
+                                    ),
+                                    bandejaEmbalagem: relevantes.reduce(
+                                      (s, c) => s + c.bandejaEmbalagem,
+                                      0,
+                                    ),
+                                    valesDinheiro: relevantes.reduce(
+                                      (s, c) => s + c.valesDinheiro,
+                                      0,
+                                    ),
+                                    creditos: relevantes.reduce(
+                                      (s, c) => s + c.creditos,
+                                      0,
+                                    ),
+                                    debitosAnteriores: relevantes.reduce(
+                                      (s, c) => s + c.debitosAnteriores,
+                                      0,
+                                    ),
+                                  },
+                                  valesAbertos,
+                                  0,
+                                  `${fmtDate(periodoInicio.toISOString())} a ${fmtDate(hoje.toISOString())}`,
+                                ),
+                              );
+                            }}
+                            style={{
+                              background: "#fff",
+                              color: NAVY,
+                              border: `1px solid ${NAVY}40`,
+                              borderRadius: 8,
+                              padding: "7px 14px",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Ver relatório
+                          </button>
                           <button
                             onClick={() => {
                               setFechError("");
@@ -6916,6 +7092,256 @@ export default function RocasClient({
                 )}
               </AnimatePresence>
 
+              {/* Ver relatório (preview dos lançamentos em aberto, sem criar fechamento) */}
+              <AnimatePresence>
+                {relatorioPreview && (
+                  <>
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setRelatorioPreview(null)}
+                      style={{
+                        position: "fixed",
+                        inset: 0,
+                        background: "rgba(0,0,0,0.35)",
+                        zIndex: 40,
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: "fixed",
+                        inset: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        paddingLeft: "var(--sidebar-w, 248px)",
+                        zIndex: 50,
+                        pointerEvents: "none",
+                      }}
+                    >
+                      <motion.div
+                        initial={{ opacity: 0, y: 40 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 40 }}
+                        style={{
+                          width: 640,
+                          maxHeight: "90vh",
+                          overflowY: "auto",
+                          background: "#fff",
+                          borderRadius: 16,
+                          padding: "28px 32px",
+                          boxShadow: "0 8px 40px rgba(0,0,0,0.18)",
+                          pointerEvents: "auto",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: 4,
+                          }}
+                        >
+                          <h2
+                            style={{
+                              fontSize: 18,
+                              fontWeight: 700,
+                              color: NAVY,
+                              margin: 0,
+                            }}
+                          >
+                            Recibo de Repasse ao Produtor
+                          </h2>
+                          <button
+                            onClick={() => setRelatorioPreview(null)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: "#9ca3af",
+                              padding: 4,
+                            }}
+                          >
+                            <FontAwesomeIcon
+                              icon={faXmark}
+                              style={{ fontSize: 18 }}
+                            />
+                          </button>
+                        </div>
+                        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 16 }}>
+                          Período: {relatorioPreview.periodoStr}
+                        </div>
+
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            fontSize: 12,
+                            marginBottom: 4,
+                          }}
+                        >
+                          <span>
+                            <strong>Outorgante:</strong> DO CAMPO ALIMENTOS
+                          </span>
+                          <span>
+                            <strong>Outorgado:</strong>{" "}
+                            {relatorioPreview.prodCodigo
+                              ? `${relatorioPreview.prodCodigo} — `
+                              : ""}
+                            {relatorioPreview.prodNome}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            fontSize: 12,
+                            marginBottom: 16,
+                          }}
+                        >
+                          <span>
+                            <strong>Inscrição estadual:</strong>{" "}
+                            {relatorioPreview.inscricaoEstadual ?? "—"}
+                          </span>
+                        </div>
+
+                        <table
+                          style={{
+                            width: "100%",
+                            borderCollapse: "collapse",
+                            fontSize: 13,
+                            marginBottom: 16,
+                          }}
+                        >
+                          <thead>
+                            <tr style={{ background: NAVY, color: "#fff" }}>
+                              <th style={{ padding: "6px 8px", fontWeight: 600, textAlign: "left" }}>Data</th>
+                              <th style={{ padding: "6px 8px", fontWeight: 600, textAlign: "left" }}>Produto</th>
+                              <th style={{ padding: "6px 8px", fontWeight: 600, textAlign: "right" }}>Qtde</th>
+                              <th style={{ padding: "6px 8px", fontWeight: 600, textAlign: "right" }}>Preço</th>
+                              <th style={{ padding: "6px 8px", fontWeight: 600, textAlign: "right" }}>Valor total</th>
+                              <th style={{ padding: "6px 8px", fontWeight: 600, textAlign: "right" }}>Repasse</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {relatorioPreview.colheitas.map((c) => {
+                              const liquido = c.quantidadeTotal - c.descarte;
+                              const sub = liquido * c.preco;
+                              const percProdutorRow = c.parceiroId
+                                ? 100 - c.percParceiro
+                                : 100;
+                              const repasse = sub * (percProdutorRow / 100);
+                              return (
+                                <tr key={c.id} style={{ borderTop: "1px solid #f0f1f3" }}>
+                                  <td style={{ padding: "6px 8px" }}>{fmtDate(c.data)}</td>
+                                  <td style={{ padding: "6px 8px" }}>
+                                    {c.produtoNome}
+                                    {c.qualidade ? ` — ${c.qualidade}` : ""}
+                                  </td>
+                                  <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                                    {liquido.toFixed(0)}
+                                  </td>
+                                  <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                                    {fmtCurrency(c.preco)}
+                                  </td>
+                                  <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                                    {fmtCurrency(sub)}
+                                  </td>
+                                  <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600 }}>
+                                    {fmtCurrency(repasse)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+
+                        <table
+                          style={{
+                            width: "100%",
+                            borderCollapse: "collapse",
+                            fontSize: 12,
+                            marginBottom: 12,
+                          }}
+                        >
+                          <thead>
+                            <tr style={{ background: NAVY, color: "#fff" }}>
+                              <th style={{ padding: "6px 8px", fontWeight: 600 }}>Total caixas</th>
+                              <th style={{ padding: "6px 8px", fontWeight: 600 }}>Valor Repasse</th>
+                              <th style={{ padding: "6px 8px", fontWeight: 600 }}>Desc Emb.</th>
+                              <th style={{ padding: "6px 8px", fontWeight: 600 }}>Empr. em aberto</th>
+                              <th style={{ padding: "6px 8px", fontWeight: 600 }}>Abatim. emprést.</th>
+                              <th style={{ padding: "6px 8px", fontWeight: 600 }}>Valor recebido</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style={{ textAlign: "center", fontWeight: 700 }}>
+                              <td style={{ padding: "8px" }}>{relatorioPreview.totalQtd.toFixed(0)}</td>
+                              <td style={{ padding: "8px" }}>{fmtCurrency(relatorioPreview.totalRepasseProdutor)}</td>
+                              <td style={{ padding: "8px" }}>{fmtCurrency(relatorioPreview.descEmb)}</td>
+                              <td style={{ padding: "8px" }}>{fmtCurrency(relatorioPreview.valesAbertos)}</td>
+                              <td style={{ padding: "8px" }}>{fmtCurrency(relatorioPreview.abatimEmprestimo)}</td>
+                              <td style={{ padding: "8px", color: NAVY }}>{fmtCurrency(relatorioPreview.valorRecebido)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        {relatorioPreview.outrasDeducoes > 0 && (
+                          <p style={{ fontSize: 11, color: "#6b7280", margin: "0 0 10px" }}>
+                            Outras deduções (combustível, créditos, débitos anteriores) já incluídas no valor recebido: -{" "}
+                            {fmtCurrency(relatorioPreview.outrasDeducoes)}
+                          </p>
+                        )}
+
+                        <p style={{ fontSize: 14, fontWeight: 700, margin: "0 0 16px" }}>
+                          Total líquido a receber pelo produtor:{" "}
+                          <span style={{ color: NAVY }}>
+                            {fmtCurrency(relatorioPreview.valorRecebido)}
+                          </span>
+                        </p>
+
+                        {relatorioPreview.meeiros.length > 0 && (
+                          <div>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: NAVY, margin: "0 0 6px" }}>
+                              Detalhamento por meeiro
+                            </p>
+                            <table style={{ borderCollapse: "collapse", fontSize: 12 }}>
+                              <thead>
+                                <tr style={{ background: NAVY, color: "#fff" }}>
+                                  <th style={{ padding: "6px 8px", fontWeight: 600, textAlign: "left" }}>Meeiro</th>
+                                  <th style={{ padding: "6px 8px", fontWeight: 600, textAlign: "right" }}>%</th>
+                                  <th style={{ padding: "6px 8px", fontWeight: 600, textAlign: "right" }}>Valor Meeiro</th>
+                                  <th style={{ border: "none", width: 24 }}></th>
+                                  <th style={{ padding: "6px 8px", fontWeight: 600, textAlign: "right" }}>Valor Produtor</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {relatorioPreview.meeiros.map((m) => (
+                                  <tr key={m.nome} style={{ borderTop: "1px solid #f0f1f3" }}>
+                                    <td style={{ padding: "6px 8px" }}>{m.nome}</td>
+                                    <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                                      {m.percentual.toFixed(0)}%
+                                    </td>
+                                    <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600 }}>
+                                      {fmtCurrency(m.valorMeeiro)}
+                                    </td>
+                                    <td style={{ border: "none" }}></td>
+                                    <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600 }}>
+                                      {fmtCurrency(m.valorProdutor)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </motion.div>
+                    </div>
+                  </>
+                )}
+              </AnimatePresence>
+
               {/* Delete confirm */}
               <AnimatePresence>
                 {deleteFechTarget && (
@@ -7810,6 +8236,63 @@ export default function RocasClient({
                     }}
                   >
                     📄 PDF
+                  </button>
+                  <button
+                    onClick={() => {
+                      setFechMenuId(null);
+                      const prod = produtoresState.find(
+                        (p) => p.id === f.produtorId,
+                      );
+                      if (!prod) return;
+                      const inicio = new Date(f.dataInicio);
+                      const fim = new Date(f.dataFim);
+                      const colheitasPeriodo = colheitas.filter(
+                        (c) =>
+                          c.produtorId === f.produtorId &&
+                          new Date(c.data) >= inicio &&
+                          new Date(c.data) <= fim,
+                      );
+                      const valesAbertos = valesState
+                        .filter(
+                          (v) =>
+                            v.produtorId === f.produtorId &&
+                            v.status === "ABERTO",
+                        )
+                        .reduce((s, v) => s + v.valor, 0);
+                      const abatimEmprestimo = valesState
+                        .filter((v) => v.fechamentoId === f.id)
+                        .reduce((s, v) => s + v.valor, 0);
+                      setRelatorioPreview(
+                        buildRelatorioProdutor(
+                          prod,
+                          colheitasPeriodo,
+                          {
+                            combustivel: f.combustivel,
+                            bandejaEmbalagem: f.bandejaEmbalagem,
+                            valesDinheiro: f.valesDinheiro,
+                            creditos: f.creditos,
+                            debitosAnteriores: f.debitosAnteriores,
+                          },
+                          valesAbertos,
+                          abatimEmprestimo,
+                          `${fmtDate(f.dataInicio)} a ${fmtDate(f.dataFim)} — Pagamento em ${fmtDate(f.dataPagamento)}`,
+                        ),
+                      );
+                    }}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "10px 16px",
+                      fontSize: 13,
+                      color: "#374151",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      borderBottom: "1px solid #f3f4f6",
+                    }}
+                  >
+                    📊 Ver relatório
                   </button>
                   {f.status === "PENDENTE" && (
                     <button
