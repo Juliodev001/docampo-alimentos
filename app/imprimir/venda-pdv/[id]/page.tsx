@@ -13,6 +13,7 @@ type Pedido = {
 
 const NAVY = '#2d3561'
 
+function fmtFormaPagamento(v: string | null) { return v === 'FIADO' ? 'Carteira' : (v ?? '—') }
 function fmtN(v: number) { return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString('pt-BR') }
 function fmtDateTime(d: Date) { return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }
@@ -49,64 +50,50 @@ export default function ImprimirVendaPDV() {
   const totHd: React.CSSProperties = { ...B, padding: '5px 6px', fontSize: 10, fontWeight: 700, backgroundColor: NAVY, color: '#fff', textAlign: 'center' as const }
   const totCell: React.CSSProperties = { ...B, padding: '7px 6px', fontSize: 12, textAlign: 'center' as const, fontWeight: 700 }
 
-  return (
-    <>
-      <style>{`
-        @page { size: A5 portrait; margin: 8mm 10mm; }
-        * { box-sizing: border-box; }
-        body { margin: 0; font-family: Arial, sans-serif; background: #fff; color: #000; }
-        @media print {
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .no-print { display: none !important; }
-        }
-      `}</style>
-
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '10px 0', fontFamily: 'Arial, sans-serif', fontSize: 10, position: 'relative' }}>
+  function renderVia(label: string, assinatura: string) {
+    return (
+      <div key={label} style={{ padding: '8px 0', fontFamily: 'Arial, sans-serif', fontSize: 10, position: 'relative', breakInside: 'avoid' }}>
 
         {/* Marca d'água */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo01.png" alt="" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 320, opacity: 0.3, zIndex: -1, pointerEvents: 'none', filter: 'grayscale(100%)' }} />
+        <img src="/logo01.png" alt="" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 220, opacity: 0.25, zIndex: -1, pointerEvents: 'none', filter: 'grayscale(100%)' }} />
 
-        {/* Botões — só na tela */}
-        <div className="no-print" style={{ marginBottom: 10, display: 'flex', gap: 8 }}>
-          <button onClick={() => window.print()} style={{ padding: '7px 18px', background: '#2d3561', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            🖨️ Imprimir / PDF
-          </button>
-          <button onClick={() => window.close()} style={{ padding: '7px 14px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
-            Fechar
-          </button>
-        </div>
-
-        {/* Título */}
-        <div style={{ textAlign: 'center', marginBottom: 10 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo01.png" alt="Do Campo Alimentos" style={{ height: 30, margin: '0 auto 6px', display: 'block', filter: 'grayscale(100%)' }} />
-          <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>
-            {isFiado ? 'Comprovante de Venda — Fiado' : 'Comprovante de Venda'}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+          <div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo01.png" alt="Do Campo Alimentos" style={{ height: 24, display: 'block', filter: 'grayscale(100%)' }} />
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>
+              {isFiado ? 'Comprovante de Venda — Carteira' : 'Comprovante de Venda'}
+            </div>
+            <span style={{ fontSize: 9, fontWeight: 700, color: NAVY, border: `1px solid ${NAVY}`, borderRadius: 4, padding: '1px 6px' }}>
+              {label}
+            </span>
           </div>
         </div>
 
-        <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 10 }}>
+        <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 9 }}>
           <span>Usuário: {usuario || '—'}</span>
           <span>Emitido em: {fmtDateTime(emitidoEm)}</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, fontSize: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 10 }}>
           <span><strong>Vendedor:</strong> DO CAMPO ALIMENTOS</span>
-          <span><strong>Cliente:</strong> {pedido.cliente?.nome ?? '—'}</span>
+          <span><strong>Cliente:</strong> {pedido!.cliente?.nome ?? '—'}</span>
         </div>
 
         {/* Dados do cliente */}
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 6 }}>
           <tbody>
             <tr>
-              <td style={{ ...cell, width: '55%' }}><strong>CPF / CNPJ:</strong> {pedido.cliente?.cnpjCpf ?? '—'}</td>
-              <td style={{ ...cell, width: '45%' }}><strong>Data da Compra:</strong> {fmtDate(pedido.data)}</td>
+              <td style={{ ...cell, width: '55%' }}><strong>CPF / CNPJ:</strong> {pedido!.cliente?.cnpjCpf ?? '—'}</td>
+              <td style={{ ...cell, width: '45%' }}><strong>Data da Compra:</strong> {fmtDate(pedido!.data)}</td>
             </tr>
             <tr>
               <td style={cell} colSpan={2}>
-                {isFiado && pedido.dataCobranca
-                  ? <><strong>Vencimento:</strong> {fmtDate(pedido.dataCobranca)}</>
-                  : <><strong>Pagamento:</strong> {pedido.formaPagamento ?? '—'}</>
+                {isFiado && pedido!.dataCobranca
+                  ? <><strong>Vencimento:</strong> {fmtDate(pedido!.dataCobranca)}</>
+                  : <><strong>Pagamento:</strong> {fmtFormaPagamento(pedido!.formaPagamento)}</>
                 }
               </td>
             </tr>
@@ -125,7 +112,7 @@ export default function ImprimirVendaPDV() {
             </tr>
           </thead>
           <tbody>
-            {pedido.itens.map(it => (
+            {pedido!.itens.map(it => (
               <tr key={it.id}>
                 <td style={cell}>{it.produto}</td>
                 <td style={{ ...cell, textAlign: 'right' as const }}>{it.quantidade}</td>
@@ -146,20 +133,60 @@ export default function ImprimirVendaPDV() {
           </thead>
           <tbody>
             <tr>
-              <td style={{ ...totCell, color: NAVY }}>R$ {fmtN(pedido.totalValor)}</td>
+              <td style={{ ...totCell, color: NAVY }}>R$ {fmtN(pedido!.totalValor)}</td>
             </tr>
           </tbody>
         </table>
 
-        {pedido.observacao && (
-          <div style={{ marginTop: 6, padding: '3px 6px', border: '1px solid #ccc', borderRadius: 3, fontSize: 9 }}>
-            <strong>Obs:</strong> {pedido.observacao}
+        {pedido!.observacao && (
+          <div style={{ marginBottom: 6, padding: '3px 6px', border: '1px solid #ccc', borderRadius: 3, fontSize: 9 }}>
+            <strong>Obs:</strong> {pedido!.observacao}
           </div>
         )}
 
-        <p style={{ fontSize: 12, fontWeight: 700, margin: '14px 0 0' }}>
-          Total líquido da venda: <span style={{ color: NAVY }}>R$ {fmtN(pedido.totalValor)}</span>
+        <p style={{ fontSize: 11, fontWeight: 700, margin: '8px 0 16px' }}>
+          Total líquido da venda: <span style={{ color: NAVY }}>R$ {fmtN(pedido!.totalValor)}</span>
         </p>
+
+        <div style={{ marginTop: 18, fontSize: 10 }}>
+          <div style={{ borderTop: '1px solid #000', width: '70%', margin: '0 auto' }} />
+          <div style={{ textAlign: 'center', marginTop: 4 }}>{assinatura}</div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <style>{`
+        @page { size: A4 portrait; margin: 8mm 10mm; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; background: #fff; color: #000; }
+        @media print {
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .no-print { display: none !important; }
+        }
+      `}</style>
+
+      <div style={{ maxWidth: 700, margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
+
+        {/* Botões — só na tela */}
+        <div className="no-print" style={{ margin: '10px 0', display: 'flex', gap: 8 }}>
+          <button onClick={() => window.print()} style={{ padding: '7px 18px', background: '#2d3561', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            🖨️ Imprimir / PDF
+          </button>
+          <button onClick={() => window.close()} style={{ padding: '7px 14px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
+            Fechar
+          </button>
+        </div>
+
+        {renderVia('VIA DO CLIENTE', 'Assinatura do Cliente')}
+
+        <div style={{ borderTop: '1px dashed #999', textAlign: 'center', margin: '4px 0' }}>
+          <span style={{ position: 'relative', top: -8, background: '#fff', padding: '0 8px', fontSize: 12, color: '#999' }}>✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ✂</span>
+        </div>
+
+        {renderVia('VIA DO VENDEDOR', 'Assinatura do Vendedor')}
 
       </div>
     </>
