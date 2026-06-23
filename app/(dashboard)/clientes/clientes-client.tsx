@@ -737,7 +737,7 @@ export default function ClientesClient({ clientes: inicial }: { clientes: Client
                       {[
                         { label: 'Total Comprado', value: formatCurrency(compras.totalComprado), color: GREEN, icon: faChartLine },
                         { label: 'Pedidos',         value: compras.qtdPedidos,                    color: BLUE,  icon: faBagShopping },
-                        { label: 'Fiado Pendente',  value: formatCurrency(compras.fiadoPendente), color: compras.fiadoPendente > 0 ? PINK : '#9ca3af', icon: faExclamationTriangle },
+                        { label: 'Carteira Pendente',  value: formatCurrency(compras.fiadoPendente), color: compras.fiadoPendente > 0 ? PINK : '#9ca3af', icon: faExclamationTriangle },
                         { label: 'Última Compra',   value: compras.ultimaCompra ? new Date(compras.ultimaCompra).toLocaleDateString('pt-BR') : '—', color: ORANGE, icon: faCalendarAlt },
                       ].map(({ label, value, color, icon }) => (
                         <div key={label} style={{ background: '#f9fafb', borderRadius: 12, padding: '12px 14px', borderTop: `3px solid ${color}` }}>
@@ -784,7 +784,7 @@ export default function ClientesClient({ clientes: inicial }: { clientes: Client
                     {fiadosPendentes.length > 0 && (
                       <div style={{ border: `1px solid ${PINK}30`, borderRadius: 12, padding: '14px 18px', background: `${PINK}06` }}>
                         <p style={{ margin: '0 0 12px', fontWeight: 700, color: PINK, fontSize: 13, display: 'flex', alignItems: 'center', gap: 7 }}>
-                          <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: 13 }} /> Fiados em Aberto
+                          <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: 13 }} /> Carteira em Aberto
                         </p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                           {fiadosPendentes.map(p => {
@@ -826,7 +826,7 @@ export default function ClientesClient({ clientes: inicial }: { clientes: Client
                                 <span style={{ fontSize: 12, color: '#6b7280' }}>{new Date(p.data).toLocaleDateString('pt-BR')}</span>
                                 {p.formaPagamento && (
                                   <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 20, background: p.formaPagamento === 'FIADO' ? `${ORANGE}18` : `${GREEN}18`, color: p.formaPagamento === 'FIADO' ? ORANGE : GREEN }}>
-                                    {p.formaPagamento}
+                                    {p.formaPagamento === 'FIADO' ? 'Carteira' : p.formaPagamento}
                                   </span>
                                 )}
                               </div>
