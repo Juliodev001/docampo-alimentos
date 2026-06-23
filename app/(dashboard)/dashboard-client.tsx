@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCartShopping, faArrowTrendUp, faChartBar, faCalendar, faSliders, faSeedling, faHandHoldingDollar } from '@fortawesome/free-solid-svg-icons'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import { formatCurrency } from '@/lib/utils'
+import VisaoGeralClient from './visao-geral-client'
 
 const GREEN = '#5ab952'
 const NAVY  = '#2d3561'
@@ -227,6 +228,9 @@ export default function DashboardClient({ centrosCusto }: { centrosCusto: Centro
         <h1 className="page-title" style={{ fontSize: 26, fontWeight: 700, color: NAVY, margin: 0 }}>Dashboard</h1>
         <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>Visão geral do seu negócio</p>
       </div>
+
+      {/* ── Visão geral: vendas x compras x lucro, com filtro de período ── */}
+      <VisaoGeralClient />
 
       {/* ── Card financeiro principal ───────────── */}
       <div style={{
