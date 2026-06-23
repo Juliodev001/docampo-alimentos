@@ -241,6 +241,27 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
       const saved = await res.json()
       setLastPedidoId(saved.id)
       toast.success('Venda registrada!', `Total: ${formatCurrency(total)}`)
+
+      // Baixa o estoque na tela imediatamente, sem esperar reload da página.
+      // Produtos com estoqueVinculadoId compartilham o mesmo saldo (ex: "Morango Graudo" usa o estoque do "Morango"),
+      // então a baixa precisa refletir em todos os produtos que apontam para a mesma base.
+      setProdutosLocal(prev => {
+        const baixaPorBase = new Map<string, number>()
+        for (const item of cart) {
+          if (item.produtoId.startsWith('avulso-')) continue
+          const vendido = prev.find(p => p.id === item.produtoId)
+          if (!vendido) continue
+          const baseId = vendido.estoqueVinculadoId ?? vendido.id
+          baixaPorBase.set(baseId, (baixaPorBase.get(baseId) ?? 0) + item.quantidade)
+        }
+        if (baixaPorBase.size === 0) return prev
+        return prev.map(p => {
+          const baseId = p.estoqueVinculadoId ?? p.id
+          const baixa = baixaPorBase.get(baseId)
+          return baixa ? { ...p, estoque: p.estoque - baixa } : p
+        })
+      })
+
       clearCart()
       setModalOpen(false)
       setClienteId('')
