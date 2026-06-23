@@ -5,6 +5,7 @@ import {
   faMagnifyingGlass, faShoppingCart,
   faXmark, faCheckCircle, faMoneyBill, faCreditCard, faQrcode,
   faHandshake, faReceipt, faBoxOpen, faPencil,
+  faClockRotateLeft, faPrint,
 } from '@fortawesome/free-solid-svg-icons'
 import { useToast } from '@/components/toast'
 import { formatCurrency } from '@/lib/utils'
@@ -30,7 +31,11 @@ type Produto = {
 
 type Cliente = { id: string; nome: string }
 
-type PedidoPendente = { id: string; clienteId: string | null; formaPagamento: string | null; status: string; totalValor: number }
+type PedidoPendente = {
+  id: string; numero: number; tipo: string; data: string
+  clienteId: string | null; formaPagamento: string | null; status: string; totalValor: number
+  cliente: { nome: string } | null
+}
 
 type CartItem = {
   itemId: string
@@ -86,6 +91,10 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
   const [dataCobranca, setDataCobranca] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [lastPedidoId, setLastPedidoId] = useState<string | null>(null)
+  const [showHistorico, setShowHistorico] = useState(false)
+  const [vendasPdv, setVendasPdv] = useState<PedidoPendente[]>(() =>
+    pedidos.filter(p => p.tipo === 'PDV').sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+  )
 
   /* edição de preço inline no carrinho */
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null)
@@ -240,6 +249,11 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
       }
       const saved = await res.json()
       setLastPedidoId(saved.id)
+      setVendasPdv(prev => [{
+        id: saved.id, numero: saved.numero, tipo: saved.tipo, data: saved.data,
+        clienteId: saved.clienteId, formaPagamento: saved.formaPagamento, status: saved.status,
+        totalValor: saved.totalValor, cliente: saved.cliente ? { nome: saved.cliente.nome } : null,
+      }, ...prev])
       toast.success('Venda registrada!', `Total: ${formatCurrency(total)}`)
 
       // Baixa o estoque na tela imediatamente, sem esperar reload da página.
@@ -346,18 +360,32 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
                 </span>
               )}
             </div>
-            {cart.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button
-                onClick={clearCart}
+                onClick={() => setShowHistorico(true)}
+                title="Reimprimir vendas anteriores"
                 style={{
-                  background: 'none', border: `1px solid ${PINK}`, borderRadius: 7,
-                  color: PINK, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                  padding: '3px 10px', fontFamily: 'inherit',
+                  background: 'none', border: '1px solid #e5e7eb', borderRadius: 7,
+                  color: NAVY, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                  padding: '3px 10px', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
                 }}
               >
-                Limpar
+                <FontAwesomeIcon icon={faClockRotateLeft} style={{ fontSize: 12 }} />
+                Histórico
               </button>
-            )}
+              {cart.length > 0 && (
+                <button
+                  onClick={clearCart}
+                  style={{
+                    background: 'none', border: `1px solid ${PINK}`, borderRadius: 7,
+                    color: PINK, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                    padding: '3px 10px', fontFamily: 'inherit',
+                  }}
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
           </div>
 
         </div>
@@ -833,6 +861,59 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
                     </>
                   )}
                 </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ═══════ HISTÓRICO DE VENDAS (reimpressão) ═══════ */}
+      {showHistorico && (
+        <>
+          <div onClick={() => setShowHistorico(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100 }} />
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1101, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <div style={{ background: 'white', borderRadius: 14, width: '100%', maxWidth: 480, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #f3f4f6' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: `${NAVY}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <FontAwesomeIcon icon={faClockRotateLeft} style={{ fontSize: 14, color: NAVY }} />
+                  </div>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>Histórico de vendas</span>
+                </div>
+                <button
+                  onClick={() => setShowHistorico(false)}
+                  style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: '#6b7280', display: 'flex' }}
+                >
+                  <FontAwesomeIcon icon={faXmark} style={{ fontSize: 14 }} />
+                </button>
+              </div>
+              <div style={{ overflowY: 'auto', flex: 1, padding: '10px 12px' }}>
+                {vendasPdv.length === 0 ? (
+                  <div style={{ padding: '30px 0', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
+                    Nenhuma venda registrada ainda.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {vendasPdv.map(v => (
+                      <div key={v.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: '#f9fafb', borderRadius: 10 }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>#{v.numero} · {v.cliente?.nome ?? 'Cliente avulso'}</div>
+                          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                            {new Date(v.data).toLocaleDateString('pt-BR')} · {formatCurrency(v.totalValor)}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => window.open(`/imprimir/venda-pdv/${v.id}`, '_blank')}
+                          title="Reimprimir comprovante"
+                          style={{ background: NAVY, color: 'white', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+                        >
+                          <FontAwesomeIcon icon={faPrint} style={{ fontSize: 12 }} />
+                          Imprimir
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
