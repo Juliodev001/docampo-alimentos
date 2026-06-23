@@ -21,13 +21,11 @@ function fmtDateTime(d: Date) { return d.toLocaleString('pt-BR', { day: '2-digit
 export default function ImprimirVendaPDV() {
   const { id } = useParams<{ id: string }>()
   const [pedido, setPedido] = useState<Pedido | null>(null)
-  const [usuario, setUsuario] = useState('')
   const printed = useRef(false)
   const [emitidoEm] = useState(() => new Date())
 
   useEffect(() => {
     fetch(`/api/pedidos/${id}`).then(r => r.json()).then(setPedido)
-    fetch('/api/me').then(r => r.ok ? r.json() : null).then(d => setUsuario(d?.name ?? ''))
   }, [id])
 
   useEffect(() => {
@@ -73,8 +71,7 @@ export default function ImprimirVendaPDV() {
           </div>
         </div>
 
-        <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 9 }}>
-          <span>Usuário: {usuario || '—'}</span>
+        <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4, fontSize: 9 }}>
           <span>Emitido em: {fmtDateTime(emitidoEm)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 10 }}>
