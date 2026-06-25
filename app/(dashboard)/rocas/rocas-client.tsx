@@ -8332,25 +8332,27 @@ export default function RocasClient({
                       ✅ Marcar pago
                     </button>
                   )}
-                  <button
-                    onClick={() => {
-                      setFechMenuId(null);
-                      setDeleteFechTarget(f);
-                    }}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "10px 16px",
-                      fontSize: 13,
-                      color: PINK,
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    🗑️ Excluir
-                  </button>
+                  {f.status === "PENDENTE" && (
+                    <button
+                      onClick={() => {
+                        setFechMenuId(null);
+                        setDeleteFechTarget(f);
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "10px 16px",
+                        fontSize: 13,
+                        color: PINK,
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                      }}
+                    >
+                      🗑️ Excluir
+                    </button>
+                  )}
                 </>
               );
             })()}
