@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 const NAVY = '#2d3561'
 
 type Produto = { id: string; nome: string }
-type Parceiro = { id: string; nome: string; percentual: number }
+type Parceiro = { id: string; nome: string; percentual: number; valorEmba: number }
 type Produtor = { nome: string; cpf: string | null; parceiros: Parceiro[] }
 type Colheita = {
   id: string; data: string; produto: Produto
@@ -83,12 +83,12 @@ function ImprimirPagamentoMeeiro() {
   const totalQtd = colheitasMeeiro.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
   const totalFaturaBruto = colheitasMeeiro.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * Number(c.preco), 0)
 
-  // Deduções (combustível, embalagem, vales...) rateadas proporcionalmente ao bruto deste meeiro no total geral
+  // Deduções proporcional ao bruto deste meeiro no total geral (exceto embalagem)
   const fator = totalGeralBruto > 0 ? totalFaturaBruto / totalGeralBruto : 0
-  const dedBandeja = bandejaEmbalagem * fator
   const outrasDeducoes = (combustivel + valesDinheiro + creditos + debitosAnteriores) * fator
   const valorRepasse = totalFaturaBruto * (percMeeiro / 100)
-  const descEmbMeeiro = dedBandeja * (percMeeiro / 100)
+  // Desc. embalagem = caixas do parceiro × valorEmba cadastrado no parceiro
+  const descEmbMeeiro = totalQtd * (meeiro.valorEmba ?? 0)
   const outrasDeducoesMeeiro = outrasDeducoes * (percMeeiro / 100)
   const abatimEmprestimo = 0
   const valorRecebido = valorRepasse - descEmbMeeiro - outrasDeducoesMeeiro - abatimEmprestimo
