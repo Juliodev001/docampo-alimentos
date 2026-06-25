@@ -87,8 +87,8 @@ function ImprimirPagamentoMeeiro() {
   const fator = totalGeralBruto > 0 ? totalFaturaBruto / totalGeralBruto : 0
   const outrasDeducoes = (combustivel + valesDinheiro + creditos + debitosAnteriores) * fator
   const valorRepasse = totalFaturaBruto * (percMeeiro / 100)
-  // Desc. embalagem = caixas do parceiro × valorEmba cadastrado no parceiro
-  const descEmbMeeiro = totalQtd * (meeiro.valorEmba ?? 0)
+  // Desc. embalagem = caixas do parceiro × bandeja do lançamento
+  const descEmbMeeiro = colheitasMeeiro.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * (c.percParceiro / 100) * (c.bandeja ?? 0), 0)
   const outrasDeducoesMeeiro = outrasDeducoes * (percMeeiro / 100)
   const abatimEmprestimo = 0
   const valorRecebido = valorRepasse - descEmbMeeiro - outrasDeducoesMeeiro - abatimEmprestimo
