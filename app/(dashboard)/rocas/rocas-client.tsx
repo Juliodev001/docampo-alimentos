@@ -332,6 +332,7 @@ const emptyMeeiroForm = {
   cpf: "",
   chavePix: "",
   percentual: "40",
+  valorEmba: "0",
   endereco: "",
   telefone: "",
 };
@@ -1299,6 +1300,7 @@ export default function RocasClient({
       cpf: m.cpf ?? "",
       chavePix: m.chavePix ?? "",
       percentual: String(m.percentual),
+      valorEmba: String(m.valorEmba ?? 0),
       endereco: m.endereco ?? "",
       telefone: m.telefone ?? "",
     });
@@ -1325,6 +1327,7 @@ export default function RocasClient({
         cpf: meeiroForm.cpf.trim() || undefined,
         chavePix: meeiroForm.chavePix.trim() || undefined,
         percentual: parseFloat(meeiroForm.percentual) || 0,
+        valorEmba: parseFloat(meeiroForm.valorEmba) || 0,
         endereco: meeiroForm.endereco.trim() || undefined,
         telefone: meeiroForm.telefone.trim() || undefined,
       };
@@ -10668,6 +10671,40 @@ export default function RocasClient({
                           style={inputStyle}
                         />
                       </div>
+                    </div>
+
+                    <div>
+                      <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: NAVY,
+                          marginBottom: 6,
+                        }}
+                      >
+                        <FontAwesomeIcon
+                          icon={faDollarSign}
+                          style={{ fontSize: 14, color: ORANGE }}
+                        />{" "}
+                        Valor embalagem por caixa (R$)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={meeiroForm.valorEmba}
+                        onChange={(e) =>
+                          setMeeiroForm((f) => ({
+                            ...f,
+                            valorEmba: e.target.value,
+                          }))
+                        }
+                        placeholder="1.40"
+                        style={inputStyle}
+                      />
                     </div>
 
                     <div>
