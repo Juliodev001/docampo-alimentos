@@ -28,6 +28,7 @@ type Resumo = {
     totalVendas: number; totalCompras: number; lucro: number
     canais: { nome: string; valor: number }[]
     fornecedores: { nome: string; valor: number }[]
+    topMeeiros: { nome: string; caixas: number }[]
     series: SeriePonto[]
     nVendas: number; nCompras: number; carteiraPendente: number; caixasLavoura: number
   }
@@ -37,7 +38,7 @@ type Resumo = {
 const EMPTY: Resumo = {
   periodo: 'mes',
   range: { inicio: '', fim: '' },
-  atual: { totalVendas: 0, totalCompras: 0, lucro: 0, canais: [], fornecedores: [], series: [], nVendas: 0, nCompras: 0, carteiraPendente: 0, caixasLavoura: 0 },
+  atual: { totalVendas: 0, totalCompras: 0, lucro: 0, canais: [], fornecedores: [], topMeeiros: [], series: [], nVendas: 0, nCompras: 0, carteiraPendente: 0, caixasLavoura: 0 },
   comparacao: { vendas: 0, compras: 0, lucro: 0 },
 }
 
@@ -148,6 +149,7 @@ export default function VisaoGeralClient() {
   )
 
   const topFornecedores = atual.fornecedores.slice(0, 6)
+  const topMeeiros = (atual.topMeeiros ?? []).slice(0, 6)
 
   return (
     <div style={{
@@ -276,22 +278,22 @@ export default function VisaoGeralClient() {
 
           <div style={{ background: '#fbfcfe', border: '1px solid #f0f2f5', borderRadius: 10, padding: '16px 12px' }}>
             <p style={{ fontSize: 13, fontWeight: 600, color: NAVY, margin: '0 0 10px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <FontAwesomeIcon icon={faTags} style={{ fontSize: 12, color: '#9ca3af' }} /> Maiores fornecedores
+              <FontAwesomeIcon icon={faBoxesStacked} style={{ fontSize: 12, color: PURPLE }} /> Maiores parceiros (caixas)
             </p>
-            {topFornecedores.length === 0 ? (
-              <div style={{ height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 13 }}>Sem compras no período</div>
+            {topMeeiros.length === 0 ? (
+              <div style={{ height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 13 }}>Sem lançamentos no período</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {topFornecedores.map((f, i) => {
-                  const max = topFornecedores[0].valor || 1
+                {topMeeiros.map((m, i) => {
+                  const max = topMeeiros[0].caixas || 1
                   return (
                     <div key={i}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
-                        <span style={{ color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>{f.nome}</span>
-                        <span style={{ fontWeight: 600, color: NAVY }}>{formatCurrency(f.valor)}</span>
+                        <span style={{ color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>{m.nome}</span>
+                        <span style={{ fontWeight: 600, color: NAVY }}>{m.caixas.toLocaleString('pt-BR')} cx</span>
                       </div>
                       <div style={{ height: 6, background: '#f0f2f5', borderRadius: 4, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${(f.valor / max) * 100}%`, background: PINK, borderRadius: 4 }} />
+                        <div style={{ height: '100%', width: `${(m.caixas / max) * 100}%`, background: PURPLE, borderRadius: 4 }} />
                       </div>
                     </div>
                   )

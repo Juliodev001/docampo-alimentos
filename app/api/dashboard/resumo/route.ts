@@ -124,6 +124,16 @@ async function somarPeriodo(periodo: Periodo, range: { inicio: Date; fim: Date }
   compras.forEach(c => { fornMap[c.fornecedor.nome] = (fornMap[c.fornecedor.nome] ?? 0) + Number(c.totalValor) })
   const fornecedores = Object.entries(fornMap).map(([nome, valor]) => ({ nome, valor })).sort((a, b) => b.valor - a.valor)
 
+  const meeiroMap: Record<string, number> = {}
+  colheitas.forEach(c => {
+    if (c.parceiro?.nome) {
+      meeiroMap[c.parceiro.nome] = (meeiroMap[c.parceiro.nome] ?? 0) + (c.quantidadeTotal - c.descarte)
+    }
+  })
+  const topMeeiros = Object.entries(meeiroMap)
+    .map(([nome, caixas]) => ({ nome, caixas }))
+    .sort((a, b) => b.caixas - a.caixas)
+
   const carteiraPendente = pdv.filter(p => p.formaPagamento === 'FIADO' && p.status !== 'PAGO' && p.status !== 'CANCELADO').reduce((s, p) => s + Number(p.totalValor), 0)
 
   return {
@@ -134,6 +144,7 @@ async function somarPeriodo(periodo: Periodo, range: { inicio: Date; fim: Date }
       { nome: 'Lavoura', valor: totalLavoura },
     ],
     fornecedores,
+    topMeeiros,
     series,
     nVendas: nfes.length + pdv.length,
     nCompras: compras.length + colheitas.length,
