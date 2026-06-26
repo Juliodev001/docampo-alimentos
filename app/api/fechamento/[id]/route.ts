@@ -37,6 +37,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     where: { id },
     data: {
       ...(body.status && { status: body.status }),
+      ...(body.dataInicio && { dataInicio: new Date(body.dataInicio) }),
+      ...(body.dataFim && { dataFim: new Date(body.dataFim) }),
       ...(body.dataPagamento && { dataPagamento: new Date(body.dataPagamento) }),
       ...(body.combustivel !== undefined && { combustivel: body.combustivel }),
       ...(body.bandejaEmbalagem !== undefined && { bandejaEmbalagem: body.bandejaEmbalagem }),

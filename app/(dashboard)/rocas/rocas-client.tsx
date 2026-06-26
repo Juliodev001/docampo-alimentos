@@ -851,6 +851,10 @@ export default function RocasClient({
   const [searchFech, setSearchFech] = useState("");
   const [fechMenuId, setFechMenuId] = useState<string | null>(null);
   const [fechMenuPos, setFechMenuPos] = useState({ top: 0, right: 0 });
+  const [editFechTarget, setEditFechTarget] = useState<FechamentoRecord | null>(null);
+  const [editFechForm, setEditFechForm] = useState({ dataInicio: '', dataFim: '', dataPagamento: '', combustivel: '0', bandejaEmbalagem: '0', valesDinheiro: '0', creditos: '0', debitosAnteriores: '0' });
+  const [savingEditFech, setSavingEditFech] = useState(false);
+  const [editFechError, setEditFechError] = useState('');
 
   // Auto-refresh: só quando o usuário volta para esta aba do navegador
   useEffect(() => {
@@ -8223,6 +8227,37 @@ export default function RocasClient({
                   <button
                     onClick={() => {
                       setFechMenuId(null);
+                      setEditFechError('');
+                      setEditFechForm({
+                        dataInicio: f.dataInicio.slice(0, 10),
+                        dataFim: f.dataFim.slice(0, 10),
+                        dataPagamento: f.dataPagamento.slice(0, 10),
+                        combustivel: String(f.combustivel),
+                        bandejaEmbalagem: String(f.bandejaEmbalagem),
+                        valesDinheiro: String(f.valesDinheiro),
+                        creditos: String(f.creditos),
+                        debitosAnteriores: String(f.debitosAnteriores),
+                      });
+                      setEditFechTarget(f);
+                    }}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "10px 16px",
+                      fontSize: 13,
+                      color: "#374151",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      borderBottom: "1px solid #f3f4f6",
+                    }}
+                  >
+                    ✏️ Editar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setFechMenuId(null);
                       window.open(`/imprimir/pagamento/${f.id}`, "_blank");
                     }}
                     style={{
@@ -8359,6 +8394,99 @@ export default function RocasClient({
                 </>
               );
             })()}
+          </div>
+        </>
+      )}
+
+      {/* MODAL EDITAR FECHAMENTO */}
+      {editFechTarget && (
+        <>
+          <div onClick={() => setEditFechTarget(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 60 }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 14, padding: 28, zIndex: 70, width: '100%', maxWidth: 460, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, color: NAVY, margin: 0 }}>Editar Fechamento</h2>
+              <button onClick={() => setEditFechTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 18 }}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <FormField label="Data início *">
+                <input type="date" style={inputStyle} value={editFechForm.dataInicio} onChange={e => setEditFechForm(f => ({ ...f, dataInicio: e.target.value }))} />
+              </FormField>
+              <FormField label="Data fim *">
+                <input type="date" style={inputStyle} value={editFechForm.dataFim} onChange={e => setEditFechForm(f => ({ ...f, dataFim: e.target.value }))} />
+              </FormField>
+              <FormField label="Data de pagamento *">
+                <input type="date" style={inputStyle} value={editFechForm.dataPagamento} onChange={e => setEditFechForm(f => ({ ...f, dataPagamento: e.target.value }))} />
+              </FormField>
+              <FormField label="Combustível (R$)">
+                <input type="number" min="0" step="0.01" style={inputStyle} value={editFechForm.combustivel} onChange={e => setEditFechForm(f => ({ ...f, combustivel: e.target.value }))} />
+              </FormField>
+              <FormField label="Bandeja / Embalagem (R$)">
+                <input type="number" min="0" step="0.01" style={inputStyle} value={editFechForm.bandejaEmbalagem} onChange={e => setEditFechForm(f => ({ ...f, bandejaEmbalagem: e.target.value }))} />
+              </FormField>
+              <FormField label="Vales em dinheiro (R$)">
+                <input type="number" min="0" step="0.01" style={inputStyle} value={editFechForm.valesDinheiro} onChange={e => setEditFechForm(f => ({ ...f, valesDinheiro: e.target.value }))} />
+              </FormField>
+              <FormField label="Créditos (R$)">
+                <input type="number" min="0" step="0.01" style={inputStyle} value={editFechForm.creditos} onChange={e => setEditFechForm(f => ({ ...f, creditos: e.target.value }))} />
+              </FormField>
+              <FormField label="Débitos anteriores (R$)">
+                <input type="number" min="0" step="0.01" style={inputStyle} value={editFechForm.debitosAnteriores} onChange={e => setEditFechForm(f => ({ ...f, debitosAnteriores: e.target.value }))} />
+              </FormField>
+              {editFechError && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{editFechError}</p>}
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+                <button onClick={() => setEditFechTarget(null)} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#f3f4f6', color: '#374151', fontSize: 14, cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+                <button
+                  disabled={savingEditFech}
+                  onClick={async () => {
+                    if (!editFechForm.dataInicio || !editFechForm.dataFim || !editFechForm.dataPagamento) {
+                      setEditFechError('Preencha as datas obrigatórias.');
+                      return;
+                    }
+                    setSavingEditFech(true);
+                    setEditFechError('');
+                    try {
+                      const res = await fetch(`/api/fechamento/${editFechTarget.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          dataInicio: editFechForm.dataInicio,
+                          dataFim: editFechForm.dataFim,
+                          dataPagamento: editFechForm.dataPagamento,
+                          combustivel: parseFloat(editFechForm.combustivel) || 0,
+                          bandejaEmbalagem: parseFloat(editFechForm.bandejaEmbalagem) || 0,
+                          valesDinheiro: parseFloat(editFechForm.valesDinheiro) || 0,
+                          creditos: parseFloat(editFechForm.creditos) || 0,
+                          debitosAnteriores: parseFloat(editFechForm.debitosAnteriores) || 0,
+                        }),
+                      });
+                      if (!res.ok) throw new Error('Erro ao salvar');
+                      const saved = await res.json();
+                      setFechamentosState(prev => prev.map(f => f.id === saved.id ? {
+                        ...f,
+                        dataInicio: saved.dataInicio,
+                        dataFim: saved.dataFim,
+                        dataPagamento: saved.dataPagamento,
+                        combustivel: Number(saved.combustivel),
+                        bandejaEmbalagem: Number(saved.bandejaEmbalagem),
+                        valesDinheiro: Number(saved.valesDinheiro),
+                        creditos: Number(saved.creditos),
+                        debitosAnteriores: Number(saved.debitosAnteriores),
+                      } : f));
+                      setEditFechTarget(null);
+                    } catch {
+                      setEditFechError('Erro ao salvar. Tente novamente.');
+                    } finally {
+                      setSavingEditFech(false);
+                    }
+                  }}
+                  style={{ padding: '8px 22px', borderRadius: 8, border: 'none', background: NAVY, color: '#fff', fontSize: 14, fontWeight: 600, cursor: savingEditFech ? 'wait' : 'pointer', opacity: savingEditFech ? 0.7 : 1 }}
+                >
+                  {savingEditFech ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </div>
           </div>
         </>
       )}
