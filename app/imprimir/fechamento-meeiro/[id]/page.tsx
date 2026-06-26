@@ -40,7 +40,18 @@ export default function ImprimirFechamentoMeeiro() {
 
   async function captureImage(): Promise<Blob> {
     const html2canvas = (await import('html2canvas-pro')).default
-    const canvas = await html2canvas(contentRef.current!, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
+    const el = contentRef.current!
+    const canvas = await html2canvas(el, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      width: el.scrollWidth,
+      height: el.scrollHeight,
+      windowWidth: el.scrollWidth,
+      windowHeight: el.scrollHeight,
+      scrollX: 0,
+      scrollY: 0,
+    })
     return new Promise(resolve => canvas.toBlob(blob => resolve(blob!), 'image/jpeg', 0.95))
   }
 
