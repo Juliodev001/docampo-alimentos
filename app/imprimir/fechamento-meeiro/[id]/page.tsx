@@ -34,7 +34,42 @@ export default function ImprimirFechamentoMeeiro() {
   const [fechamento, setFechamento] = useState<Fechamento | null>(null)
   const [valesAbertos, setValesAbertos] = useState(0)
   const printed = useRef(false)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [capturing, setCapturing] = useState(false)
   const [emitidoEm] = useState(() => new Date())
+
+  async function captureImage(): Promise<Blob> {
+    const html2canvas = (await import('html2canvas-pro')).default
+    const canvas = await html2canvas(contentRef.current!, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
+    return new Promise(resolve => canvas.toBlob(blob => resolve(blob!), 'image/jpeg', 0.95))
+  }
+
+  async function handleSaveJpeg() {
+    setCapturing(true)
+    try {
+      const blob = await captureImage()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `recibo-meeiro-${fechamento?.parceiro.nome ?? 'parceiro'}.jpg`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally { setCapturing(false) }
+  }
+
+  async function handleWhatsApp() {
+    setCapturing(true)
+    try {
+      const blob = await captureImage()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `recibo-meeiro-${fechamento?.parceiro.nome ?? 'parceiro'}.jpg`
+      a.click()
+      URL.revokeObjectURL(url)
+      window.open('https://web.whatsapp.com/', '_blank')
+    } finally { setCapturing(false) }
+  }
 
   useEffect(() => {
     fetch(`/api/fechamento-meeiro/${id}`).then(r => r.json()).then(setFechamento)
@@ -224,22 +259,30 @@ export default function ImprimirFechamentoMeeiro() {
 
       <div style={{ maxWidth: 700, margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
 
-        <div className="no-print" style={{ margin: '10px 0', display: 'flex', gap: 8 }}>
+        <div className="no-print" style={{ margin: '10px 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => window.print()} style={{ padding: '7px 18px', background: NAVY, color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             🖨️ Imprimir / PDF
+          </button>
+          <button onClick={handleSaveJpeg} disabled={capturing} style={{ padding: '7px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: capturing ? 'wait' : 'pointer', opacity: capturing ? 0.7 : 1 }}>
+            {capturing ? 'Gerando...' : '📷 Salvar como imagem'}
+          </button>
+          <button onClick={handleWhatsApp} disabled={capturing} style={{ padding: '7px 14px', background: '#25d366', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: capturing ? 'wait' : 'pointer', opacity: capturing ? 0.7 : 1 }}>
+            {capturing ? 'Gerando...' : '💬 Enviar WhatsApp'}
           </button>
           <button onClick={() => window.close()} style={{ padding: '7px 14px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
             Fechar
           </button>
         </div>
 
-        {renderVia('VIA DO PARCEIRO', 'Assinatura do Parceiro')}
+        <div ref={contentRef}>
+          {renderVia('VIA DO PARCEIRO', 'Assinatura do Parceiro')}
 
-        <div style={{ borderTop: '1px dashed #999', textAlign: 'center', margin: '4px 0' }}>
-          <span style={{ position: 'relative', top: -8, background: '#fff', padding: '0 8px', fontSize: 12, color: '#999' }}>✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ✂</span>
+          <div style={{ borderTop: '1px dashed #999', textAlign: 'center', margin: '4px 0' }}>
+            <span style={{ position: 'relative', top: -8, background: '#fff', padding: '0 8px', fontSize: 12, color: '#999' }}>✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ✂</span>
+          </div>
+
+          {renderVia('VIA DA EMPRESA', 'Assinatura do Parceiro')}
         </div>
-
-        {renderVia('VIA DA EMPRESA', 'Assinatura do Parceiro')}
 
       </div>
     </>
