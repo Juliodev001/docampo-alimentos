@@ -254,6 +254,8 @@ model FechamentoPagamento {
   dataInicio        DateTime
   dataFim           DateTime
   dataPagamento     DateTime
+  valorBruto        Decimal? @db.Decimal(12, 4)
+  valorPago         Decimal? @db.Decimal(12, 4)
   combustivel       Decimal  @default(0) @db.Decimal(12, 4)
   bandejaEmbalagem  Decimal  @default(0) @db.Decimal(12, 4)
   valesDinheiro     Decimal  @default(0) @db.Decimal(12, 4)

@@ -22,7 +22,35 @@ export default function ImprimirVendaPDV() {
   const { id } = useParams<{ id: string }>()
   const [pedido, setPedido] = useState<Pedido | null>(null)
   const printed = useRef(false)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [capturing, setCapturing] = useState(false)
   const [emitidoEm] = useState(() => new Date())
+
+  async function captureImage(): Promise<Blob> {
+    const html2canvas = (await import('html2canvas-pro')).default
+    const el = contentRef.current!
+    const canvas = await html2canvas(el, {
+      scale: 2, backgroundColor: '#ffffff', useCORS: true,
+      width: el.scrollWidth, height: el.scrollHeight,
+      windowWidth: el.scrollWidth, windowHeight: el.scrollHeight,
+      scrollX: 0, scrollY: 0,
+    })
+    return new Promise(resolve => canvas.toBlob(blob => resolve(blob!), 'image/jpeg', 0.95))
+  }
+
+  async function handleWhatsApp() {
+    setCapturing(true)
+    try {
+      const blob = await captureImage()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `comprovante-venda-${pedido?.cliente?.nome ?? 'cliente'}.jpg`
+      a.click()
+      URL.revokeObjectURL(url)
+      window.open('whatsapp://', '_blank')
+    } finally { setCapturing(false) }
+  }
 
   useEffect(() => {
     fetch(`/api/pedidos/${id}`).then(r => r.json()).then(setPedido)
@@ -168,16 +196,21 @@ export default function ImprimirVendaPDV() {
       <div style={{ maxWidth: 700, margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
 
         {/* Botões — só na tela */}
-        <div className="no-print" style={{ margin: '10px 0', display: 'flex', gap: 8 }}>
+        <div className="no-print" style={{ margin: '10px 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => window.print()} style={{ padding: '7px 18px', background: '#2d3561', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             🖨️ Imprimir / PDF
+          </button>
+          <button onClick={handleWhatsApp} disabled={capturing} style={{ padding: '7px 14px', background: '#25d366', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: capturing ? 'wait' : 'pointer', opacity: capturing ? 0.7 : 1 }}>
+            {capturing ? 'Gerando...' : '💬 Enviar WhatsApp'}
           </button>
           <button onClick={() => window.close()} style={{ padding: '7px 14px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
             Fechar
           </button>
         </div>
 
-        {renderVia('VIA DO CLIENTE', 'Assinatura do Cliente')}
+        <div ref={contentRef}>
+          {renderVia('VIA DO CLIENTE', 'Assinatura do Cliente')}
+        </div>
 
         <div style={{ borderTop: '1px dashed #999', textAlign: 'center', margin: '4px 0' }}>
           <span style={{ position: 'relative', top: -8, background: '#fff', padding: '0 8px', fontSize: 12, color: '#999' }}>✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ✂</span>

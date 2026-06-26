@@ -40,6 +40,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(body.dataInicio && { dataInicio: new Date(body.dataInicio) }),
       ...(body.dataFim && { dataFim: new Date(body.dataFim) }),
       ...(body.dataPagamento && { dataPagamento: new Date(body.dataPagamento) }),
+      ...(body.valorBruto !== undefined && { valorBruto: body.valorBruto !== '' ? body.valorBruto : null }),
+      ...(body.valorPago !== undefined && { valorPago: body.valorPago !== '' ? body.valorPago : null }),
       ...(body.combustivel !== undefined && { combustivel: body.combustivel }),
       ...(body.bandejaEmbalagem !== undefined && { bandejaEmbalagem: body.bandejaEmbalagem }),
       ...(body.valesDinheiro !== undefined && { valesDinheiro: body.valesDinheiro }),

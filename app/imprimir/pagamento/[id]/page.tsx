@@ -34,7 +34,35 @@ export default function ImprimirPagamento() {
   const [usuario, setUsuario] = useState('')
   const [valesAbertos, setValesAbertos] = useState(0)
   const printed = useRef(false)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [capturing, setCapturing] = useState(false)
   const [emitidoEm] = useState(() => new Date())
+
+  async function captureImage(): Promise<Blob> {
+    const html2canvas = (await import('html2canvas-pro')).default
+    const el = contentRef.current!
+    const canvas = await html2canvas(el, {
+      scale: 2, backgroundColor: '#ffffff', useCORS: true,
+      width: el.scrollWidth, height: el.scrollHeight,
+      windowWidth: el.scrollWidth, windowHeight: el.scrollHeight,
+      scrollX: 0, scrollY: 0,
+    })
+    return new Promise(resolve => canvas.toBlob(blob => resolve(blob!), 'image/jpeg', 0.95))
+  }
+
+  async function handleWhatsApp() {
+    setCapturing(true)
+    try {
+      const blob = await captureImage()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `recibo-produtor-${fechamento?.produtor.nome ?? 'produtor'}.jpg`
+      a.click()
+      URL.revokeObjectURL(url)
+      window.open('whatsapp://', '_blank')
+    } finally { setCapturing(false) }
+  }
 
   useEffect(() => {
     fetch(`/api/fechamento/${id}`).then(r => r.json()).then(setFechamento)
@@ -98,20 +126,25 @@ export default function ImprimirPagamento() {
         }
       `}</style>
 
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '10px 0', fontFamily: 'Arial, sans-serif', fontSize: 10, position: 'relative' }}>
+      <div style={{ maxWidth: 480, margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
 
-        {/* Marca d'água */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo01.png" alt="" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 320, opacity: 0.3, zIndex: -1, pointerEvents: 'none', filter: 'grayscale(100%)' }} />
-
-        <div className="no-print" style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+        <div className="no-print" style={{ margin: '10px 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => window.print()} style={{ padding: '8px 20px', background: NAVY, color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             🖨️ Imprimir / PDF
+          </button>
+          <button onClick={handleWhatsApp} disabled={capturing} style={{ padding: '8px 14px', background: '#25d366', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: capturing ? 'wait' : 'pointer', opacity: capturing ? 0.7 : 1 }}>
+            {capturing ? 'Gerando...' : '💬 Enviar WhatsApp'}
           </button>
           <button onClick={() => window.close()} style={{ padding: '8px 16px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
             Fechar
           </button>
         </div>
+
+        <div ref={contentRef} style={{ padding: '10px 0', fontSize: 10, position: 'relative' }}>
+
+        {/* Marca d'água */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo01.png" alt="" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 320, opacity: 0.3, zIndex: -1, pointerEvents: 'none', filter: 'grayscale(100%)' }} />
 
         <div style={{ textAlign: 'center', marginBottom: 14 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -249,6 +282,7 @@ export default function ImprimirPagamento() {
           </div>
         )}
 
+        </div>{/* end contentRef */}
       </div>
     </>
   )

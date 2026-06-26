@@ -553,6 +553,8 @@ type FechamentoRecord = {
   dataInicio: string;
   dataFim: string;
   dataPagamento: string;
+  valorBruto?: number | null;
+  valorPago?: number | null;
   combustivel: number;
   bandejaEmbalagem: number;
   valesDinheiro: number;
@@ -560,6 +562,16 @@ type FechamentoRecord = {
   debitosAnteriores: number;
   status: string;
   createdAt: string;
+};
+
+type ColheitaEditRow = {
+  id: string;
+  data: string;
+  produtoId: string;
+  produtoNome: string;
+  quantidadeTotal: number;
+  preco: number;
+  percParceiro: number;
 };
 
 type LancamentoCustoRecord = {
@@ -852,9 +864,18 @@ export default function RocasClient({
   const [fechMenuId, setFechMenuId] = useState<string | null>(null);
   const [fechMenuPos, setFechMenuPos] = useState({ top: 0, right: 0 });
   const [editFechTarget, setEditFechTarget] = useState<FechamentoRecord | null>(null);
-  const [editFechForm, setEditFechForm] = useState({ dataInicio: '', dataFim: '', dataPagamento: '', combustivel: '0', bandejaEmbalagem: '0', valesDinheiro: '0', creditos: '0', debitosAnteriores: '0' });
+  const [editFechForm, setEditFechForm] = useState({ dataInicio: '', dataFim: '', dataPagamento: '', valorBruto: '', valorPago: '', combustivel: '0', bandejaEmbalagem: '0', valesDinheiro: '0', creditos: '0', debitosAnteriores: '0' });
+  const [editFechColheitas, setEditFechColheitas] = useState<ColheitaEditRow[]>([]);
+  const [editFechValesAbertos, setEditFechValesAbertos] = useState(0);
   const [savingEditFech, setSavingEditFech] = useState(false);
   const [editFechError, setEditFechError] = useState('');
+
+  const [editFechMeeiroTarget, setEditFechMeeiroTarget] = useState<FechamentoMeeiroRecord | null>(null);
+  const [editFechMeeiroForm, setEditFechMeeiroForm] = useState({ dataInicio: '', dataFim: '', dataPagamento: '', valorBruto: '0', valorPago: '0', combustivel: '0', bandejaEmbalagem: '0', valesDinheiro: '0', creditos: '0', debitosAnteriores: '0', valesDeduzidos: '0' });
+  const [editFechMeeiroColheitas, setEditFechMeeiroColheitas] = useState<ColheitaEditRow[]>([]);
+  const [editFechMeeiroValesAbertos, setEditFechMeeiroValesAbertos] = useState(0);
+  const [savingEditFechMeeiro, setSavingEditFechMeeiro] = useState(false);
+  const [editFechMeeiroError, setEditFechMeeiroError] = useState('');
 
   // Auto-refresh: só quando o usuário volta para esta aba do navegador
   useEffect(() => {
@@ -8225,20 +8246,41 @@ export default function RocasClient({
               return (
                 <>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       setFechMenuId(null);
                       setEditFechError('');
                       setEditFechForm({
                         dataInicio: f.dataInicio.slice(0, 10),
                         dataFim: f.dataFim.slice(0, 10),
                         dataPagamento: f.dataPagamento.slice(0, 10),
+                        valorBruto: f.valorBruto != null ? String(f.valorBruto) : '',
+                        valorPago: f.valorPago != null ? String(f.valorPago) : '',
                         combustivel: String(f.combustivel),
                         bandejaEmbalagem: String(f.bandejaEmbalagem),
                         valesDinheiro: String(f.valesDinheiro),
                         creditos: String(f.creditos),
                         debitosAnteriores: String(f.debitosAnteriores),
                       });
+                      setEditFechColheitas([]);
+                      setEditFechValesAbertos(0);
                       setEditFechTarget(f);
+                      try {
+                        const res = await fetch(`/api/fechamento/${f.id}`);
+                        if (res.ok) {
+                          const data = await res.json();
+                          setEditFechColheitas((data.colheitas ?? []).map((c: { id: string; data: string; produtoId: string; produto: { nome: string }; quantidadeTotal: number; preco: number; percParceiro: number }) => ({
+                            id: c.id,
+                            data: c.data.slice(0, 10),
+                            produtoId: c.produtoId,
+                            produtoNome: c.produto?.nome ?? '',
+                            quantidadeTotal: c.quantidadeTotal,
+                            preco: Number(c.preco),
+                            percParceiro: c.percParceiro,
+                          })));
+                          const valesAbertos = (data.vales ?? []).filter((v: { status: string }) => v.status === 'ABERTO').reduce((s: number, v: { valor: number }) => s + Number(v.valor), 0);
+                          setEditFechValesAbertos(valesAbertos);
+                        }
+                      } catch { /* ignore */ }
                     }}
                     style={{
                       display: "block",
@@ -8398,40 +8440,102 @@ export default function RocasClient({
         </>
       )}
 
-      {/* MODAL EDITAR FECHAMENTO */}
+      {/* MODAL EDITAR FECHAMENTO (PRODUTOR) */}
       {editFechTarget && (
         <>
           <div onClick={() => setEditFechTarget(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 60 }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 14, padding: 28, zIndex: 70, width: '100%', maxWidth: 460, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 14, padding: 28, zIndex: 70, width: '95%', maxWidth: 700, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', maxHeight: '92vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h2 style={{ fontSize: 17, fontWeight: 700, color: NAVY, margin: 0 }}>Editar Fechamento</h2>
+              <h2 style={{ fontSize: 17, fontWeight: 700, color: NAVY, margin: 0 }}>Editar Fechamento — {editFechTarget.produtorNome}</h2>
               <button onClick={() => setEditFechTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 18 }}>✕</button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <FormField label="Data início *">
-                <input type="date" style={inputStyle} value={editFechForm.dataInicio} onChange={e => setEditFechForm(f => ({ ...f, dataInicio: e.target.value }))} />
-              </FormField>
-              <FormField label="Data fim *">
-                <input type="date" style={inputStyle} value={editFechForm.dataFim} onChange={e => setEditFechForm(f => ({ ...f, dataFim: e.target.value }))} />
-              </FormField>
-              <FormField label="Data de pagamento *">
-                <input type="date" style={inputStyle} value={editFechForm.dataPagamento} onChange={e => setEditFechForm(f => ({ ...f, dataPagamento: e.target.value }))} />
-              </FormField>
-              <FormField label="Combustível (R$)">
-                <input type="number" min="0" step="0.01" style={inputStyle} value={editFechForm.combustivel} onChange={e => setEditFechForm(f => ({ ...f, combustivel: e.target.value }))} />
-              </FormField>
-              <FormField label="Bandeja / Embalagem (R$)">
-                <input type="number" min="0" step="0.01" style={inputStyle} value={editFechForm.bandejaEmbalagem} onChange={e => setEditFechForm(f => ({ ...f, bandejaEmbalagem: e.target.value }))} />
-              </FormField>
-              <FormField label="Vales em dinheiro (R$)">
-                <input type="number" min="0" step="0.01" style={inputStyle} value={editFechForm.valesDinheiro} onChange={e => setEditFechForm(f => ({ ...f, valesDinheiro: e.target.value }))} />
-              </FormField>
-              <FormField label="Créditos (R$)">
-                <input type="number" min="0" step="0.01" style={inputStyle} value={editFechForm.creditos} onChange={e => setEditFechForm(f => ({ ...f, creditos: e.target.value }))} />
-              </FormField>
-              <FormField label="Débitos anteriores (R$)">
-                <input type="number" min="0" step="0.01" style={inputStyle} value={editFechForm.debitosAnteriores} onChange={e => setEditFechForm(f => ({ ...f, debitosAnteriores: e.target.value }))} />
-              </FormField>
+
+              {/* Datas */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                <FormField label="Data início *">
+                  <input type="date" style={inputStyle} value={editFechForm.dataInicio} onChange={e => setEditFechForm(f => ({ ...f, dataInicio: e.target.value }))} />
+                </FormField>
+                <FormField label="Data fim *">
+                  <input type="date" style={inputStyle} value={editFechForm.dataFim} onChange={e => setEditFechForm(f => ({ ...f, dataFim: e.target.value }))} />
+                </FormField>
+                <FormField label="Data pagamento *">
+                  <input type="date" style={inputStyle} value={editFechForm.dataPagamento} onChange={e => setEditFechForm(f => ({ ...f, dataPagamento: e.target.value }))} />
+                </FormField>
+              </div>
+
+              {/* Colheitas */}
+              {editFechColheitas.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 8 }}>Lançamentos</div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ background: NAVY, color: '#fff' }}>
+                          <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600 }}>Data</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600 }}>Produto</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600 }}>Qtd.</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600 }}>Preço</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {editFechColheitas.map((c, i) => (
+                          <tr key={c.id} style={{ background: i % 2 === 0 ? '#f9fafb' : '#fff' }}>
+                            <td style={{ padding: '4px 6px' }}>
+                              <input type="date" value={c.data} onChange={e => setEditFechColheitas(prev => prev.map((x, j) => j === i ? { ...x, data: e.target.value } : x))} style={{ ...inputStyle, padding: '3px 6px', fontSize: 12, width: 130 }} />
+                            </td>
+                            <td style={{ padding: '4px 6px' }}>
+                              <select value={c.produtoId} onChange={e => { const p = produtosState.find(x => x.id === e.target.value); setEditFechColheitas(prev => prev.map((x, j) => j === i ? { ...x, produtoId: e.target.value, produtoNome: p?.nome ?? x.produtoNome } : x)); }} style={{ ...inputStyle, padding: '3px 6px', fontSize: 12, minWidth: 120 }}>
+                                {produtosState.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                              </select>
+                            </td>
+                            <td style={{ padding: '4px 6px' }}>
+                              <input type="number" min="0" step="1" value={c.quantidadeTotal} onChange={e => setEditFechColheitas(prev => prev.map((x, j) => j === i ? { ...x, quantidadeTotal: parseFloat(e.target.value) || 0 } : x))} style={{ ...inputStyle, padding: '3px 6px', fontSize: 12, width: 70, textAlign: 'right' }} />
+                            </td>
+                            <td style={{ padding: '4px 6px' }}>
+                              <input type="number" min="0" step="0.01" value={c.preco} onChange={e => setEditFechColheitas(prev => prev.map((x, j) => j === i ? { ...x, preco: parseFloat(e.target.value) || 0 } : x))} style={{ ...inputStyle, padding: '3px 6px', fontSize: 12, width: 80, textAlign: 'right' }} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Totais */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                <FormField label="Valor Repasse (R$)">
+                  <input type="number" min="0" step="0.01" placeholder="Calculado" style={inputStyle} value={editFechForm.valorBruto} onChange={e => setEditFechForm(f => ({ ...f, valorBruto: e.target.value }))} />
+                </FormField>
+                <FormField label="Empr. em aberto (R$)">
+                  <input type="number" readOnly style={{ ...inputStyle, background: '#f9fafb', color: '#6b7280', cursor: 'not-allowed' }} value={editFechValesAbertos.toFixed(2)} />
+                </FormField>
+                <FormField label="Valor Recebido (R$)">
+                  <input type="number" min="0" step="0.01" placeholder="Calculado" style={inputStyle} value={editFechForm.valorPago} onChange={e => setEditFechForm(f => ({ ...f, valorPago: e.target.value }))} />
+                </FormField>
+              </div>
+
+              {/* Deduções */}
+              <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginTop: 4, marginBottom: -4 }}>Deduções</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <FormField label="Combustível (R$)">
+                  <input type="number" min="0" step="0.01" style={inputStyle} value={editFechForm.combustivel} onChange={e => setEditFechForm(f => ({ ...f, combustivel: e.target.value }))} />
+                </FormField>
+                <FormField label="Bandeja / Embalagem (R$)">
+                  <input type="number" min="0" step="0.01" style={inputStyle} value={editFechForm.bandejaEmbalagem} onChange={e => setEditFechForm(f => ({ ...f, bandejaEmbalagem: e.target.value }))} />
+                </FormField>
+                <FormField label="Vales em dinheiro (R$)">
+                  <input type="number" min="0" step="0.01" style={inputStyle} value={editFechForm.valesDinheiro} onChange={e => setEditFechForm(f => ({ ...f, valesDinheiro: e.target.value }))} />
+                </FormField>
+                <FormField label="Créditos (R$)">
+                  <input type="number" min="0" step="0.01" style={inputStyle} value={editFechForm.creditos} onChange={e => setEditFechForm(f => ({ ...f, creditos: e.target.value }))} />
+                </FormField>
+                <FormField label="Débitos anteriores (R$)">
+                  <input type="number" min="0" step="0.01" style={inputStyle} value={editFechForm.debitosAnteriores} onChange={e => setEditFechForm(f => ({ ...f, debitosAnteriores: e.target.value }))} />
+                </FormField>
+              </div>
+
               {editFechError && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{editFechError}</p>}
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
                 <button onClick={() => setEditFechTarget(null)} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#f3f4f6', color: '#374151', fontSize: 14, cursor: 'pointer' }}>
@@ -8447,6 +8551,13 @@ export default function RocasClient({
                     setSavingEditFech(true);
                     setEditFechError('');
                     try {
+                      await Promise.all(editFechColheitas.map(c =>
+                        fetch(`/api/colheita/${c.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ data: c.data, produtoId: c.produtoId, quantidadeTotal: c.quantidadeTotal, preco: c.preco }),
+                        })
+                      ));
                       const res = await fetch(`/api/fechamento/${editFechTarget.id}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
@@ -8454,6 +8565,8 @@ export default function RocasClient({
                           dataInicio: editFechForm.dataInicio,
                           dataFim: editFechForm.dataFim,
                           dataPagamento: editFechForm.dataPagamento,
+                          valorBruto: editFechForm.valorBruto !== '' ? parseFloat(editFechForm.valorBruto) : null,
+                          valorPago: editFechForm.valorPago !== '' ? parseFloat(editFechForm.valorPago) : null,
                           combustivel: parseFloat(editFechForm.combustivel) || 0,
                           bandejaEmbalagem: parseFloat(editFechForm.bandejaEmbalagem) || 0,
                           valesDinheiro: parseFloat(editFechForm.valesDinheiro) || 0,
@@ -8468,6 +8581,8 @@ export default function RocasClient({
                         dataInicio: saved.dataInicio,
                         dataFim: saved.dataFim,
                         dataPagamento: saved.dataPagamento,
+                        valorBruto: saved.valorBruto != null ? Number(saved.valorBruto) : null,
+                        valorPago: saved.valorPago != null ? Number(saved.valorPago) : null,
                         combustivel: Number(saved.combustivel),
                         bandejaEmbalagem: Number(saved.bandejaEmbalagem),
                         valesDinheiro: Number(saved.valesDinheiro),
@@ -8484,6 +8599,177 @@ export default function RocasClient({
                   style={{ padding: '8px 22px', borderRadius: 8, border: 'none', background: NAVY, color: '#fff', fontSize: 14, fontWeight: 600, cursor: savingEditFech ? 'wait' : 'pointer', opacity: savingEditFech ? 0.7 : 1 }}
                 >
                   {savingEditFech ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* MODAL EDITAR FECHAMENTO MEEIRO */}
+      {editFechMeeiroTarget && (
+        <>
+          <div onClick={() => setEditFechMeeiroTarget(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 60 }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 14, padding: 28, zIndex: 70, width: '95%', maxWidth: 700, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', maxHeight: '92vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, color: NAVY, margin: 0 }}>Editar Fechamento Meeiro</h2>
+              <button onClick={() => setEditFechMeeiroTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 18 }}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* Datas */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                <FormField label="Data início *">
+                  <input type="date" style={inputStyle} value={editFechMeeiroForm.dataInicio} onChange={e => setEditFechMeeiroForm(f => ({ ...f, dataInicio: e.target.value }))} />
+                </FormField>
+                <FormField label="Data fim *">
+                  <input type="date" style={inputStyle} value={editFechMeeiroForm.dataFim} onChange={e => setEditFechMeeiroForm(f => ({ ...f, dataFim: e.target.value }))} />
+                </FormField>
+                <FormField label="Data pagamento *">
+                  <input type="date" style={inputStyle} value={editFechMeeiroForm.dataPagamento} onChange={e => setEditFechMeeiroForm(f => ({ ...f, dataPagamento: e.target.value }))} />
+                </FormField>
+              </div>
+
+              {/* Colheitas */}
+              {editFechMeeiroColheitas.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 8 }}>Lançamentos</div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ background: NAVY, color: '#fff' }}>
+                          <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600 }}>Data</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600 }}>Produto</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600 }}>Qtd.</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600 }}>Preço</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {editFechMeeiroColheitas.map((c, i) => (
+                          <tr key={c.id} style={{ background: i % 2 === 0 ? '#f9fafb' : '#fff' }}>
+                            <td style={{ padding: '4px 6px' }}>
+                              <input type="date" value={c.data} onChange={e => setEditFechMeeiroColheitas(prev => prev.map((x, j) => j === i ? { ...x, data: e.target.value } : x))} style={{ ...inputStyle, padding: '3px 6px', fontSize: 12, width: 130 }} />
+                            </td>
+                            <td style={{ padding: '4px 6px' }}>
+                              <select value={c.produtoId} onChange={e => { const p = produtosState.find(x => x.id === e.target.value); setEditFechMeeiroColheitas(prev => prev.map((x, j) => j === i ? { ...x, produtoId: e.target.value, produtoNome: p?.nome ?? x.produtoNome } : x)); }} style={{ ...inputStyle, padding: '3px 6px', fontSize: 12, minWidth: 120 }}>
+                                {produtosState.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                              </select>
+                            </td>
+                            <td style={{ padding: '4px 6px' }}>
+                              <input type="number" min="0" step="1" value={c.quantidadeTotal} onChange={e => setEditFechMeeiroColheitas(prev => prev.map((x, j) => j === i ? { ...x, quantidadeTotal: parseFloat(e.target.value) || 0 } : x))} style={{ ...inputStyle, padding: '3px 6px', fontSize: 12, width: 70, textAlign: 'right' }} />
+                            </td>
+                            <td style={{ padding: '4px 6px' }}>
+                              <input type="number" min="0" step="0.01" value={c.preco} onChange={e => setEditFechMeeiroColheitas(prev => prev.map((x, j) => j === i ? { ...x, preco: parseFloat(e.target.value) || 0 } : x))} style={{ ...inputStyle, padding: '3px 6px', fontSize: 12, width: 80, textAlign: 'right' }} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Totais */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                <FormField label="Valor Repasse (R$)">
+                  <input type="number" min="0" step="0.01" style={inputStyle} value={editFechMeeiroForm.valorBruto} onChange={e => setEditFechMeeiroForm(f => ({ ...f, valorBruto: e.target.value }))} />
+                </FormField>
+                <FormField label="Empr. em aberto (R$)">
+                  <input type="number" readOnly style={{ ...inputStyle, background: '#f9fafb', color: '#6b7280', cursor: 'not-allowed' }} value={editFechMeeiroValesAbertos.toFixed(2)} />
+                </FormField>
+                <FormField label="Valor Recebido (R$)">
+                  <input type="number" min="0" step="0.01" style={inputStyle} value={editFechMeeiroForm.valorPago} onChange={e => setEditFechMeeiroForm(f => ({ ...f, valorPago: e.target.value }))} />
+                </FormField>
+              </div>
+
+              {/* Deduções */}
+              <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginTop: 4, marginBottom: -4 }}>Deduções</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <FormField label="Combustível (R$)">
+                  <input type="number" min="0" step="0.01" style={inputStyle} value={editFechMeeiroForm.combustivel} onChange={e => setEditFechMeeiroForm(f => ({ ...f, combustivel: e.target.value }))} />
+                </FormField>
+                <FormField label="Bandeja / Embalagem (R$)">
+                  <input type="number" min="0" step="0.01" style={inputStyle} value={editFechMeeiroForm.bandejaEmbalagem} onChange={e => setEditFechMeeiroForm(f => ({ ...f, bandejaEmbalagem: e.target.value }))} />
+                </FormField>
+                <FormField label="Vales em dinheiro (R$)">
+                  <input type="number" min="0" step="0.01" style={inputStyle} value={editFechMeeiroForm.valesDinheiro} onChange={e => setEditFechMeeiroForm(f => ({ ...f, valesDinheiro: e.target.value }))} />
+                </FormField>
+                <FormField label="Créditos (R$)">
+                  <input type="number" min="0" step="0.01" style={inputStyle} value={editFechMeeiroForm.creditos} onChange={e => setEditFechMeeiroForm(f => ({ ...f, creditos: e.target.value }))} />
+                </FormField>
+                <FormField label="Débitos anteriores (R$)">
+                  <input type="number" min="0" step="0.01" style={inputStyle} value={editFechMeeiroForm.debitosAnteriores} onChange={e => setEditFechMeeiroForm(f => ({ ...f, debitosAnteriores: e.target.value }))} />
+                </FormField>
+                <FormField label="Abatim. emprést. (R$)">
+                  <input type="number" min="0" step="0.01" style={inputStyle} value={editFechMeeiroForm.valesDeduzidos} onChange={e => setEditFechMeeiroForm(f => ({ ...f, valesDeduzidos: e.target.value }))} />
+                </FormField>
+              </div>
+
+              {editFechMeeiroError && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{editFechMeeiroError}</p>}
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+                <button onClick={() => setEditFechMeeiroTarget(null)} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#f3f4f6', color: '#374151', fontSize: 14, cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+                <button
+                  disabled={savingEditFechMeeiro}
+                  onClick={async () => {
+                    if (!editFechMeeiroForm.dataInicio || !editFechMeeiroForm.dataFim || !editFechMeeiroForm.dataPagamento) {
+                      setEditFechMeeiroError('Preencha as datas obrigatórias.');
+                      return;
+                    }
+                    setSavingEditFechMeeiro(true);
+                    setEditFechMeeiroError('');
+                    try {
+                      await Promise.all(editFechMeeiroColheitas.map(c =>
+                        fetch(`/api/colheita/${c.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ data: c.data, produtoId: c.produtoId, quantidadeTotal: c.quantidadeTotal, preco: c.preco }),
+                        })
+                      ));
+                      const res = await fetch(`/api/fechamento-meeiro/${editFechMeeiroTarget.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          dataInicio: editFechMeeiroForm.dataInicio,
+                          dataFim: editFechMeeiroForm.dataFim,
+                          dataPagamento: editFechMeeiroForm.dataPagamento,
+                          valorBruto: parseFloat(editFechMeeiroForm.valorBruto) || 0,
+                          valorPago: parseFloat(editFechMeeiroForm.valorPago) || 0,
+                          combustivel: parseFloat(editFechMeeiroForm.combustivel) || 0,
+                          bandejaEmbalagem: parseFloat(editFechMeeiroForm.bandejaEmbalagem) || 0,
+                          valesDinheiro: parseFloat(editFechMeeiroForm.valesDinheiro) || 0,
+                          creditos: parseFloat(editFechMeeiroForm.creditos) || 0,
+                          debitosAnteriores: parseFloat(editFechMeeiroForm.debitosAnteriores) || 0,
+                          valesDeduzidos: parseFloat(editFechMeeiroForm.valesDeduzidos) || 0,
+                        }),
+                      });
+                      if (!res.ok) throw new Error('Erro ao salvar');
+                      const saved = await res.json();
+                      setFechamentosMeeiroState(prev => prev.map(f => f.id === saved.id ? {
+                        ...f,
+                        dataInicio: saved.dataInicio,
+                        dataFim: saved.dataFim,
+                        dataPagamento: saved.dataPagamento,
+                        valorBruto: Number(saved.valorBruto),
+                        valorPago: Number(saved.valorPago),
+                        combustivel: Number(saved.combustivel),
+                        bandejaEmbalagem: Number(saved.bandejaEmbalagem),
+                        valesDinheiro: Number(saved.valesDinheiro),
+                        creditos: Number(saved.creditos),
+                        debitosAnteriores: Number(saved.debitosAnteriores),
+                        valesDeduzidos: Number(saved.valesDeduzidos),
+                      } : f));
+                      setEditFechMeeiroTarget(null);
+                    } catch {
+                      setEditFechMeeiroError('Erro ao salvar. Tente novamente.');
+                    } finally {
+                      setSavingEditFechMeeiro(false);
+                    }
+                  }}
+                  style={{ padding: '8px 22px', borderRadius: 8, border: 'none', background: NAVY, color: '#fff', fontSize: 14, fontWeight: 600, cursor: savingEditFechMeeiro ? 'wait' : 'pointer', opacity: savingEditFechMeeiro ? 0.7 : 1 }}
+                >
+                  {savingEditFechMeeiro ? 'Salvando...' : 'Salvar'}
                 </button>
               </div>
             </div>
@@ -9485,6 +9771,56 @@ export default function RocasClient({
                                   }}
                                 >
                                   imprimir
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    setEditFechMeeiroError('');
+                                    setEditFechMeeiroForm({
+                                      dataInicio: f.dataInicio.slice(0, 10),
+                                      dataFim: f.dataFim.slice(0, 10),
+                                      dataPagamento: f.dataPagamento.slice(0, 10),
+                                      valorBruto: String(f.valorBruto),
+                                      valorPago: String(f.valorPago),
+                                      combustivel: String(f.combustivel),
+                                      bandejaEmbalagem: String(f.bandejaEmbalagem),
+                                      valesDinheiro: String(f.valesDinheiro),
+                                      creditos: String(f.creditos),
+                                      debitosAnteriores: String(f.debitosAnteriores),
+                                      valesDeduzidos: String(f.valesDeduzidos),
+                                    });
+                                    setEditFechMeeiroColheitas([]);
+                                    setEditFechMeeiroValesAbertos(0);
+                                    setEditFechMeeiroTarget(f);
+                                    try {
+                                      const res = await fetch(`/api/fechamento-meeiro/${f.id}`);
+                                      if (res.ok) {
+                                        const data = await res.json();
+                                        setEditFechMeeiroColheitas((data.colheitas ?? []).map((c: { id: string; data: string; produtoId: string; produto: { nome: string }; quantidadeTotal: number; preco: number; percParceiro: number }) => ({
+                                          id: c.id,
+                                          data: c.data.slice(0, 10),
+                                          produtoId: c.produtoId,
+                                          produtoNome: c.produto?.nome ?? '',
+                                          quantidadeTotal: c.quantidadeTotal,
+                                          preco: Number(c.preco),
+                                          percParceiro: c.percParceiro,
+                                        })));
+                                        const valesAbertos = (data.vales ?? []).filter((v: { status: string }) => v.status === 'ABERTO').reduce((s: number, v: { valor: number }) => s + Number(v.valor), 0);
+                                        setEditFechMeeiroValesAbertos(valesAbertos);
+                                      }
+                                    } catch { /* ignore */ }
+                                  }}
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    color: NAVY,
+                                    background: "none",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    textDecoration: "underline",
+                                    padding: 0,
+                                  }}
+                                >
+                                  editar
                                 </button>
                                 {f.status !== "PAGO" && (
                                   <button

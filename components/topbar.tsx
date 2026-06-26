@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -9,8 +9,11 @@ import {
   faBoxes, faCartShopping, faArrowTrendUp, faFileLines, faLandmark,
   faAddressCard, faUsers, faSliders,
   faTruck, faReceipt, faLeaf, faDollarSign, faBuilding, faCreditCard, faArrowsUpDown, faBox,
+  faTriangleExclamation,
 } from '@fortawesome/free-solid-svg-icons'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
+
+type Alerta = { id: string; nome: string; unidade: string; saldo: number }
 
 function useIsMobile() {
   const [m, setM] = useState(false)
@@ -81,6 +84,25 @@ export default function TopBar() {
   const now = useClock()
   const isMobile = useIsMobile()
 
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [alertas, setAlertas] = useState<Alerta[]>([])
+  const notifRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    fetch('/api/notificacoes').then(r => r.ok ? r.json() : []).then(setAlertas).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!notifOpen) return
+    function handleClick(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [notifOpen])
+
   const dateStr = now
     ? now.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
     : ''
@@ -139,19 +161,79 @@ export default function TopBar() {
 
       {/* Right actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <button
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: '#6b7280', borderRadius: 6, padding: 6,
-            display: 'flex', alignItems: 'center',
-            transition: 'background 0.1s, color 0.1s',
-          }}
-          title="Notificações"
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f3f4f6'; (e.currentTarget as HTMLButtonElement).style.color = NAVY }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; (e.currentTarget as HTMLButtonElement).style.color = '#6b7280' }}
-        >
-          <FontAwesomeIcon icon={faBell} style={{ fontSize: 16 }} />
-        </button>
+        <div ref={notifRef} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setNotifOpen(v => !v)}
+            style={{
+              background: notifOpen ? '#f3f4f6' : 'none',
+              border: 'none', cursor: 'pointer',
+              color: notifOpen ? NAVY : '#6b7280', borderRadius: 6, padding: 6,
+              display: 'flex', alignItems: 'center', position: 'relative',
+              transition: 'background 0.1s, color 0.1s',
+            }}
+            title="Notificações"
+          >
+            <FontAwesomeIcon icon={faBell} style={{ fontSize: 16 }} />
+            {alertas.length > 0 && (
+              <span style={{
+                position: 'absolute', top: 4, right: 4,
+                background: '#ef4444', color: '#fff',
+                borderRadius: '50%', width: 16, height: 16,
+                fontSize: 10, fontWeight: 700, lineHeight: '16px',
+                textAlign: 'center', pointerEvents: 'none',
+              }}>
+                {alertas.length > 9 ? '9+' : alertas.length}
+              </span>
+            )}
+          </button>
+
+          {notifOpen && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+              background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 400,
+              width: 300, maxHeight: 380, overflowY: 'auto',
+            }}>
+              <div style={{
+                padding: '12px 16px 8px', borderBottom: '1px solid #f3f4f6',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <FontAwesomeIcon icon={faTriangleExclamation} style={{ color: '#f59e0b', fontSize: 14 }} />
+                <span style={{ fontWeight: 700, fontSize: 13, color: NAVY }}>Alertas de Estoque</span>
+              </div>
+
+              {alertas.length === 0 ? (
+                <div style={{ padding: '20px 16px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
+                  Nenhum produto abaixo de 10 caixas
+                </div>
+              ) : (
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                  {alertas.map(a => (
+                    <li key={a.id} style={{
+                      padding: '10px 16px', borderBottom: '1px solid #f9fafb',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    }}>
+                      <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>{a.nome}</span>
+                      <span style={{
+                        fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 12,
+                        background: a.saldo === 0 ? '#fee2e2' : '#fef3c7',
+                        color: a.saldo === 0 ? '#dc2626' : '#d97706',
+                      }}>
+                        {a.saldo.toFixed(0)} {a.unidade.toLowerCase()}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div style={{ padding: '8px 16px', borderTop: '1px solid #f3f4f6', textAlign: 'right' }}>
+                <Link href="/estoque" onClick={() => setNotifOpen(false)} style={{ fontSize: 12, color: NAVY, textDecoration: 'none', fontWeight: 600 }}>
+                  Ver estoque →
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   )
