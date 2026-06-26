@@ -8199,7 +8199,7 @@ export default function RocasClient({
         <>
           <div
             onClick={() => setFechMenuId(null)}
-            style={{ position: "fixed", inset: 0, zIndex: 49 }}
+            style={{ position: "fixed", inset: 0, zIndex: 299 }}
           />
           <div
             style={{
@@ -8210,7 +8210,7 @@ export default function RocasClient({
               border: "1px solid #e5e7eb",
               borderRadius: 8,
               boxShadow: "0 4px 16px rgba(0,0,0,0.14)",
-              zIndex: 50,
+              zIndex: 300,
               minWidth: 140,
               overflow: "hidden",
             }}
