@@ -236,13 +236,13 @@ export default function ImprimirMeeiro() {
 
         <div ref={contentRef}>
           {renderVia('VIA DO PARCEIRO', 'Assinatura do Parceiro')}
-
-          <div style={{ borderTop: '1px dashed #999', textAlign: 'center', margin: '4px 0' }}>
-            <span style={{ position: 'relative', top: -8, background: '#fff', padding: '0 8px', fontSize: 12, color: '#999' }}>✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ✂</span>
-          </div>
-
-          {renderVia('VIA DA EMPRESA', 'Assinatura do Parceiro')}
         </div>
+
+        <div style={{ borderTop: '1px dashed #999', textAlign: 'center', margin: '4px 0' }}>
+          <span style={{ position: 'relative', top: -8, background: '#fff', padding: '0 8px', fontSize: 12, color: '#999' }}>✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ✂</span>
+        </div>
+
+        {renderVia('VIA DA EMPRESA', 'Assinatura do Parceiro')}
 
       </div>
     </>
