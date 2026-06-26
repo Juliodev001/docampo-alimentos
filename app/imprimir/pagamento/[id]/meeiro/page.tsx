@@ -156,7 +156,7 @@ function ImprimirPagamentoMeeiro() {
         </div>
 
         <div ref={contentRef}>
-        <div style={{ width: 480, padding: '10px 0', fontSize: 10, position: 'relative' }}>
+        <div style={{ width: 480, padding: '10px 8px', fontSize: 10, position: 'relative' }}>
 
         {/* Marca d'água */}
         {/* eslint-disable-next-line @next/next/no-img-element */}

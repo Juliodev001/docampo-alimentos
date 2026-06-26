@@ -270,7 +270,7 @@ export default function ImprimirFechamentoMeeiro() {
         </div>
 
         <div ref={contentRef}>
-          <div style={{ width: 700 }}>
+          <div style={{ width: 700, padding: '0 8px' }}>
             {renderVia('VIA DO PARCEIRO', 'Assinatura do Parceiro')}
           </div>
         </div>
