@@ -235,7 +235,9 @@ export default function ImprimirMeeiro() {
         </div>
 
         <div ref={contentRef}>
-          {renderVia('VIA DO PARCEIRO', 'Assinatura do Parceiro')}
+          <div style={{ width: 700 }}>
+            {renderVia('VIA DO PARCEIRO', 'Assinatura do Parceiro')}
+          </div>
         </div>
 
         <div style={{ borderTop: '1px dashed #999', textAlign: 'center', margin: '4px 0' }}>

@@ -155,7 +155,8 @@ function ImprimirPagamentoMeeiro() {
           </button>
         </div>
 
-        <div ref={contentRef} style={{ padding: '10px 0', fontSize: 10, position: 'relative' }}>
+        <div ref={contentRef}>
+        <div style={{ width: 480, padding: '10px 0', fontSize: 10, position: 'relative' }}>
 
         {/* Marca d'água */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -253,6 +254,7 @@ function ImprimirPagamentoMeeiro() {
           Total líquido a receber pelo parceiro: <span style={{ color: NAVY }}>{fmtN(valorRecebido)}</span>
         </p>
 
+        </div>
         </div>{/* end contentRef */}
       </div>
     </>

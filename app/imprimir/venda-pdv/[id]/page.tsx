@@ -209,7 +209,9 @@ export default function ImprimirVendaPDV() {
         </div>
 
         <div ref={contentRef}>
-          {renderVia('VIA DO CLIENTE', 'Assinatura do Cliente')}
+          <div style={{ width: 700 }}>
+            {renderVia('VIA DO CLIENTE', 'Assinatura do Cliente')}
+          </div>
         </div>
 
         <div style={{ borderTop: '1px dashed #999', textAlign: 'center', margin: '4px 0' }}>
