@@ -51,9 +51,9 @@ export default function ImprimirMeeiro() {
 
   const { parceiro, colheitas } = data
 
-  const totalQtd     = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * ((c.percParceiro ?? parceiro.percentual) / 100), 0)
-  const valorRepasse = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco * ((c.percParceiro ?? parceiro.percentual) / 100), 0)
-  const descEmba     = colheitas.reduce((s, c) => s + Math.round((c.quantidadeTotal - c.descarte) * ((c.percParceiro ?? parceiro.percentual) / 100)) * (c.bandeja ?? 0), 0)
+  const totalQtd     = colheitas.reduce((s, c) => s + c.quantidadeTotal * ((c.percParceiro ?? parceiro.percentual) / 100), 0)
+  const valorRepasse = colheitas.reduce((s, c) => s + c.quantidadeTotal * c.preco * ((c.percParceiro ?? parceiro.percentual) / 100), 0)
+  const descEmba     = colheitas.reduce((s, c) => s + Math.round(c.quantidadeTotal * ((c.percParceiro ?? parceiro.percentual) / 100)) * (c.bandeja ?? 0), 0)
   const abatimEmprestimo = 0
   const valorRecebido = valorRepasse - descEmba - abatimEmprestimo
 
@@ -121,9 +121,8 @@ export default function ImprimirMeeiro() {
             {colheitas.length === 0 ? (
               <tr><td colSpan={7} style={{ ...cell, textAlign: 'center' as const, color: '#666' }}>Nenhum lançamento</td></tr>
             ) : colheitas.map(c => {
-              const liquido = c.quantidadeTotal - c.descarte
               const percShare = (c.percParceiro ?? parceiro.percentual) / 100
-              const qtdParceiro = Math.round(liquido * percShare)
+              const qtdParceiro = Math.round(c.quantidadeTotal * percShare)
               const subParceiro = qtdParceiro * c.preco
               const embalagemParceiro = qtdParceiro * (c.bandeja ?? 0)
               const repasse = subParceiro - embalagemParceiro

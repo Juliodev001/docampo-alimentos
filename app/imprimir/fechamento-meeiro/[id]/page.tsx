@@ -67,7 +67,7 @@ export default function ImprimirFechamentoMeeiro() {
   } = fechamento
   const valesDescontados = vales.filter(v => v.status === 'DESCONTADO')
   const outrasDeducoes = combustivel + valesDinheiro + creditos + debitosAnteriores
-  const totalQtd = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
+  const totalQtd = colheitas.reduce((s, c) => s + c.quantidadeTotal, 0)
   const rocas = Array.from(new Set(colheitas.map(c => c.roca?.nome).filter(Boolean))) as string[]
 
   const B: React.CSSProperties = { border: '1px solid #000' }
@@ -129,7 +129,7 @@ export default function ImprimirFechamentoMeeiro() {
             </thead>
             <tbody>
               {colheitas.map(c => {
-                const liquido = c.quantidadeTotal - c.descarte
+                const liquido = c.quantidadeTotal
                 const sub = liquido * c.preco
                 const repasse = sub * (c.percParceiro / 100)
                 return (
