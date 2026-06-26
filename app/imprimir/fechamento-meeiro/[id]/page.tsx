@@ -44,19 +44,6 @@ export default function ImprimirFechamentoMeeiro() {
     return new Promise(resolve => canvas.toBlob(blob => resolve(blob!), 'image/jpeg', 0.95))
   }
 
-  async function handleSaveJpeg() {
-    setCapturing(true)
-    try {
-      const blob = await captureImage()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `recibo-meeiro-${fechamento?.parceiro.nome ?? 'parceiro'}.jpg`
-      a.click()
-      URL.revokeObjectURL(url)
-    } finally { setCapturing(false) }
-  }
-
   async function handleWhatsApp() {
     setCapturing(true)
     try {
@@ -262,9 +249,6 @@ export default function ImprimirFechamentoMeeiro() {
         <div className="no-print" style={{ margin: '10px 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => window.print()} style={{ padding: '7px 18px', background: NAVY, color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             🖨️ Imprimir / PDF
-          </button>
-          <button onClick={handleSaveJpeg} disabled={capturing} style={{ padding: '7px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: capturing ? 'wait' : 'pointer', opacity: capturing ? 0.7 : 1 }}>
-            {capturing ? 'Gerando...' : '📷 Salvar como imagem'}
           </button>
           <button onClick={handleWhatsApp} disabled={capturing} style={{ padding: '7px 14px', background: '#25d366', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: capturing ? 'wait' : 'pointer', opacity: capturing ? 0.7 : 1 }}>
             {capturing ? 'Gerando...' : '💬 Enviar WhatsApp'}
