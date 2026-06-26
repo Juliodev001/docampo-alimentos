@@ -57,7 +57,7 @@ export default function ImprimirMeeiro() {
       a.download = `recibo-meeiro-${data?.parceiro.nome ?? 'parceiro'}.jpg`
       a.click()
       URL.revokeObjectURL(url)
-      window.open('https://web.whatsapp.com/', '_blank')
+      window.open('whatsapp://', '_blank')
     } finally { setCapturing(false) }
   }
 
