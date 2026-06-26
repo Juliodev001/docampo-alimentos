@@ -51,9 +51,9 @@ export default function ImprimirMeeiro() {
 
   const { parceiro, colheitas } = data
 
-  const totalQtd     = colheitas.reduce((s, c) => s + c.quantidadeTotal * ((c.percParceiro ?? parceiro.percentual) / 100), 0)
-  const valorRepasse = colheitas.reduce((s, c) => s + c.quantidadeTotal * c.preco * ((c.percParceiro ?? parceiro.percentual) / 100), 0)
-  const descEmba     = colheitas.reduce((s, c) => s + Math.round(c.quantidadeTotal * ((c.percParceiro ?? parceiro.percentual) / 100)) * (c.bandeja ?? 0), 0)
+  const totalQtd     = colheitas.reduce((s, c) => { const perc = (c.percParceiro ?? parceiro.percentual) / 100; return s + Math.round(c.quantidadeTotal * perc) }, 0)
+  const valorRepasse = colheitas.reduce((s, c) => { const perc = (c.percParceiro ?? parceiro.percentual) / 100; return s + Math.round(c.quantidadeTotal * perc) * c.preco }, 0)
+  const descEmba     = colheitas.reduce((s, c) => { const perc = (c.percParceiro ?? parceiro.percentual) / 100; return s + Math.round(c.quantidadeTotal * perc) * (c.bandeja ?? 0) }, 0)
   const abatimEmprestimo = 0
   const valorRecebido = valorRepasse - descEmba - abatimEmprestimo
 
@@ -124,8 +124,7 @@ export default function ImprimirMeeiro() {
               const percShare = (c.percParceiro ?? parceiro.percentual) / 100
               const qtdParceiro = Math.round(c.quantidadeTotal * percShare)
               const subParceiro = qtdParceiro * c.preco
-              const embalagemParceiro = qtdParceiro * (c.bandeja ?? 0)
-              const repasse = subParceiro - embalagemParceiro
+              const repasse = subParceiro
               return (
                 <tr key={c.id}>
                   <td style={cell}>{fmtDate(c.data)}</td>
