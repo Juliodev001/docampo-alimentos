@@ -60,8 +60,8 @@ const STATUS_OPTS = [
 const emptyItem: ItemPedido = { produto: '', unidade: 'CAIXA', quantidade: 0, valorUnit: 0, desconto: 0, total: 0 }
 
 function fmtNumero(tipo: string, numero: number, data: string) {
-  const ano  = new Date(data).getFullYear()
-  const pfx  = tipo === 'VENDA' ? 'VEND' : 'COMP'
+  const ano = new Date(data).getFullYear()
+  const pfx = tipo === 'VENDA' ? 'VEND' : tipo === 'PDV' ? 'PDV' : 'COMP'
   return `${pfx}-${ano}-${String(numero).padStart(5, '0')}`
 }
 
@@ -69,7 +69,7 @@ const v = (x: string | null | undefined) => x && x.trim() ? x : 'Não informado'
 
 /* ── Gera o HTML do Relatório de Pedido e abre p/ imprimir/salvar PDF ── */
 function gerarRelatorioHTML(p: Pedido) {
-  const isVenda = p.tipo === 'VENDA'
+  const isVenda = p.tipo === 'VENDA' || p.tipo === 'PDV'
   const parte   = isVenda ? p.cliente : p.fornecedor
   const num     = fmtNumero(p.tipo, p.numero, p.data)
   const end     = parte?.endereco
@@ -319,11 +319,11 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
   }
 
   /* ── conjunto da aba (KPIs e tabela respeitam a aba selecionada) ── */
-  const porAba = aba === 'todos' ? pedidos : aba === 'vendas' ? pedidos.filter(p => p.tipo === 'VENDA') : pedidos.filter(p => p.tipo === 'COMPRA')
+  const porAba = aba === 'todos' ? pedidos : aba === 'vendas' ? pedidos.filter(p => p.tipo === 'VENDA' || p.tipo === 'PDV') : pedidos.filter(p => p.tipo === 'COMPRA')
 
   /* ── KPIs (filtrados pela aba) ── */
   const sum = (arr: Pedido[]) => arr.reduce((s, p) => s + p.totalValor, 0)
-  const ehVenda     = (p: Pedido) => p.tipo === 'VENDA'
+  const ehVenda     = (p: Pedido) => p.tipo === 'VENDA' || p.tipo === 'PDV'
   const confirmado  = (p: Pedido) => p.status === 'CONFIRMADO' || p.status === 'ENTREGUE' || p.status === 'PAGO'
   const fatBase     = aba === 'compras' ? porAba.filter(confirmado) : porAba.filter(p => ehVenda(p) && confirmado(p))
   const emAberto    = porAba.filter(p => p.status === 'ABERTO')
@@ -344,7 +344,7 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
     const matchStatus = statusFiltro === 'TODOS' || p.status === statusFiltro
     return matchQ && matchStatus
   })
-  const tabCount = (t: typeof aba) => t === 'todos' ? pedidos.length : t === 'vendas' ? pedidos.filter(p => p.tipo === 'VENDA').length : pedidos.filter(p => p.tipo === 'COMPRA').length
+  const tabCount = (t: typeof aba) => t === 'todos' ? pedidos.length : t === 'vendas' ? pedidos.filter(p => p.tipo === 'VENDA' || p.tipo === 'PDV').length : pedidos.filter(p => p.tipo === 'COMPRA').length
 
   return (
     <div>
@@ -462,7 +462,8 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
                 const sc   = statusCfg[p.status] ?? statusCfg.ABERTO
                 const nome = p.cliente?.nome ?? p.fornecedor?.nome ?? '—'
                 const num  = fmtNumero(p.tipo, p.numero, p.data)
-                const isVenda = p.tipo === 'VENDA'
+                const isVenda = p.tipo === 'VENDA' || p.tipo === 'PDV'
+                const isPdv = p.tipo === 'PDV'
                 return (
                   <tr key={p.id} style={{ borderBottom: '1px solid #f3f4f6' }}
                     onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = '#fafafa'}
@@ -475,9 +476,9 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
 
                     {/* Tipo */}
                     <td style={{ padding: '13px 16px' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 20, background: isVenda ? '#f0fdf4' : '#eff6ff', color: isVenda ? '#15803d' : '#1d4ed8' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 20, background: isPdv ? '#fdf4ff' : isVenda ? '#f0fdf4' : '#eff6ff', color: isPdv ? '#7e22ce' : isVenda ? '#15803d' : '#1d4ed8' }}>
                         <FontAwesomeIcon icon={isVenda ? faArrowUp : faCartShopping} style={{ fontSize: 10 }} />
-                        {isVenda ? 'Venda' : 'Compra'}
+                        {isPdv ? 'PDV' : isVenda ? 'Venda' : 'Compra'}
                       </span>
                     </td>
 
@@ -548,7 +549,7 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
       {/* ── Modal Visualização Detalhada ── */}
       {pedidoView && (() => {
         const p = pedidoView
-        const isVenda = p.tipo === 'VENDA'
+        const isVenda = p.tipo === 'VENDA' || p.tipo === 'PDV'
         const parte = isVenda ? p.cliente : p.fornecedor
         const sc = statusCfg[p.status] ?? statusCfg.ABERTO
         const num = fmtNumero(p.tipo, p.numero, p.data)
