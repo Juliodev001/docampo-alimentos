@@ -89,6 +89,7 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
   const [clienteError, setClienteError] = useState(false)
   const [cashReceived, setCashReceived] = useState('')
   const [dataCobranca, setDataCobranca] = useState('')
+  const [pedidoData, setPedidoData] = useState(() => new Date().toISOString().slice(0, 10))
   const [submitting, setSubmitting] = useState(false)
   const [lastPedidoId, setLastPedidoId] = useState<string | null>(null)
   const [showHistorico, setShowHistorico] = useState(false)
@@ -234,7 +235,7 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
         body: JSON.stringify({
           tipo: 'PDV',
           clienteId,
-          data: new Date().toISOString(),
+          data: new Date(pedidoData + 'T12:00:00.000Z').toISOString(),
           formaPagamento: paymentMethod,
           dataCobranca: paymentMethod === 'FIADO' && dataCobranca ? dataCobranca : undefined,
           itens: cart.map(item => ({
@@ -289,6 +290,7 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
       setCashReceived('')
       setDataCobranca('')
       setPaymentMethod('DINHEIRO')
+      setPedidoData(new Date().toISOString().slice(0, 10))
     } catch (e: unknown) {
       toast.error('Erro ao finalizar', e instanceof Error ? e.message : 'Tente novamente')
     } finally {
@@ -754,6 +756,19 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
                   </div>
                 </div>
 
+                {/* Data da venda */}
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: NAVY, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Data da Venda
+                  </label>
+                  <input
+                    type="date"
+                    value={pedidoData}
+                    onChange={e => setPedidoData(e.target.value)}
+                    style={inp}
+                  />
+                </div>
+
                 {/* Forma de Pagamento */}
                 <div>
                   <p style={{ fontSize: 12, fontWeight: 700, color: NAVY, margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -918,7 +933,7 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>#{v.numero} · {v.cliente?.nome ?? 'Cliente avulso'}</div>
                           <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-                            {new Date(v.data).toLocaleDateString('pt-BR')} · {formatCurrency(v.totalValor)}
+                            {new Date(v.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} · {formatCurrency(v.totalValor)}
                           </div>
                         </div>
                         <button

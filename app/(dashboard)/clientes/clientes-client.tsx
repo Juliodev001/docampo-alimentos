@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faUsers, faPlus, faMagnifyingGlass, faPencil, faTrash, faPhone, faEnvelope, faFileLines, faBagShopping, faXmark, faBuilding, faUser, faLocationDot, faHashtag, faCheck, faEye, faHandshake, faCalendarAlt, faChartLine, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons'
+import { faUsers, faPlus, faMagnifyingGlass, faPencil, faTrash, faPhone, faEnvelope, faFileLines, faBagShopping, faXmark, faBuilding, faUser, faLocationDot, faHashtag, faCheck, faEye, faHandshake, faCalendarAlt, faChartLine, faExclamationTriangle, faDownload } from '@fortawesome/free-solid-svg-icons'
 import { formatCurrency } from '@/lib/utils'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import { useToast } from '@/components/toast'
@@ -77,6 +77,29 @@ const inp: React.CSSProperties = {
 }
 const lbl: React.CSSProperties = {
   fontSize: 13, fontWeight: 600, color: NAVY, display: 'block', marginBottom: 5,
+}
+
+function fmtDateUTC(d: string) {
+  return new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+}
+
+function downloadRelatorio(c: Cliente) {
+  const headers = ['#Pedido', 'Data', 'Forma de Pagamento', 'Status', 'Valor (R$)']
+  const rows = c.compras.pedidos.map(p => [
+    `#${p.numero}`,
+    fmtDateUTC(p.data),
+    p.formaPagamento === 'FIADO' ? 'Carteira' : (p.formaPagamento ?? '—'),
+    p.status,
+    p.valor.toFixed(2).replace('.', ','),
+  ])
+  const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(';')).join('\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `pedidos-${c.nome.replace(/\s+/g, '-').toLowerCase()}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 /* ══════════════════════════════════════════════════ */
@@ -738,7 +761,7 @@ export default function ClientesClient({ clientes: inicial }: { clientes: Client
                         { label: 'Total Comprado', value: formatCurrency(compras.totalComprado), color: GREEN, icon: faChartLine },
                         { label: 'Pedidos',         value: compras.qtdPedidos,                    color: BLUE,  icon: faBagShopping },
                         { label: 'Carteira Pendente',  value: formatCurrency(compras.fiadoPendente), color: compras.fiadoPendente > 0 ? PINK : '#9ca3af', icon: faExclamationTriangle },
-                        { label: 'Última Compra',   value: compras.ultimaCompra ? new Date(compras.ultimaCompra).toLocaleDateString('pt-BR') : '—', color: ORANGE, icon: faCalendarAlt },
+                        { label: 'Última Compra',   value: compras.ultimaCompra ? fmtDateUTC(compras.ultimaCompra) : '—', color: ORANGE, icon: faCalendarAlt },
                       ].map(({ label, value, color, icon }) => (
                         <div key={label} style={{ background: '#f9fafb', borderRadius: 12, padding: '12px 14px', borderTop: `3px solid ${color}` }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
@@ -795,7 +818,7 @@ export default function ClientesClient({ clientes: inicial }: { clientes: Client
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                   <FontAwesomeIcon icon={faHandshake} style={{ fontSize: 13, color: PINK }} />
                                   <span style={{ fontSize: 13, color: NAVY, fontWeight: 600 }}>Pedido #{p.numero}</span>
-                                  <span style={{ fontSize: 12, color: '#6b7280' }}>{new Date(p.data).toLocaleDateString('pt-BR')}</span>
+                                  <span style={{ fontSize: 12, color: '#6b7280' }}>{fmtDateUTC(p.data)}</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                   <span style={{ fontSize: 13, fontWeight: 700, color: PINK }}>{formatCurrency(p.valor)}</span>
@@ -856,7 +879,14 @@ export default function ClientesClient({ clientes: inicial }: { clientes: Client
                   </div>
 
                   {/* Footer */}
-                  <div style={{ padding: '14px 24px', borderTop: '1px solid #f0f4f8', display: 'flex', justifyContent: 'flex-end' }}>
+                  <div style={{ padding: '14px 24px', borderTop: '1px solid #f0f4f8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                    {c.compras.pedidos.length > 0 ? (
+                      <motion.button onClick={() => downloadRelatorio(c)} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                        style={{ padding: '10px 18px', background: GREEN, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <FontAwesomeIcon icon={faDownload} style={{ fontSize: 13 }} />
+                        Exportar CSV
+                      </motion.button>
+                    ) : <div />}
                     <motion.button onClick={() => setViewCliente(null)} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                       style={{ padding: '10px 22px', border: '1.5px solid #e5e7eb', borderRadius: 10, background: 'white', fontSize: 14, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>
                       Fechar
