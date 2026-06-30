@@ -10,6 +10,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ clie
   const dataParam       = req.nextUrl.searchParams.get('data')
   const dataInicioParam = req.nextUrl.searchParams.get('dataInicio')
   const dataFimParam    = req.nextUrl.searchParams.get('dataFim')
+  const pedidoIdsParam  = req.nextUrl.searchParams.get('pedidoIds')
+  const pedidoIds       = pedidoIdsParam ? pedidoIdsParam.split(',').filter(Boolean) : null
 
   const cliente = await prisma.cliente.findUnique({
     where: { id: clienteId },
@@ -17,11 +19,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ clie
   })
   if (!cliente) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  let dateFilter: object = {}
-  if (dataInicioParam && dataFimParam) {
-    dateFilter = { data: { gte: new Date(dataInicioParam + 'T00:00:00'), lte: new Date(dataFimParam + 'T23:59:59') } }
-  } else if (dataParam) {
-    dateFilter = { data: { gte: new Date(dataParam + 'T00:00:00.000Z'), lte: new Date(dataParam + 'T23:59:59.999Z') } }
+  let pedidoFilter: object = {}
+  if (pedidoIds) {
+    pedidoFilter = { id: { in: pedidoIds } }
+  } else {
+    let dateFilter: object = {}
+    if (dataInicioParam && dataFimParam) {
+      dateFilter = { data: { gte: new Date(dataInicioParam + 'T00:00:00'), lte: new Date(dataFimParam + 'T23:59:59') } }
+    } else if (dataParam) {
+      dateFilter = { data: { gte: new Date(dataParam + 'T00:00:00.000Z'), lte: new Date(dataParam + 'T23:59:59.999Z') } }
+    }
+    pedidoFilter = dateFilter
   }
 
   const pedidos = await prisma.pedido.findMany({
@@ -29,7 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ clie
       clienteId,
       tipo: { in: ['VENDA', 'PDV'] },
       status: { not: 'CANCELADO' },
-      ...dateFilter,
+      ...pedidoFilter,
     },
     include: { itens: true },
     orderBy: { data: 'asc' },

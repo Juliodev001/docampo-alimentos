@@ -34,6 +34,7 @@ export default function RelatorioCliente() {
   const dataFiltro      = searchParams.get('data') ?? ''
   const dataInicioParam = searchParams.get('dataInicio') ?? ''
   const dataFimParam    = searchParams.get('dataFim') ?? ''
+  const pedidoIdsParam  = searchParams.get('pedidoIds') ?? ''
 
   const [data, setData] = useState<{ cliente: Cliente; pedidos: Pedido[]; usuario: string } | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -42,7 +43,9 @@ export default function RelatorioCliente() {
 
   useEffect(() => {
     const p = new URLSearchParams()
-    if (dataInicioParam && dataFimParam) {
+    if (pedidoIdsParam) {
+      p.set('pedidoIds', pedidoIdsParam)
+    } else if (dataInicioParam && dataFimParam) {
       p.set('dataInicio', dataInicioParam)
       p.set('dataFim', dataFimParam)
     } else if (dataFiltro) {
@@ -150,11 +153,13 @@ export default function RelatorioCliente() {
           </div>
           <div style={{ marginBottom: 12, fontSize: 11 }}>
             Período: {
-              dataInicioParam && dataFimParam
-                ? `${fmtDate(dataInicioParam)} a ${fmtDate(dataFimParam)}`
-                : dataFiltro
-                  ? fmtDate(dataFiltro)
-                  : 'não filtrado'
+              pedidoIdsParam
+                ? `${pedidoIdsParam.split(',').length} pedido(s) selecionado(s)`
+                : dataInicioParam && dataFimParam
+                  ? `${fmtDate(dataInicioParam)} a ${fmtDate(dataFimParam)}`
+                  : dataFiltro
+                    ? fmtDate(dataFiltro)
+                    : 'não filtrado'
             }
           </div>
 

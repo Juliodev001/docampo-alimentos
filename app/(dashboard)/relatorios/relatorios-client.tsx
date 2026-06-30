@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faFileLines, faDollarSign, faChartBar, faArrowTrendUp, faXmark, faMagnifyingGlass, faUser } from '@fortawesome/free-solid-svg-icons'
@@ -16,6 +17,7 @@ const ORANGE = "#e87320";
 type ReportResult = { tipo: string; data: unknown };
 
 export default function RelatoriosClient() {
+  const router = useRouter()
   const [de, setDe] = useState("");
   const [ate, setAte] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export default function RelatoriosClient() {
     const p = new URLSearchParams()
     if (relInicio && relFim) { p.set('dataInicio', relInicio); p.set('dataFim', relFim) }
     const qs = p.toString()
-    window.open(`/imprimir/relatorio-cliente/${clienteSelecionado.id}${qs ? `?${qs}` : ''}`, '_blank')
+    window.location.href = `/relatorios/cliente/${clienteSelecionado.id}${qs ? `?${qs}` : ''}`
   }
 
   async function gerar(tipo: string) {

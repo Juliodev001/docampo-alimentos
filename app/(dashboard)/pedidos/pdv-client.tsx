@@ -369,16 +369,16 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button
-                onClick={() => setShowHistorico(true)}
-                title="Reimprimir vendas anteriores"
+                onClick={() => { window.location.href = '/relatorios' }}
+                title="Ver relatórios"
                 style={{
                   background: 'none', border: '1px solid #e5e7eb', borderRadius: 7,
                   color: NAVY, fontSize: 11, fontWeight: 600, cursor: 'pointer',
                   padding: '3px 10px', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
                 }}
               >
-                <FontAwesomeIcon icon={faClockRotateLeft} style={{ fontSize: 12 }} />
-                Histórico
+                <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 12 }} />
+                Ver Relatório
               </button>
               {cart.length > 0 && (
                 <button
