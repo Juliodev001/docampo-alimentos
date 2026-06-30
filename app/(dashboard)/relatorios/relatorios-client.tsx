@@ -107,82 +107,6 @@ export default function RelatoriosClient() {
         </p>
       </motion.div>
 
-      {/* Período global */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        style={{
-          backgroundColor: "white",
-          borderRadius: 14,
-          padding: "16px 20px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-          marginBottom: 24,
-          display: "flex",
-          gap: 14,
-          alignItems: "flex-end",
-          flexWrap: "wrap",
-        }}
-      >
-        <p
-          style={{
-            fontSize: 13,
-            fontWeight: 700,
-            color: NAVY,
-            margin: 0,
-            alignSelf: "center",
-          }}
-        >
-          Período:
-        </p>
-        {[
-          ["De", de, setDe],
-          ["Até", ate, setAte],
-        ].map(([label, val, setter]) => (
-          <div key={label as string}>
-            <p
-              style={{
-                fontSize: 12,
-                color: "#6b7280",
-                margin: "0 0 4px",
-                fontWeight: 500,
-              }}
-            >
-              {label as string}
-            </p>
-            <input
-              type="date"
-              value={val as string}
-              onChange={(e) => (setter as (v: string) => void)(e.target.value)}
-              style={inp}
-            />
-          </div>
-        ))}
-        {(de || ate) && (
-          <motion.button
-            onClick={() => {
-              setDe("");
-              setAte("");
-            }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            style={{
-              padding: "9px 14px",
-              border: "1.5px solid #e5e7eb",
-              borderRadius: 10,
-              background: "white",
-              fontSize: 13,
-              color: "#6b7280",
-              cursor: "pointer",
-              fontFamily: "inherit",
-              alignSelf: "flex-end",
-            }}
-          >
-            Limpar
-          </motion.button>
-        )}
-      </motion.div>
-
       {/* Card: Relatório por Cliente */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -275,6 +199,45 @@ export default function RelatoriosClient() {
             Cliente selecionado: <strong style={{ color: NAVY }}>{clienteSelecionado.nome}</strong>
             {relInicio && relFim ? ` · período ${relInicio.split('-').reverse().join('/')} a ${relFim.split('-').reverse().join('/')}` : ' · todos os pedidos'}
           </p>
+        )}
+      </motion.div>
+
+      {/* Período global */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        style={{
+          backgroundColor: "white", borderRadius: 14, padding: "16px 20px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.06)", marginBottom: 24,
+          display: "flex", gap: 14, alignItems: "flex-end", flexWrap: "wrap",
+        }}
+      >
+        <p style={{ fontSize: 13, fontWeight: 700, color: NAVY, margin: 0, alignSelf: "center" }}>
+          Período:
+        </p>
+        {[["De", de, setDe], ["Até", ate, setAte]].map(([label, val, setter]) => (
+          <div key={label as string}>
+            <p style={{ fontSize: 12, color: "#6b7280", margin: "0 0 4px", fontWeight: 500 }}>
+              {label as string}
+            </p>
+            <input
+              type="date"
+              value={val as string}
+              onChange={(e) => (setter as (v: string) => void)(e.target.value)}
+              style={inp}
+            />
+          </div>
+        ))}
+        {(de || ate) && (
+          <motion.button
+            onClick={() => { setDe(""); setAte("") }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            style={{ padding: "9px 14px", border: "1.5px solid #e5e7eb", borderRadius: 10, background: "white", fontSize: 13, color: "#6b7280", cursor: "pointer", fontFamily: "inherit", alignSelf: "flex-end" }}
+          >
+            Limpar
+          </motion.button>
         )}
       </motion.div>
 
