@@ -187,7 +187,7 @@ function SelecaoPedidosPage() {
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>R$ {fmtN(Number(p.totalValor))}</div>
                   <div style={{ fontSize: 11, fontWeight: 600, marginTop: 2, color: p.status === 'PAGO' ? '#16a34a' : p.formaPagamento === 'FIADO' ? '#b45309' : '#6b7280' }}>
-                    {p.status === 'PAGO' ? 'Pago' : p.formaPagamento === 'FIADO' ? 'Fiado' : (p.status === 'ENTREGUE' ? 'Entregue' : p.status === 'CONFIRMADO' ? 'Confirmado' : p.status)}
+                    {p.status === 'PAGO' ? 'Pago' : p.formaPagamento === 'FIADO' ? 'Carteira' : (p.status === 'ENTREGUE' ? 'Entregue' : p.status === 'CONFIRMADO' ? 'Confirmado' : p.status)}
                   </div>
                 </div>
               </div>
