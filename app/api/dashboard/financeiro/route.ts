@@ -6,12 +6,19 @@ export async function GET(req: NextRequest) {
   const session = await getSession()
   if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const mesParam = req.nextUrl.searchParams.get('mes') ?? ''
-  const rocaId   = req.nextUrl.searchParams.get('rocaId') || null
+  const mesParam        = req.nextUrl.searchParams.get('mes') ?? ''
+  const dataInicioParam = req.nextUrl.searchParams.get('dataInicio') ?? ''
+  const dataFimParam    = req.nextUrl.searchParams.get('dataFim') ?? ''
+  const rocaId          = req.nextUrl.searchParams.get('rocaId') || null
 
   /* ── intervalo de datas ── */
   let dateFilter: { gte: Date; lte: Date } | undefined
-  if (mesParam) {
+  if (dataInicioParam && dataFimParam) {
+    dateFilter = {
+      gte: new Date(dataInicioParam + 'T00:00:00'),
+      lte: new Date(dataFimParam    + 'T23:59:59'),
+    }
+  } else if (mesParam) {
     const [ano, m] = mesParam.split('-').map(Number)
     dateFilter = {
       gte: new Date(ano, m - 1, 1),

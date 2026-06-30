@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCartShopping, faArrowTrendUp, faChartBar, faCalendar, faSliders, faSeedling, faHandHoldingDollar } from '@fortawesome/free-solid-svg-icons'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
@@ -28,19 +28,14 @@ const EMPTY: DashData = {
   dre:         { vendas: 0, compras: 0, fornecedores: [] },
 }
 
-/* ── gera últimos 12 meses como opções de select ── */
-function buildMonthOptions() {
-  const opts: { value: string; label: string }[] = [
-    { value: '', label: 'Todos os meses' },
-  ]
-  const hoje = new Date()
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1)
-    const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    const l = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-    opts.push({ value: v, label: l.charAt(0).toUpperCase() + l.slice(1) })
-  }
-  return opts
+function primeiroDiaMes() {
+  const h = new Date()
+  return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-01`
+}
+function ultimoDiaMes() {
+  const h = new Date()
+  const d = new Date(h.getFullYear(), h.getMonth() + 1, 0)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 /* ─────────────────────────────────────────────
@@ -84,53 +79,59 @@ function MetricCard({
 }
 
 /* ─────────────────────────────────────────────
-   Filter controls — select dropdowns
+   Filter controls — date range + roça
 ───────────────────────────────────────────── */
 function Filters({
-  mes, setMes, rocaId, setRocaId, centrosCusto,
+  dataInicio, setDataInicio, dataFim, setDataFim, rocaId, setRocaId, centrosCusto,
 }: {
-  mes: string; setMes: (v: string) => void
+  dataInicio: string; setDataInicio: (v: string) => void
+  dataFim: string; setDataFim: (v: string) => void
   rocaId: string; setRocaId: (v: string) => void
   centrosCusto: CentroCusto[]
 }) {
-  const monthOptions = useMemo(buildMonthOptions, [])
-
   const box: React.CSSProperties = {
-    border: '1px solid #e5e7eb',
-    borderRadius: 8,
-    padding: '8px 12px',
-    background: 'white',
-    minWidth: 175,
+    border: '1px solid #e5e7eb', borderRadius: 8,
+    padding: '8px 12px', background: 'white',
   }
   const lbl: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 5,
-    fontSize: 11, color: '#9ca3af', fontWeight: 500,
-    marginBottom: 5,
+    fontSize: 11, color: '#9ca3af', fontWeight: 500, marginBottom: 5,
+  }
+  const inp: React.CSSProperties = {
+    border: 'none', outline: 'none', fontSize: 13, color: NAVY,
+    fontFamily: 'inherit', background: 'transparent', cursor: 'pointer',
   }
   const sel: React.CSSProperties = {
-    border: 'none', outline: 'none', width: '100%',
-    fontSize: 13, color: NAVY, fontFamily: 'inherit',
-    background: 'transparent', cursor: 'pointer',
-    appearance: 'none' as const,
+    ...inp, width: '100%', appearance: 'none' as const,
   }
 
   return (
-    <div style={{ display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap', alignItems: 'flex-end' }}>
       <div style={box}>
         <div style={lbl}>
-          <FontAwesomeIcon icon={faCalendar} style={{ fontSize: 11, color: '#9ca3af' }} />
-          Mês de referência
+          <FontAwesomeIcon icon={faCalendar} style={{ fontSize: 11, color: '#9ca3af' }} /> De
         </div>
-        <select value={mes} onChange={e => setMes(e.target.value)} style={sel}>
-          {monthOptions.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+        <input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} style={inp} />
       </div>
       <div style={box}>
         <div style={lbl}>
-          <FontAwesomeIcon icon={faSliders} style={{ fontSize: 11, color: '#9ca3af' }} />
-          Roça
+          <FontAwesomeIcon icon={faCalendar} style={{ fontSize: 11, color: '#9ca3af' }} /> Até
+        </div>
+        <input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} style={inp} />
+      </div>
+      <button
+        onClick={() => { setDataInicio(primeiroDiaMes()); setDataFim(ultimoDiaMes()) }}
+        style={{
+          border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 12px',
+          background: 'white', fontSize: 12, color: '#6b7280', cursor: 'pointer',
+          fontFamily: 'inherit', whiteSpace: 'nowrap',
+        }}
+      >
+        Este mês
+      </button>
+      <div style={box}>
+        <div style={lbl}>
+          <FontAwesomeIcon icon={faSliders} style={{ fontSize: 11, color: '#9ca3af' }} /> Roça
         </div>
         <select value={rocaId} onChange={e => setRocaId(e.target.value)} style={sel}>
           <option value="">Todas as roças</option>
@@ -189,21 +190,20 @@ function Hr() {
    Main
 ───────────────────────────────────────────── */
 export default function DashboardClient({ centrosCusto }: { centrosCusto: CentroCusto[] }) {
-  const hoje = new Date()
-  const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`
-
-  const [mes,    setMes]    = useState(mesAtual)
-  const [rocaId, setRocaId] = useState('')
-  const [data,   setData]   = useState<DashData>(EMPTY)
+  const [dataInicio, setDataInicio] = useState(primeiroDiaMes)
+  const [dataFim,    setDataFim]    = useState(ultimoDiaMes)
+  const [rocaId,     setRocaId]     = useState('')
+  const [data,       setData]       = useState<DashData>(EMPTY)
 
   useEffect(() => {
     const p = new URLSearchParams()
-    if (mes)    p.set('mes',    mes)
-    if (rocaId) p.set('rocaId', rocaId)
+    if (dataInicio) p.set('dataInicio', dataInicio)
+    if (dataFim)    p.set('dataFim',    dataFim)
+    if (rocaId)     p.set('rocaId',     rocaId)
     fetch(`/api/dashboard/financeiro?${p}`)
       .then(r => r.json())
       .then(d => setData(d))
-  }, [mes, rocaId])
+  }, [dataInicio, dataFim, rocaId])
 
   const { competencia, caixa, totais, lavoura, dre } = data
   const saldoMes     = competencia.vendasMes + competencia.vendaLavoura - competencia.comprasMes
@@ -215,8 +215,9 @@ export default function DashboardClient({ centrosCusto }: { centrosCusto: Centro
 
   const sharedFilters = (
     <Filters
-      mes={mes} setMes={setMes}
-      rocaId={rocaId} setRocaId={setRocaId}
+      dataInicio={dataInicio} setDataInicio={setDataInicio}
+      dataFim={dataFim}       setDataFim={setDataFim}
+      rocaId={rocaId}         setRocaId={setRocaId}
       centrosCusto={centrosCusto}
     />
   )
