@@ -33,11 +33,16 @@ export async function GET(req: NextRequest) {
     ...(dateFilter ? { data: dateFilter } : {}),
   }
 
+  const vendaWhere = {
+    tipo: 'VENDA',
+    ...(dateFilter ? { data: dateFilter } : {}),
+  }
+
   const saidaLavourWhere = {
     ...(dateFilter ? { data: dateFilter } : {}),
   }
 
-  const [comprasMesArr, nfesMesArr, pdvMesArr, totalPagoAll, totalRecebidoAll, saidaLavouraAgg, fechamentosProdutor, fechamentosMeeiro] = await Promise.all([
+  const [comprasMesArr, nfesMesArr, pdvMesArr, vendaMesArr, totalPagoAll, totalRecebidoAll, saidaLavouraAgg, fechamentosProdutor, fechamentosMeeiro] = await Promise.all([
     prisma.compra.findMany({
       where: comprasWhere,
       select: {
@@ -53,6 +58,10 @@ export async function GET(req: NextRequest) {
     prisma.pedido.findMany({
       where: pdvWhere,
       select: { totalValor: true, formaPagamento: true, status: true },
+    }),
+    prisma.pedido.findMany({
+      where: vendaWhere,
+      select: { totalValor: true, status: true },
     }),
     prisma.compra.aggregate({
       where: { status: 'PAGO', ...(rocaId ? { centroCustoId: rocaId } : {}) },
@@ -77,16 +86,21 @@ export async function GET(req: NextRequest) {
     }),
   ])
 
+  const VENDA_CONFIRMADOS = ['CONFIRMADO', 'ENTREGUE', 'PAGO']
+
   /* ── COMPETÊNCIA ── */
   const comprasMesTotal  = comprasMesArr.reduce((s, c) => s + Number(c.totalValor), 0)
   const pdvMesTotal      = pdvMesArr.reduce((s, p) => s + Number(p.totalValor), 0)
-  const vendasMesTotal   = nfesMesArr.reduce((s, n) => s + Number(n.totalValor), 0) + pdvMesTotal
+  const vendaMesConfirmados = vendaMesArr.filter(p => VENDA_CONFIRMADOS.includes(p.status as string))
+  const vendaMesTotal    = vendaMesConfirmados.reduce((s, p) => s + Number(p.totalValor), 0)
+  const vendasMesTotal   = nfesMesArr.reduce((s, n) => s + Number(n.totalValor), 0) + pdvMesTotal + vendaMesTotal
   const vendaLavouraTotal = Number(saidaLavouraAgg._sum.totalValor ?? 0)
 
   /* ── CAIXA ── */
   const comprasPaga     = comprasMesArr.filter(c => c.status === 'PAGO').reduce((s, c) => s + Number(c.totalValor), 0)
   const pdvRecebido     = pdvMesArr.filter(p => p.formaPagamento !== 'FIADO' || p.status === 'PAGO').reduce((s, p) => s + Number(p.totalValor), 0)
-  const vendasRecebida  = nfesMesArr.filter(n => n.statusFinanceiro === 'RECEBIDO').reduce((s, n) => s + Number(n.totalValor), 0) + pdvRecebido
+  const vendaRecebida   = vendaMesConfirmados.reduce((s, p) => s + Number(p.totalValor), 0)
+  const vendasRecebida  = nfesMesArr.filter(n => n.statusFinanceiro === 'RECEBIDO').reduce((s, n) => s + Number(n.totalValor), 0) + pdvRecebido + vendaRecebida
   const carteiraPendente = pdvMesArr.filter(p => p.formaPagamento === 'FIADO' && p.status !== 'PAGO' && p.status !== 'CANCELADO').reduce((s, p) => s + Number(p.totalValor), 0)
 
   /* ── TOTAIS (all-time) ── */

@@ -122,6 +122,7 @@ export default function ClientesClient({ clientes: inicial }: { clientes: Client
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [viewCliente, setViewCliente] = useState<Cliente | null>(null)
+  const [relatorioData, setRelatorioData] = useState(() => new Date().toISOString().slice(0, 10))
 
   const filtrados = clientes.filter(c =>
     !q ||
@@ -879,14 +880,30 @@ export default function ClientesClient({ clientes: inicial }: { clientes: Client
                   </div>
 
                   {/* Footer */}
-                  <div style={{ padding: '14px 24px', borderTop: '1px solid #f0f4f8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                    {c.compras.pedidos.length > 0 ? (
-                      <motion.button onClick={() => downloadRelatorio(c)} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                        style={{ padding: '10px 18px', background: GREEN, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <FontAwesomeIcon icon={faDownload} style={{ fontSize: 13 }} />
-                        Exportar CSV
+                  <div style={{ padding: '14px 24px', borderTop: '1px solid #f0f4f8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      {/* Relatório do dia */}
+                      <input
+                        type="date"
+                        value={relatorioData}
+                        onChange={e => setRelatorioData(e.target.value)}
+                        style={{ padding: '8px 10px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', color: '#374151' }}
+                      />
+                      <motion.button
+                        onClick={() => window.open(`/imprimir/relatorio-cliente/${c.id}?data=${relatorioData}`, '_blank')}
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                        style={{ padding: '10px 16px', background: NAVY, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 13 }} />
+                        Relatório do dia
                       </motion.button>
-                    ) : <div />}
+                      {c.compras.pedidos.length > 0 && (
+                        <motion.button onClick={() => downloadRelatorio(c)} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                          style={{ padding: '10px 16px', background: GREEN, color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <FontAwesomeIcon icon={faDownload} style={{ fontSize: 13 }} />
+                          Exportar CSV
+                        </motion.button>
+                      )}
+                    </div>
                     <motion.button onClick={() => setViewCliente(null)} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                       style={{ padding: '10px 22px', border: '1.5px solid #e5e7eb', borderRadius: 10, background: 'white', fontSize: 14, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>
                       Fechar

@@ -735,8 +735,16 @@ export default function RocasClient({
   const [lancEditId, setLancEditId] = useState<string | null>(null);
   const [lancEditForm, setLancEditForm] = useState({
     data: "",
+    produtorId: "",
+    rocaId: "",
+    parceiroId: "",
+    percParceiro: "",
+    produtoId: "",
     quantidade: "",
     preco: "",
+    bandeja: "",
+    nrDoc: "",
+    combustivel: "",
     observacao: "",
   });
   const [savingLancEdit, setSavingLancEdit] = useState(false);
@@ -4115,16 +4123,23 @@ export default function RocasClient({
               (s, c) => s + c.quantidadeTotal * c.preco,
               0,
             );
-            const totalDeducoes = custosState.reduce(
-              (s, k) =>
-                s +
-                k.combustivel +
-                k.bandejaEmbalagem +
-                k.valesDinheiro +
-                k.creditos +
-                k.debitosAnteriores,
-              0,
+            const produtorIdsInView = new Set(
+              filteredLanc.map((c) => c.produtorId).filter(Boolean),
             );
+            const totalDeducoes = custosState
+              .filter(
+                (k) => !k.produtorId || produtorIdsInView.has(k.produtorId),
+              )
+              .reduce(
+                (s, k) =>
+                  s +
+                  k.combustivel +
+                  k.bandejaEmbalagem +
+                  k.valesDinheiro +
+                  k.creditos +
+                  k.debitosAnteriores,
+                0,
+              );
             const valorLiquido = valorBruto - totalDeducoes;
             return (
               <div
@@ -4428,8 +4443,16 @@ export default function RocasClient({
                         setLancEditId(c.id);
                         setLancEditForm({
                           data: c.data.split("T")[0],
+                          produtorId: c.produtorId ?? "",
+                          rocaId: c.rocaId ?? "",
+                          parceiroId: c.parceiroId ?? "",
+                          percParceiro: String(c.percParceiro),
+                          produtoId: c.produtoId,
                           quantidade: String(c.quantidadeTotal),
                           preco: String(c.preco),
+                          bandeja: String(c.bandeja),
+                          nrDoc: c.nrDoc ?? "",
+                          combustivel: "0",
                           observacao: "",
                         });
                         setLancMenuId(null);
@@ -4780,26 +4803,48 @@ export default function RocasClient({
                 try {
                   const qtd = parseFloat(lancEditForm.quantidade) || 0;
                   const prc = parseFloat(lancEditForm.preco) || 0;
+                  const perc = parseFloat(lancEditForm.percParceiro) || 0;
                   const res = await fetch(`/api/colheita/${lancEditId}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       data: lancEditForm.data,
+                      produtorId: lancEditForm.produtorId || null,
+                      rocaId: lancEditForm.rocaId || null,
+                      parceiroId: lancEditForm.parceiroId || null,
+                      produtoId: lancEditForm.produtoId || null,
                       quantidadeTotal: qtd,
                       preco: prc,
-                      percParceiro: c!.percParceiro,
-                      percDono: 100 - c!.percParceiro,
+                      percParceiro: perc,
+                      percDono: 100 - perc,
+                      bandeja: parseFloat(lancEditForm.bandeja) || 0,
+                      nrDoc: lancEditForm.nrDoc || null,
                     }),
                   });
                   if (!res.ok) throw new Error();
+                  const produtor = produtoresState.find(p => p.id === lancEditForm.produtorId);
+                  const parceiro = parceirosState.find(p => p.id === lancEditForm.parceiroId);
+                  const roca = rocas.find(r => r.id === lancEditForm.rocaId);
+                  const produto = produtosState.find(p => p.id === lancEditForm.produtoId);
                   setColheitas((prev) =>
                     prev.map((x) =>
                       x.id === lancEditId
                         ? {
                             ...x,
                             data: lancEditForm.data + "T00:00:00.000Z",
+                            produtorId: lancEditForm.produtorId || null,
+                            produtorNome: produtor?.nome ?? x.produtorNome,
+                            rocaId: lancEditForm.rocaId || null,
+                            rocaNome: roca?.nome ?? x.rocaNome,
+                            parceiroId: lancEditForm.parceiroId || null,
+                            parceiroNome: parceiro?.nome ?? (lancEditForm.parceiroId ? x.parceiroNome : null),
+                            percParceiro: perc,
+                            produtoId: lancEditForm.produtoId,
+                            produtoNome: produto?.nome ?? x.produtoNome,
                             quantidadeTotal: qtd,
                             preco: prc,
+                            bandeja: parseFloat(lancEditForm.bandeja) || 0,
+                            nrDoc: lancEditForm.nrDoc || null,
                           }
                         : x,
                     ),
@@ -4895,19 +4940,112 @@ export default function RocasClient({
                           gap: 14,
                         }}
                       >
-                        <FormField label="Data">
-                          <input
-                            type="date"
+                        {/* Produtor */}
+                        <FormField label="Produtor">
+                          <select
                             style={inputStyle}
-                            value={lancEditForm.data}
+                            value={lancEditForm.produtorId}
                             onChange={(e) =>
                               setLancEditForm((f) => ({
                                 ...f,
-                                data: e.target.value,
+                                produtorId: e.target.value,
+                                parceiroId: "",
+                                rocaId: "",
                               }))
                             }
-                          />
+                          >
+                            <option value="">Selecione o produtor</option>
+                            {produtoresState.map((p) => (
+                              <option key={p.id} value={p.id}>{p.nome}</option>
+                            ))}
+                          </select>
                         </FormField>
+
+                        {/* Meeiro + % */}
+                        <div className="grid-2">
+                          <FormField label="Meeiro">
+                            <select
+                              style={inputStyle}
+                              value={lancEditForm.parceiroId}
+                              onChange={(e) => {
+                                const par = parceirosState.find(p => p.id === e.target.value);
+                                setLancEditForm((f) => ({
+                                  ...f,
+                                  parceiroId: e.target.value,
+                                  percParceiro: par ? String(par.percentual) : f.percParceiro,
+                                }));
+                              }}
+                            >
+                              <option value="">— Sem meeiro —</option>
+                              {parceirosState
+                                .filter(p => !lancEditForm.produtorId || p.produtorId === lancEditForm.produtorId)
+                                .map((p) => (
+                                  <option key={p.id} value={p.id}>{p.nome}</option>
+                                ))}
+                            </select>
+                          </FormField>
+                          <FormField label="% Meeiro">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="1"
+                              style={inputStyle}
+                              value={lancEditForm.percParceiro}
+                              onChange={(e) =>
+                                setLancEditForm((f) => ({ ...f, percParceiro: e.target.value }))
+                              }
+                            />
+                          </FormField>
+                        </div>
+
+                        {/* Data + Roça */}
+                        <div className="grid-2">
+                          <FormField label="Data">
+                            <input
+                              type="date"
+                              style={inputStyle}
+                              value={lancEditForm.data}
+                              onChange={(e) =>
+                                setLancEditForm((f) => ({ ...f, data: e.target.value }))
+                              }
+                            />
+                          </FormField>
+                          <FormField label="Roça">
+                            <select
+                              style={inputStyle}
+                              value={lancEditForm.rocaId}
+                              onChange={(e) =>
+                                setLancEditForm((f) => ({ ...f, rocaId: e.target.value }))
+                              }
+                            >
+                              <option value="">Selecione a roça</option>
+                              {rocas
+                                .filter(r => !lancEditForm.produtorId || r.produtor?.id === lancEditForm.produtorId)
+                                .map((r) => (
+                                  <option key={r.id} value={r.id}>{r.nome}</option>
+                                ))}
+                            </select>
+                          </FormField>
+                        </div>
+
+                        {/* Produto */}
+                        <FormField label="Produto">
+                          <select
+                            style={inputStyle}
+                            value={lancEditForm.produtoId}
+                            onChange={(e) =>
+                              setLancEditForm((f) => ({ ...f, produtoId: e.target.value }))
+                            }
+                          >
+                            <option value="">Selecione o produto</option>
+                            {produtosState.map((p) => (
+                              <option key={p.id} value={p.id}>{p.nome}</option>
+                            ))}
+                          </select>
+                        </FormField>
+
+                        {/* Qtde + Preço */}
                         <div className="grid-2">
                           <FormField label="Quantidade">
                             <input
@@ -4916,10 +5054,7 @@ export default function RocasClient({
                               style={inputStyle}
                               value={lancEditForm.quantidade}
                               onChange={(e) =>
-                                setLancEditForm((f) => ({
-                                  ...f,
-                                  quantidade: e.target.value,
-                                }))
+                                setLancEditForm((f) => ({ ...f, quantidade: e.target.value }))
                               }
                             />
                           </FormField>
@@ -4931,10 +5066,33 @@ export default function RocasClient({
                               style={inputStyle}
                               value={lancEditForm.preco}
                               onChange={(e) =>
-                                setLancEditForm((f) => ({
-                                  ...f,
-                                  preco: e.target.value,
-                                }))
+                                setLancEditForm((f) => ({ ...f, preco: e.target.value }))
+                              }
+                            />
+                          </FormField>
+                        </div>
+
+                        {/* Embalagem + Nº Doc */}
+                        <div className="grid-2">
+                          <FormField label="Embalagem (R$)">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              style={inputStyle}
+                              value={lancEditForm.bandeja}
+                              onChange={(e) =>
+                                setLancEditForm((f) => ({ ...f, bandeja: e.target.value }))
+                              }
+                            />
+                          </FormField>
+                          <FormField label="Nº Doc.">
+                            <input
+                              type="text"
+                              style={inputStyle}
+                              value={lancEditForm.nrDoc}
+                              onChange={(e) =>
+                                setLancEditForm((f) => ({ ...f, nrDoc: e.target.value }))
                               }
                             />
                           </FormField>
@@ -5519,15 +5677,13 @@ export default function RocasClient({
                   dataInicio: fechForm.dataInicio,
                   dataFim: fechForm.dataFim,
                   dataPagamento: fechForm.dataPagamento,
-                  combustivel: Number(fechForm.combustivel) || 0,
-                  bandejaEmbalagem: fechDebitarBandeja
-                    ? Number(fechForm.bandejaEmbalagem) || 0
+                  combustivel: fechDebitarBandeja ? Number(fechForm.combustivel) || 0 : 0,
+                  bandejaEmbalagem: fechDebitarBandeja ? Number(fechForm.bandejaEmbalagem) || 0 : 0,
+                  valesDinheiro: fechDebitarBandeja
+                    ? (Number(fechForm.valesDinheiro) || 0) + valesAvulsosTotal
                     : 0,
-                  valesDinheiro:
-                    (Number(fechForm.valesDinheiro) || 0) +
-                    valesAvulsosTotal,
-                  creditos: Number(fechForm.creditos) || 0,
-                  debitosAnteriores: Number(fechForm.debitosAnteriores) || 0,
+                  creditos: fechDebitarBandeja ? Number(fechForm.creditos) || 0 : 0,
+                  debitosAnteriores: fechDebitarBandeja ? Number(fechForm.debitosAnteriores) || 0 : 0,
                   valeIds: fechValesSelecionados,
                 }),
               });
@@ -6558,16 +6714,14 @@ export default function RocasClient({
                                   fechValesSelecionados.includes(v.id),
                                 )
                                 .reduce((s, v) => s + v.valor, 0);
-                              const ded =
-                                (parseFloat(fechForm.combustivel) || 0) +
-                                (fechDebitarBandeja
-                                  ? parseFloat(fechForm.bandejaEmbalagem) ||
-                                    0
-                                  : 0) +
-                                (parseFloat(fechForm.valesDinheiro) || 0) +
-                                valesAvulsos +
-                                (parseFloat(fechForm.creditos) || 0) +
-                                (parseFloat(fechForm.debitosAnteriores) || 0);
+                              const ded = fechDebitarBandeja
+                                ? (parseFloat(fechForm.combustivel) || 0) +
+                                  (parseFloat(fechForm.bandejaEmbalagem) || 0) +
+                                  (parseFloat(fechForm.valesDinheiro) || 0) +
+                                  valesAvulsos +
+                                  (parseFloat(fechForm.creditos) || 0) +
+                                  (parseFloat(fechForm.debitosAnteriores) || 0)
+                                : 0;
                               const liquido = bruto - ded;
                               const totalPercMeeiro = prod.parceiros.reduce(
                                 (s, p) => s + p.percentual,
@@ -6797,8 +6951,7 @@ export default function RocasClient({
                                         color: "#374151",
                                       }}
                                     >
-                                      Descontar bandeja/embalagem neste
-                                      fechamento?
+                                      Descontar deduções neste fechamento?
                                     </span>
                                     <div style={{ display: "flex", gap: 6 }}>
                                       {(
@@ -6901,7 +7054,7 @@ export default function RocasClient({
                                     </div>
 
                                     {/* Campos de ajuste colapsáveis */}
-                                    {fechAjustar && (
+                                    {fechAjustar && fechDebitarBandeja && (
                                       <div
                                         className="grid-2"
                                         style={{
