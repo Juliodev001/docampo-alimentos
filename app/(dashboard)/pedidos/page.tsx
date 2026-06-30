@@ -37,7 +37,7 @@ export default async function PedidosPage() {
         id: p.id, numero: p.numero, tipo: p.tipo, data: p.data.toISOString(),
         status: p.status, totalValor: Number(p.totalValor), frete: Number(p.frete), outrasTaxas: Number(p.outrasTaxas),
         clienteId: p.clienteId,
-        formaPagamento: p.formaPagamento, observacao: p.observacao,
+        formaPagamento: p.formaPagamento, dataCobranca: p.dataCobranca ? p.dataCobranca.toISOString() : null, observacao: p.observacao,
         obsInternas: p.obsInternas, obsCliente: p.obsCliente,
         cliente: p.cliente ? {
           id: p.cliente.id, nome: p.cliente.nome, cnpjCpf: p.cliente.cnpjCpf,

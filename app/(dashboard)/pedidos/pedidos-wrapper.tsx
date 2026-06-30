@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import PdvClient from './pdv-client'
 import PedidosClient from './pedidos-client'
 
@@ -19,7 +20,7 @@ type Pedido = {
   id: string; numero: number; tipo: string; data: string
   status: string; totalValor: number; frete: number; outrasTaxas: number
   clienteId: string | null
-  formaPagamento: string | null; observacao: string | null
+  formaPagamento: string | null; dataCobranca: string | null; observacao: string | null
   obsInternas: string | null; obsCliente: string | null
   cliente: Parte
   fornecedor: Parte
@@ -37,6 +38,12 @@ type Props = {
 
 export default function PedidosWrapper({ pedidos, clientes, fornecedores, produtos, produtosPdv }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('pdv')
+  const router = useRouter()
+
+  function trocarAba(tab: Tab) {
+    setActiveTab(tab)
+    router.refresh()
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -55,7 +62,7 @@ export default function PedidosWrapper({ pedidos, clientes, fornecedores, produt
         ] as { key: Tab; label: string }[]).map(tab => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => trocarAba(tab.key)}
             style={{
               padding: '14px 24px',
               background: 'none',

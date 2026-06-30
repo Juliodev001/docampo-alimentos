@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
   const pedido = await prisma.pedido.create({
     data: {
       tipo:            tipo ?? 'VENDA',
+      status:          tipo === 'PDV' && formaPagamento !== 'FIADO' ? 'PAGO' : undefined,
       clienteId:       clienteId   || null,
       fornecedorId:    fornecedorId || null,
       transportadoraId: transportadoraId || null,

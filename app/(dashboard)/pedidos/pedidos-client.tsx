@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -28,7 +28,7 @@ type Parte = { id: string; nome: string; cnpjCpf: string | null; telefone: strin
 type Pedido = {
   id: string; numero: number; tipo: string; data: string
   status: string; totalValor: number; frete: number; outrasTaxas: number
-  formaPagamento: string | null; observacao: string | null
+  formaPagamento: string | null; dataCobranca: string | null; observacao: string | null
   obsInternas: string | null; obsCliente: string | null
   cliente: Parte
   fornecedor: Parte
@@ -39,7 +39,19 @@ type Cliente    = { id: string; nome: string }
 type Fornecedor = { id: string; nome: string }
 type Produto    = { id: string; nome: string; unidade: string }
 
-const FORMAS_PAGAMENTO = ['Dinheiro', 'PIX', 'Boleto', 'Cartão de Crédito', 'Cartão de Débito', 'Transferência', 'Cheque']
+const FORMAS_PAGAMENTO = ['Dinheiro', 'PIX', 'Boleto', 'Cartão de Crédito', 'Cartão de Débito', 'Transferência', 'Cheque', 'Carteira']
+
+const FORMA_LABEL: Record<string, string> = {
+  DINHEIRO:       'Dinheiro',
+  PIX:            'PIX',
+  CARTAO_CREDITO: 'Cartão de Crédito',
+  CARTAO_DEBITO:  'Cartão de Débito',
+  FIADO:          'Carteira',
+}
+function fmtFormaPag(v: string | null) {
+  if (!v) return '—'
+  return FORMA_LABEL[v] ?? v
+}
 
 const statusCfg: Record<string, { label: string; bg: string; color: string }> = {
   ABERTO:     { label: 'Pendente',   bg: '#fef9c3', color: '#854d0e' },
@@ -47,6 +59,19 @@ const statusCfg: Record<string, { label: string; bg: string; color: string }> = 
   ENTREGUE:   { label: 'Concluído',  bg: '#dbeafe', color: '#1e40af' },
   PAGO:       { label: 'Pago',       bg: '#dcfce7', color: '#166534' },
   CANCELADO:  { label: 'Cancelado',  bg: '#fee2e2', color: '#991b1b' },
+}
+
+function fmtPagamento(p: Pedido): { label: string; color: string } {
+  if (p.status === 'PAGO') return { label: 'Pago', color: '#166534' }
+  if (p.formaPagamento === 'FIADO') {
+    if (!p.dataCobranca) return { label: 'A vencer', color: '#854d0e' }
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+    const venc = new Date(p.dataCobranca); venc.setHours(0, 0, 0, 0)
+    return venc.getTime() < hoje.getTime()
+      ? { label: `Vencido em ${formatDate(venc)}`, color: '#991b1b' }
+      : { label: `A vencer em ${formatDate(venc)}`, color: '#854d0e' }
+  }
+  return { label: (statusCfg[p.status] ?? statusCfg.ABERTO).label, color: '#6b7280' }
 }
 
 const STATUS_OPTS = [
@@ -63,6 +88,11 @@ function fmtNumero(tipo: string, numero: number, data: string) {
   const ano = new Date(data).getFullYear()
   const pfx = tipo === 'VENDA' ? 'VEND' : tipo === 'PDV' ? 'PDV' : 'COMP'
   return `${pfx}-${ano}-${String(numero).padStart(5, '0')}`
+}
+
+const isVendaTipo = (p: Pedido) => p.tipo === 'VENDA' || p.tipo === 'PDV'
+function abrirComprovanteVenda(p: Pedido) {
+  window.open(`/imprimir/venda-pdv/${p.id}`, '_blank')
 }
 
 const v = (x: string | null | undefined) => x && x.trim() ? x : 'Não informado'
@@ -143,7 +173,7 @@ function gerarRelatorioHTML(p: Pedido) {
         <div class="card-b">
           <div class="field"><div class="lbl">Data do pedido</div><div class="val">${formatDate(new Date(p.data))}</div></div>
           <div class="field"><div class="lbl">Situação</div><div class="val">${stLabel}</div></div>
-          <div class="field"><div class="lbl">Forma de pagamento</div><div class="val">${v(p.formaPagamento)}</div></div>
+          <div class="field"><div class="lbl">Forma de pagamento</div><div class="val">${fmtFormaPag(p.formaPagamento)}</div></div>
           <div class="field"><div class="lbl">Condição</div><div class="val">${condicao}</div></div>
         </div>
       </div>
@@ -240,6 +270,7 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
 }) {
   const router = useRouter()
   const [pedidos, setPedidos] = useState(inicial)
+  useEffect(() => { setPedidos(inicial) }, [inicial])
   const [q, setQ]             = useState('')
   const [aba, setAba]         = useState<'todos' | 'vendas' | 'compras'>('todos')
   const [filtrosOpen, setFiltrosOpen] = useState(false)
@@ -442,7 +473,7 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #f0f0f0' }}>
-                {['Número', 'Tipo', 'Cliente / Fornecedor', 'Status', 'Total', 'Data', 'Ações'].map(h => (
+                {['Número', 'Tipo', 'Cliente / Fornecedor', 'Status', 'Pagamento', 'Total', 'Data', 'Ações'].map(h => (
                   <th key={h} style={{ padding: '11px 16px', textAlign: 'left', fontSize: 12, color: '#6b7280', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: 0.5, whiteSpace: 'nowrap' as const }}>{h}</th>
                 ))}
               </tr>
@@ -450,7 +481,7 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
             <tbody>
               {filtrados.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: '60px 16px', textAlign: 'center' }}>
+                  <td colSpan={8} style={{ padding: '60px 16px', textAlign: 'center' }}>
                     <FontAwesomeIcon icon={faCartShopping} style={{ fontSize: 36, color: '#d1d5db', display: 'block', margin: '0 auto 12px' }} />
                     <p style={{ color: '#9ca3af', fontSize: 14, margin: '0 0 4px', fontWeight: 600 }}>Nenhum pedido encontrado</p>
                     <p style={{ color: '#c0c4cc', fontSize: 13, margin: 0 }}>
@@ -506,6 +537,13 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
                       </div>
                     </td>
 
+                    {/* Pagamento */}
+                    <td style={{ padding: '13px 16px' }}>
+                      {(() => { const pg = fmtPagamento(p); return (
+                        <span style={{ fontSize: 12, fontWeight: 600, color: pg.color, whiteSpace: 'nowrap' as const }}>{pg.label}</span>
+                      ) })()}
+                    </td>
+
                     {/* Total */}
                     <td style={{ padding: '13px 16px', fontSize: 13, color: NAVY, fontWeight: 600, whiteSpace: 'nowrap' as const }}>{formatCurrency(p.totalValor)}</td>
 
@@ -520,7 +558,10 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
                           <FontAwesomeIcon icon={faEye} style={{ fontSize: 13 }} />
                         </button>
                         {/* Relatório */}
-                        <button title="Relatório do pedido" onClick={() => abrirRelatorio(p, false)} style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #e5e7eb', background: 'white', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <button
+                          title={p.cliente ? 'Relatório do cliente' : 'Relatório do pedido'}
+                          onClick={() => p.cliente ? window.open(`/imprimir/relatorio-cliente/${p.cliente.id}`, '_blank') : (isVendaTipo(p) ? abrirComprovanteVenda(p) : abrirRelatorio(p, false))}
+                          style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #e5e7eb', background: 'white', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 13 }} />
                         </button>
                         {/* Editar */}
@@ -590,12 +631,17 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
 
                 {/* actions */}
                 <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-                  <button onClick={() => abrirRelatorio(p, false)} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 16px', background: 'white', fontSize: 13, color: NAVY, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+                  <button onClick={() => isVendaTipo(p) ? abrirComprovanteVenda(p) : abrirRelatorio(p, false)} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 16px', background: 'white', fontSize: 13, color: NAVY, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
                     <FontAwesomeIcon icon={faDownload} style={{ fontSize: 13, color: '#6b7280' }} /> Baixar PDF
                   </button>
-                  <button onClick={() => abrirRelatorio(p, true)} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 16px', background: 'white', fontSize: 13, color: NAVY, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+                  <button onClick={() => isVendaTipo(p) ? abrirComprovanteVenda(p) : abrirRelatorio(p, true)} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 16px', background: 'white', fontSize: 13, color: NAVY, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
                     <FontAwesomeIcon icon={faPrint} style={{ fontSize: 13, color: '#6b7280' }} /> Imprimir
                   </button>
+                  {p.cliente && (
+                    <button onClick={() => window.open(`/imprimir/relatorio-cliente/${p.cliente!.id}`, '_blank')} style={{ display: 'flex', alignItems: 'center', gap: 6, border: `1.5px solid ${NAVY}`, borderRadius: 8, padding: '8px 16px', background: NAVY, fontSize: 13, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+                      <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 13 }} /> Relatório do Cliente
+                    </button>
+                  )}
                 </div>
 
                 {/* Informações Básicas */}
@@ -621,7 +667,7 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
                 {/* Pagamento */}
                 <SecView title="Pagamento" sub="Informações de pagamento" icon={faMoneyBillWave} iconBg="#fef9c3" iconColor="#ca8a04">
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-                    <InfoField lbl="Forma de Pagamento" val={v(p.formaPagamento)} />
+                    <InfoField lbl="Forma de Pagamento" val={fmtFormaPag(p.formaPagamento)} />
                     <InfoField lbl="Condição de Pagamento" val={(p.frete === 0 && p.outrasTaxas === 0) ? 'À vista' : '—'} />
                   </div>
                 </SecView>

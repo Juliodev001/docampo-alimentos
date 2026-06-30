@@ -5,7 +5,7 @@ import {
   faMagnifyingGlass, faShoppingCart,
   faXmark, faCheckCircle, faMoneyBill, faCreditCard, faQrcode,
   faHandshake, faReceipt, faBoxOpen, faPencil,
-  faClockRotateLeft, faPrint,
+  faClockRotateLeft, faPrint, faFileLines,
 } from '@fortawesome/free-solid-svg-icons'
 import { useToast } from '@/components/toast'
 import { formatCurrency } from '@/lib/utils'
@@ -936,14 +936,26 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
                             {new Date(v.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} · {formatCurrency(v.totalValor)}
                           </div>
                         </div>
-                        <button
-                          onClick={() => window.open(`/imprimir/venda-pdv/${v.id}`, '_blank')}
-                          title="Reimprimir comprovante"
-                          style={{ background: NAVY, color: 'white', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
-                        >
-                          <FontAwesomeIcon icon={faPrint} style={{ fontSize: 12 }} />
-                          Imprimir
-                        </button>
+                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                          {v.clienteId && (
+                            <button
+                              onClick={() => window.open(`/imprimir/relatorio-cliente/${v.clienteId}`, '_blank')}
+                              title="Relatório do cliente"
+                              style={{ background: `${NAVY}15`, color: NAVY, border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                            >
+                              <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 12 }} />
+                              Relatório
+                            </button>
+                          )}
+                          <button
+                            onClick={() => window.open(`/imprimir/venda-pdv/${v.id}`, '_blank')}
+                            title="Reimprimir comprovante"
+                            style={{ background: NAVY, color: 'white', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                          >
+                            <FontAwesomeIcon icon={faPrint} style={{ fontSize: 12 }} />
+                            Imprimir
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
