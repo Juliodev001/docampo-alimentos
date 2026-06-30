@@ -7,7 +7,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ clie
   const session = await getSession()
   if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { clienteId } = await params
-  const dataParam = req.nextUrl.searchParams.get('data')
+  const dataParam       = req.nextUrl.searchParams.get('data')
+  const dataInicioParam = req.nextUrl.searchParams.get('dataInicio')
+  const dataFimParam    = req.nextUrl.searchParams.get('dataFim')
 
   const cliente = await prisma.cliente.findUnique({
     where: { id: clienteId },
@@ -15,9 +17,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ clie
   })
   if (!cliente) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const dateFilter = dataParam
-    ? { data: { gte: new Date(dataParam + 'T00:00:00.000Z'), lte: new Date(dataParam + 'T23:59:59.999Z') } }
-    : {}
+  let dateFilter: object = {}
+  if (dataInicioParam && dataFimParam) {
+    dateFilter = { data: { gte: new Date(dataInicioParam + 'T00:00:00'), lte: new Date(dataFimParam + 'T23:59:59') } }
+  } else if (dataParam) {
+    dateFilter = { data: { gte: new Date(dataParam + 'T00:00:00.000Z'), lte: new Date(dataParam + 'T23:59:59.999Z') } }
+  }
 
   const pedidos = await prisma.pedido.findMany({
     where: {

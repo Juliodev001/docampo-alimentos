@@ -31,7 +31,9 @@ function statusPagamento(p: Pedido): { label: string; color: string } {
 export default function RelatorioCliente() {
   const { clienteId } = useParams<{ clienteId: string }>()
   const searchParams = useSearchParams()
-  const dataFiltro = searchParams.get('data') ?? ''
+  const dataFiltro      = searchParams.get('data') ?? ''
+  const dataInicioParam = searchParams.get('dataInicio') ?? ''
+  const dataFimParam    = searchParams.get('dataFim') ?? ''
 
   const [data, setData] = useState<{ cliente: Cliente; pedidos: Pedido[]; usuario: string } | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -39,9 +41,17 @@ export default function RelatorioCliente() {
   const [emitidoEm] = useState(() => new Date())
 
   useEffect(() => {
-    const url = `/api/relatorio-cliente/${clienteId}${dataFiltro ? `?data=${dataFiltro}` : ''}`
+    const p = new URLSearchParams()
+    if (dataInicioParam && dataFimParam) {
+      p.set('dataInicio', dataInicioParam)
+      p.set('dataFim', dataFimParam)
+    } else if (dataFiltro) {
+      p.set('data', dataFiltro)
+    }
+    const qs = p.toString()
+    const url = `/api/relatorio-cliente/${clienteId}${qs ? `?${qs}` : ''}`
     fetch(url).then(r => r.json()).then(setData)
-  }, [clienteId, dataFiltro])
+  }, [clienteId, dataFiltro, dataInicioParam, dataFimParam])
 
   async function captureImage(): Promise<Blob> {
     const html2canvas = (await import('html2canvas-pro')).default
@@ -139,7 +149,13 @@ export default function RelatorioCliente() {
             <span>Emitido em: {fmtDateTime(emitidoEm)}</span>
           </div>
           <div style={{ marginBottom: 12, fontSize: 11 }}>
-            Período: {dataFiltro ? fmtDate(dataFiltro) : 'não filtrado'}
+            Período: {
+              dataInicioParam && dataFimParam
+                ? `${fmtDate(dataInicioParam)} a ${fmtDate(dataFimParam)}`
+                : dataFiltro
+                  ? fmtDate(dataFiltro)
+                  : 'não filtrado'
+            }
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11 }}>

@@ -1,10 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faFileLines, faDollarSign, faChartBar, faArrowTrendUp, faXmark } from '@fortawesome/free-solid-svg-icons'
+import { faFileLines, faDollarSign, faChartBar, faArrowTrendUp, faXmark, faMagnifyingGlass, faUser } from '@fortawesome/free-solid-svg-icons'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import { formatCurrency, formatDate } from "@/lib/utils";
+
+type ClienteItem = { id: string; nome: string }
 
 const GREEN = "#5ab952";
 const NAVY = "#2d3561";
@@ -18,6 +20,45 @@ export default function RelatoriosClient() {
   const [ate, setAte] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
   const [result, setResult] = useState<ReportResult | null>(null);
+
+  /* ── Relatório por cliente ── */
+  const [todosClientes, setTodosClientes] = useState<ClienteItem[]>([])
+  const [clienteBusca, setClienteBusca] = useState('')
+  const [clienteSelecionado, setClienteSelecionado] = useState<ClienteItem | null>(null)
+  const [dropdownAberto, setDropdownAberto] = useState(false)
+  const [relInicio, setRelInicio] = useState('')
+  const [relFim, setRelFim] = useState('')
+  const searchRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    fetch('/api/clientes/lista').then(r => r.json()).then(setTodosClientes)
+  }, [])
+
+  useEffect(() => {
+    function fechar(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setDropdownAberto(false)
+    }
+    document.addEventListener('mousedown', fechar)
+    return () => document.removeEventListener('mousedown', fechar)
+  }, [])
+
+  const sugestoes = clienteBusca.trim()
+    ? todosClientes.filter(c => c.nome.toLowerCase().includes(clienteBusca.toLowerCase())).slice(0, 8)
+    : []
+
+  function selecionarCliente(c: ClienteItem) {
+    setClienteSelecionado(c)
+    setClienteBusca(c.nome)
+    setDropdownAberto(false)
+  }
+
+  function abrirRelatorioCliente() {
+    if (!clienteSelecionado) return
+    const p = new URLSearchParams()
+    if (relInicio && relFim) { p.set('dataInicio', relInicio); p.set('dataFim', relFim) }
+    const qs = p.toString()
+    window.open(`/imprimir/relatorio-cliente/${clienteSelecionado.id}${qs ? `?${qs}` : ''}`, '_blank')
+  }
 
   async function gerar(tipo: string) {
     setLoading(tipo);
@@ -293,6 +334,101 @@ export default function RelatoriosClient() {
           </motion.div>
         ))}
       </div>
+
+      {/* Card: Relatório por Cliente */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.55, duration: 0.4, type: "spring", stiffness: 200 }}
+        style={{
+          backgroundColor: "white", borderRadius: 16, padding: 24,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+          border: `2px solid ${NAVY}18`, marginTop: 18,
+          display: "flex", flexDirection: "column" as const, gap: 18,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: `${NAVY}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <FontAwesomeIcon icon={faUser} style={{ fontSize: 22, color: NAVY }} />
+          </div>
+          <div>
+            <h3 style={{ fontSize: 17, fontWeight: 700, color: NAVY, margin: '0 0 4px' }}>Relatório por Cliente</h3>
+            <p style={{ fontSize: 13, color: '#6b7280', margin: 0, lineHeight: 1.5 }}>
+              Busque um cliente pelo nome, defina o período e abra o extrato de compras em PDF.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' as const, alignItems: 'flex-end' }}>
+          {/* Busca de cliente */}
+          <div ref={searchRef} style={{ position: 'relative', flex: '1 1 220px', minWidth: 200 }}>
+            <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 5px', fontWeight: 500 }}>Cliente</p>
+            <div style={{ position: 'relative' }}>
+              <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#9ca3af', pointerEvents: 'none' }} />
+              <input
+                type="text"
+                placeholder="Buscar pelo nome..."
+                value={clienteBusca}
+                onChange={e => {
+                  setClienteBusca(e.target.value)
+                  setClienteSelecionado(null)
+                  setDropdownAberto(true)
+                }}
+                onFocus={() => { if (clienteBusca) setDropdownAberto(true) }}
+                style={{ width: '100%', padding: '9px 12px 9px 34px', border: `1.5px solid ${clienteSelecionado ? NAVY : '#e5e7eb'}`, borderRadius: 10, fontSize: 13, color: NAVY, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const }}
+              />
+            </div>
+            {dropdownAberto && sugestoes.length > 0 && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'white', border: '1.5px solid #e5e7eb', borderRadius: 10, marginTop: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 50, overflow: 'hidden' }}>
+                {sugestoes.map(c => (
+                  <div
+                    key={c.id}
+                    onMouseDown={() => selecionarCliente(c)}
+                    style={{ padding: '10px 14px', fontSize: 13, color: NAVY, cursor: 'pointer', borderBottom: '1px solid #f3f4f6' }}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f9fafb')}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'white')}
+                  >
+                    {c.nome}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Datas */}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div>
+              <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 5px', fontWeight: 500 }}>De</p>
+              <input type="date" value={relInicio} onChange={e => setRelInicio(e.target.value)}
+                style={{ padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 13, color: NAVY, outline: 'none', fontFamily: 'inherit', cursor: 'pointer' }} />
+            </div>
+            <div>
+              <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 5px', fontWeight: 500 }}>Até</p>
+              <input type="date" value={relFim} onChange={e => setRelFim(e.target.value)}
+                style={{ padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 13, color: NAVY, outline: 'none', fontFamily: 'inherit', cursor: 'pointer' }} />
+            </div>
+          </div>
+
+          {/* Botão */}
+          <motion.button
+            onClick={abrirRelatorioCliente}
+            disabled={!clienteSelecionado}
+            whileHover={clienteSelecionado ? { scale: 1.02, backgroundColor: `${NAVY}ee` } : {}}
+            whileTap={clienteSelecionado ? { scale: 0.97 } : {}}
+            style={{ padding: '11px 22px', backgroundColor: NAVY, color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: clienteSelecionado ? 'pointer' : 'not-allowed', opacity: clienteSelecionado ? 1 : 0.45, fontFamily: 'inherit', whiteSpace: 'nowrap' as const, alignSelf: 'flex-end' }}
+          >
+            <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 13, marginRight: 8 }} />
+            Ver Relatório
+          </motion.button>
+        </div>
+
+        {clienteSelecionado && (
+          <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>
+            Cliente selecionado: <strong style={{ color: NAVY }}>{clienteSelecionado.nome}</strong>
+            {relInicio && relFim ? ` · período ${relInicio.split('-').reverse().join('/')} a ${relFim.split('-').reverse().join('/')}` : ' · todos os pedidos'}
+          </p>
+        )}
+      </motion.div>
 
       {/* Modal resultado */}
       <AnimatePresence>
