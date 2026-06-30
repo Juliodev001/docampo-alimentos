@@ -730,6 +730,7 @@ export default function RocasClient({
   };
   const [lancItems, setLancItems] = useState<LancItem[]>([]);
   const [lancMenuId, setLancMenuId] = useState<string | null>(null);
+  const [lancPage, setLancPage] = useState(1);
   const [lancMenuPos, setLancMenuPos] = useState({ top: 0, right: 0 });
   const [lancViewId, setLancViewId] = useState<string | null>(null);
   const [lancEditId, setLancEditId] = useState<string | null>(null);
@@ -4251,7 +4252,7 @@ export default function RocasClient({
                     </td>
                   </tr>
                 ) : (
-                  filteredLanc.map((c) => {
+                  filteredLanc.slice((Math.min(lancPage, Math.max(1, Math.ceil(filteredLanc.length / 10))) - 1) * 10, Math.min(lancPage, Math.max(1, Math.ceil(filteredLanc.length / 10))) * 10).map((c) => {
                     const valorMeeiro =
                       c.quantidadeTotal * c.preco * (c.percParceiro / 100);
                     const valorTotal = c.quantidadeTotal * c.preco;
@@ -4388,6 +4389,54 @@ export default function RocasClient({
             </table>
             </div>
           </div>
+
+          {/* Paginação */}
+          {filteredLanc.length > 10 && (() => {
+            const totalPages = Math.ceil(filteredLanc.length / 10)
+            const safePage = Math.min(lancPage, totalPages)
+            const pages: number[] = []
+            const delta = 2
+            for (let i = Math.max(1, safePage - delta); i <= Math.min(totalPages, safePage + delta); i++) pages.push(i)
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '16px 0', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setLancPage(p => Math.max(1, p - 1))}
+                  disabled={safePage === 1}
+                  style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: safePage === 1 ? '#f9fafb' : 'white', color: safePage === 1 ? '#9ca3af' : NAVY, fontSize: 13, fontWeight: 600, cursor: safePage === 1 ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                >
+                  ← Anterior
+                </button>
+                {pages[0] > 1 && (
+                  <>
+                    <button onClick={() => setLancPage(1)} style={{ width: 36, height: 36, borderRadius: 8, border: '1px solid #e5e7eb', background: 'white', color: NAVY, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>1</button>
+                    {pages[0] > 2 && <span style={{ color: '#9ca3af', fontSize: 13 }}>…</span>}
+                  </>
+                )}
+                {pages.map(pg => (
+                  <button
+                    key={pg}
+                    onClick={() => setLancPage(pg)}
+                    style={{ width: 36, height: 36, borderRadius: 8, border: 'none', background: pg === safePage ? NAVY : '#f3f4f6', color: pg === safePage ? 'white' : '#374151', fontWeight: pg === safePage ? 700 : 400, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    {pg}
+                  </button>
+                ))}
+                {pages[pages.length - 1] < totalPages && (
+                  <>
+                    {pages[pages.length - 1] < totalPages - 1 && <span style={{ color: '#9ca3af', fontSize: 13 }}>…</span>}
+                    <button onClick={() => setLancPage(totalPages)} style={{ width: 36, height: 36, borderRadius: 8, border: '1px solid #e5e7eb', background: 'white', color: NAVY, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{totalPages}</button>
+                  </>
+                )}
+                <button
+                  onClick={() => setLancPage(p => Math.min(totalPages, p + 1))}
+                  disabled={safePage === totalPages}
+                  style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: safePage === totalPages ? '#f9fafb' : 'white', color: safePage === totalPages ? '#9ca3af' : NAVY, fontSize: 13, fontWeight: 600, cursor: safePage === totalPages ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                >
+                  Próxima →
+                </button>
+              </div>
+            )
+          })()}
 
           {/* Menu flutuante dos 3 pontos */}
           {lancMenuId &&
