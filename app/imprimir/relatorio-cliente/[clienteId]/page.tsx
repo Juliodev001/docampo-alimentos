@@ -75,7 +75,7 @@ export default function RelatorioCliente() {
     </div>
   )
 
-  const { cliente, pedidos, usuario } = data
+  const { cliente, pedidos } = data
   const endereco = cliente.enderecos[0]
   const enderecoStr = endereco
     ? [endereco.logradouro, endereco.numero, endereco.bairro, endereco.cidade, endereco.estado].filter(Boolean).join(', ')
@@ -135,8 +135,7 @@ export default function RelatorioCliente() {
             </div>
           </div>
 
-          <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11 }}>
-            <span>Usuário: {usuario || '—'}</span>
+          <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4, fontSize: 11 }}>
             <span>Emitido em: {fmtDateTime(emitidoEm)}</span>
           </div>
           <div style={{ marginBottom: 12, fontSize: 11 }}>

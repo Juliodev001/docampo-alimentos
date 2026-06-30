@@ -279,6 +279,12 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState('')
   const [pedidoView, setPedidoView] = useState<Pedido | null>(null)
+  const [editando, setEditando]     = useState(false)
+  const [editItens, setEditItens]   = useState<ItemPedido[]>([])
+  const [editFrete, setEditFrete]   = useState('0')
+  const [editOutrasTaxas, setEditOutrasTaxas] = useState('0')
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError]   = useState('')
 
   /* ── form state ── */
   const hoje = new Date().toISOString().slice(0, 10)
@@ -340,6 +346,60 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: novoStatus }),
     })
+  }
+
+  /* ── editar itens/valores ── */
+  function abrirEdicao(p: Pedido) {
+    setPedidoView(p)
+    setEditando(true)
+    setEditError('')
+    setEditItens(p.itens.map(it => ({ ...it })))
+    setEditFrete(String(p.frete))
+    setEditOutrasTaxas(String(p.outrasTaxas))
+  }
+  function abrirVisualizacao(p: Pedido) {
+    setPedidoView(p)
+    setEditando(false)
+  }
+  function updateEditItem(idx: number, field: keyof ItemPedido, val: string | number) {
+    setEditItens(prev => prev.map((it, i) => {
+      if (i !== idx) return it
+      const upd = { ...it, [field]: val }
+      upd.total = Math.max(0, Number(upd.quantidade) * Number(upd.valorUnit) - Number(upd.desconto))
+      return upd
+    }))
+  }
+  const editSubtotal = editItens.reduce((s, it) => s + it.total, 0)
+  const editFreteN   = parseFloat(editFrete) || 0
+  const editOutrasN  = parseFloat(editOutrasTaxas) || 0
+  const editTotal    = editSubtotal + editFreteN + editOutrasN
+
+  async function handleSalvarEdicao() {
+    if (!pedidoView) return
+    setEditError('')
+    if (!editItens.some(it => it.produto.trim())) { setEditError('Adicione pelo menos um produto.'); return }
+    setEditSaving(true)
+    try {
+      const res = await fetch(`/api/pedidos/${pedidoView.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itens: editItens.filter(it => it.produto.trim()),
+          frete: editFreteN, outrasTaxas: editOutrasN,
+        }),
+      })
+      if (!res.ok) { const err = await res.json(); setEditError(err.error ?? 'Erro ao salvar pedido.'); return }
+      const atualizado = await res.json()
+      const mapeado: Pedido = {
+        ...pedidoView,
+        frete: editFreteN, outrasTaxas: editOutrasN, totalValor: editTotal,
+        itens: atualizado.itens.map((it: ItemPedido) => ({ ...it, valorUnit: Number(it.valorUnit), desconto: Number(it.desconto), total: Number(it.total) })),
+      }
+      setPedidos(prev => prev.map(p => p.id === mapeado.id ? mapeado : p))
+      setPedidoView(mapeado)
+      setEditando(false)
+      router.refresh()
+    } catch { setEditError('Erro de rede. Tente novamente.') }
+    finally { setEditSaving(false) }
   }
 
   /* ── delete ── */
@@ -554,7 +614,7 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
                     <td style={{ padding: '13px 16px' }}>
                       <div style={{ display: 'flex', gap: 4 }}>
                         {/* Ver */}
-                        <button title="Visualizar" onClick={() => setPedidoView(p)} style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #e5e7eb', background: 'white', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <button title="Visualizar" onClick={() => abrirVisualizacao(p)} style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #e5e7eb', background: 'white', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <FontAwesomeIcon icon={faEye} style={{ fontSize: 13 }} />
                         </button>
                         {/* Relatório */}
@@ -565,7 +625,7 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
                           <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 13 }} />
                         </button>
                         {/* Editar */}
-                        <button title="Editar" onClick={() => setPedidoView(p)} style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #e5e7eb', background: 'white', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <button title="Editar" onClick={() => abrirEdicao(p)} style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #e5e7eb', background: 'white', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <FontAwesomeIcon icon={faPencil} style={{ fontSize: 13 }} />
                         </button>
                         {/* Excluir */}
@@ -610,7 +670,7 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
         )
         return (
           <>
-            <div onClick={() => setPedidoView(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000 }} />
+            <div onClick={() => { setPedidoView(null); setEditando(false) }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000 }} />
             <div style={{ position: 'fixed', inset: 0, zIndex: 1001, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 16px', overflowY: 'auto' }}>
               <div style={{ background: 'white', borderRadius: 16, width: '100%', maxWidth: 720, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', padding: '28px 32px' }}>
                 {/* header */}
@@ -624,86 +684,166 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
                       <p style={{ fontSize: 13, color: '#6b7280', margin: '3px 0 0' }}>Visualização detalhada do pedido</p>
                     </div>
                   </div>
-                  <button onClick={() => setPedidoView(null)} style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', color: '#6b7280' }}>
+                  <button onClick={() => { setPedidoView(null); setEditando(false) }} style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', color: '#6b7280' }}>
                     <FontAwesomeIcon icon={faXmark} style={{ fontSize: 16 }} />
                   </button>
                 </div>
 
                 {/* actions */}
-                <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-                  <button onClick={() => isVendaTipo(p) ? abrirComprovanteVenda(p) : abrirRelatorio(p, false)} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 16px', background: 'white', fontSize: 13, color: NAVY, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
-                    <FontAwesomeIcon icon={faDownload} style={{ fontSize: 13, color: '#6b7280' }} /> Baixar PDF
-                  </button>
-                  <button onClick={() => isVendaTipo(p) ? abrirComprovanteVenda(p) : abrirRelatorio(p, true)} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 16px', background: 'white', fontSize: 13, color: NAVY, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
-                    <FontAwesomeIcon icon={faPrint} style={{ fontSize: 13, color: '#6b7280' }} /> Imprimir
-                  </button>
-                  {p.cliente && (
-                    <button onClick={() => window.open(`/imprimir/relatorio-cliente/${p.cliente!.id}`, '_blank')} style={{ display: 'flex', alignItems: 'center', gap: 6, border: `1.5px solid ${NAVY}`, borderRadius: 8, padding: '8px 16px', background: NAVY, fontSize: 13, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
-                      <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 13 }} /> Relatório do Cliente
+                {!editando && (
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                    <button onClick={() => isVendaTipo(p) ? abrirComprovanteVenda(p) : abrirRelatorio(p, false)} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 16px', background: 'white', fontSize: 13, color: NAVY, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+                      <FontAwesomeIcon icon={faDownload} style={{ fontSize: 13, color: '#6b7280' }} /> Baixar PDF
                     </button>
-                  )}
-                </div>
-
-                {/* Informações Básicas */}
-                <SecView title="Informações Básicas" sub="Dados principais do pedido" icon={faCircleInfo} iconBg="#eff6ff" iconColor={BLUE}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-                    <InfoField lbl="Número do Pedido" val={<span style={{ fontFamily: 'monospace' }}>{num}</span>} />
-                    <InfoField lbl="Tipo" val={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: isVenda ? '#f0fdf4' : '#eff6ff', color: isVenda ? '#15803d' : '#1d4ed8' }}><FontAwesomeIcon icon={isVenda ? faArrowUp : faCartShopping} style={{ fontSize: 10 }} />{isVenda ? 'Venda' : 'Compra'}</span>} />
-                    <InfoField lbl="Status" val={<span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: sc.bg, color: sc.color }}>{sc.label}</span>} />
-                    <InfoField lbl="Data do Pedido" val={formatDate(new Date(p.data))} />
+                    <button onClick={() => isVendaTipo(p) ? abrirComprovanteVenda(p) : abrirRelatorio(p, true)} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 16px', background: 'white', fontSize: 13, color: NAVY, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+                      <FontAwesomeIcon icon={faPrint} style={{ fontSize: 13, color: '#6b7280' }} /> Imprimir
+                    </button>
+                    {p.cliente && (
+                      <button onClick={() => window.open(`/imprimir/relatorio-cliente/${p.cliente!.id}`, '_blank')} style={{ display: 'flex', alignItems: 'center', gap: 6, border: `1.5px solid ${NAVY}`, borderRadius: 8, padding: '8px 16px', background: NAVY, fontSize: 13, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+                        <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 13 }} /> Relatório do Cliente
+                      </button>
+                    )}
+                    <button onClick={() => abrirEdicao(p)} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 16px', background: 'white', fontSize: 13, color: NAVY, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, marginLeft: 'auto' }}>
+                      <FontAwesomeIcon icon={faPencil} style={{ fontSize: 13, color: '#6b7280' }} /> Editar Itens
+                    </button>
                   </div>
-                </SecView>
+                )}
 
-                {/* Cliente / Fornecedor */}
-                <SecView title={isVenda ? 'Cliente' : 'Fornecedor'} sub={isVenda ? 'Informações do cliente' : 'Informações do fornecedor'} icon={faUser} iconBg="#f0fdf4" iconColor={GREEN}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-                    <InfoField lbl="Nome" val={v(parte?.nome)} />
-                    <InfoField lbl="CPF / CNPJ" val={v(parte?.cnpjCpf)} />
-                    {parte?.telefone && <InfoField lbl="Telefone" val={parte.telefone} />}
-                    {parte?.email && <InfoField lbl="E-mail" val={parte.email} />}
-                  </div>
-                </SecView>
+                {!editando && (
+                  <>
+                    {/* Informações Básicas */}
+                    <SecView title="Informações Básicas" sub="Dados principais do pedido" icon={faCircleInfo} iconBg="#eff6ff" iconColor={BLUE}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+                        <InfoField lbl="Número do Pedido" val={<span style={{ fontFamily: 'monospace' }}>{num}</span>} />
+                        <InfoField lbl="Tipo" val={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: isVenda ? '#f0fdf4' : '#eff6ff', color: isVenda ? '#15803d' : '#1d4ed8' }}><FontAwesomeIcon icon={isVenda ? faArrowUp : faCartShopping} style={{ fontSize: 10 }} />{isVenda ? 'Venda' : 'Compra'}</span>} />
+                        <InfoField lbl="Status" val={<span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: sc.bg, color: sc.color }}>{sc.label}</span>} />
+                        <InfoField lbl="Data do Pedido" val={formatDate(new Date(p.data))} />
+                      </div>
+                    </SecView>
 
-                {/* Pagamento */}
-                <SecView title="Pagamento" sub="Informações de pagamento" icon={faMoneyBillWave} iconBg="#fef9c3" iconColor="#ca8a04">
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-                    <InfoField lbl="Forma de Pagamento" val={fmtFormaPag(p.formaPagamento)} />
-                    <InfoField lbl="Condição de Pagamento" val={(p.frete === 0 && p.outrasTaxas === 0) ? 'À vista' : '—'} />
-                  </div>
-                </SecView>
+                    {/* Cliente / Fornecedor */}
+                    <SecView title={isVenda ? 'Cliente' : 'Fornecedor'} sub={isVenda ? 'Informações do cliente' : 'Informações do fornecedor'} icon={faUser} iconBg="#f0fdf4" iconColor={GREEN}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+                        <InfoField lbl="Nome" val={v(parte?.nome)} />
+                        <InfoField lbl="CPF / CNPJ" val={v(parte?.cnpjCpf)} />
+                        {parte?.telefone && <InfoField lbl="Telefone" val={parte.telefone} />}
+                        {parte?.email && <InfoField lbl="E-mail" val={parte.email} />}
+                      </div>
+                    </SecView>
+
+                    {/* Pagamento */}
+                    <SecView title="Pagamento" sub="Informações de pagamento" icon={faMoneyBillWave} iconBg="#fef9c3" iconColor="#ca8a04">
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+                        <InfoField lbl="Forma de Pagamento" val={fmtFormaPag(p.formaPagamento)} />
+                        <InfoField lbl="Condição de Pagamento" val={(p.frete === 0 && p.outrasTaxas === 0) ? 'À vista' : '—'} />
+                      </div>
+                    </SecView>
+                  </>
+                )}
 
                 {/* Itens */}
-                <SecView title="Itens do Pedido" sub={`${p.itens.length} item(ns)`} icon={faBox} iconBg="#f5f3ff" iconColor={PURPLE}>
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                      <thead>
-                        <tr style={{ background: '#f9fafb' }}>
-                          {['Produto', 'Qtd', 'V. Unit.', 'Total'].map(h => <th key={h} style={{ padding: '8px 12px', textAlign: h === 'Produto' ? 'left' : 'right', fontSize: 11, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase' as const }}>{h}</th>)}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {p.itens.length === 0 ? (
-                          <tr><td colSpan={4} style={{ padding: 16, textAlign: 'center', color: '#9ca3af' }}>Sem itens</td></tr>
-                        ) : p.itens.map((it, i) => (
-                          <tr key={i} style={{ borderTop: '1px solid #f3f4f6' }}>
-                            <td style={{ padding: '10px 12px', color: NAVY, fontWeight: 500 }}>{it.produto}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', color: '#6b7280' }}>{it.quantidade}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', color: '#6b7280' }}>{formatCurrency(it.valorUnit)}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', color: NAVY, fontWeight: 600 }}>{formatCurrency(it.total)}</td>
+                {!editando ? (
+                  <SecView title="Itens do Pedido" sub={`${p.itens.length} item(ns)`} icon={faBox} iconBg="#f5f3ff" iconColor={PURPLE}>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ background: '#f9fafb' }}>
+                            {['Produto', 'Qtd', 'V. Unit.', 'Total'].map(h => <th key={h} style={{ padding: '8px 12px', textAlign: h === 'Produto' ? 'left' : 'right', fontSize: 11, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase' as const }}>{h}</th>)}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div style={{ marginTop: 14, marginLeft: 'auto', width: 240 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: '#6b7280' }}><span>Subtotal</span><span>{formatCurrency(p.totalValor - p.frete - p.outrasTaxas)}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: '#6b7280' }}><span>Frete</span><span>{formatCurrency(p.frete)}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: '#6b7280' }}><span>Outras taxas</span><span>{formatCurrency(p.outrasTaxas)}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 0', marginTop: 4, borderTop: `2px solid ${NAVY}`, fontSize: 16, fontWeight: 700, color: NAVY }}><span>Total</span><span>{formatCurrency(p.totalValor)}</span></div>
-                  </div>
-                </SecView>
+                        </thead>
+                        <tbody>
+                          {p.itens.length === 0 ? (
+                            <tr><td colSpan={4} style={{ padding: 16, textAlign: 'center', color: '#9ca3af' }}>Sem itens</td></tr>
+                          ) : p.itens.map((it, i) => (
+                            <tr key={i} style={{ borderTop: '1px solid #f3f4f6' }}>
+                              <td style={{ padding: '10px 12px', color: NAVY, fontWeight: 500 }}>{it.produto}</td>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', color: '#6b7280' }}>{it.quantidade}</td>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', color: '#6b7280' }}>{formatCurrency(it.valorUnit)}</td>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', color: NAVY, fontWeight: 600 }}>{formatCurrency(it.total)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div style={{ marginTop: 14, marginLeft: 'auto', width: 240 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: '#6b7280' }}><span>Subtotal</span><span>{formatCurrency(p.totalValor - p.frete - p.outrasTaxas)}</span></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: '#6b7280' }}><span>Frete</span><span>{formatCurrency(p.frete)}</span></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: '#6b7280' }}><span>Outras taxas</span><span>{formatCurrency(p.outrasTaxas)}</span></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 0', marginTop: 4, borderTop: `2px solid ${NAVY}`, fontSize: 16, fontWeight: 700, color: NAVY }}><span>Total</span><span>{formatCurrency(p.totalValor)}</span></div>
+                    </div>
+                  </SecView>
+                ) : (
+                  <SecView title="Editar Itens do Pedido" sub="Altere produtos, quantidades e valores" icon={faBox} iconBg="#f5f3ff" iconColor={PURPLE}>
+                    <div style={{ overflowX: 'auto', marginBottom: 12 }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ background: '#f9fafb' }}>
+                            {['Produto', 'Quantidade', 'Preço Unitário', 'Desconto', 'Subtotal', ''].map(h => (
+                              <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 11, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {editItens.map((it, i) => (
+                            <tr key={i} style={{ borderTop: '1px solid #f3f4f6' }}>
+                              <td style={{ padding: '8px 6px', minWidth: 160 }}>
+                                <select value={it.produto} onChange={e => { const prod = produtos.find(pr => pr.nome === e.target.value); updateEditItem(i, 'produto', e.target.value); if (prod) updateEditItem(i, 'unidade', prod.unidade) }} style={{ ...inputStyle, padding: '7px 10px', fontSize: 12 }}>
+                                  <option value="">Selecione um produto</option>
+                                  {produtos.map(pr => <option key={pr.id} value={pr.nome}>{pr.nome}</option>)}
+                                </select>
+                              </td>
+                              <td style={{ padding: '8px 6px', minWidth: 90 }}>
+                                <input type="number" min={0} step="any" value={it.quantidade || ''} onChange={e => updateEditItem(i, 'quantidade', parseFloat(e.target.value) || 0)} style={{ ...inputStyle, padding: '7px 10px', fontSize: 12 }} />
+                              </td>
+                              <td style={{ padding: '8px 6px', minWidth: 110 }}>
+                                <input type="number" min={0} step="any" value={it.valorUnit || ''} onChange={e => updateEditItem(i, 'valorUnit', parseFloat(e.target.value) || 0)} style={{ ...inputStyle, padding: '7px 10px', fontSize: 12 }} />
+                              </td>
+                              <td style={{ padding: '8px 6px', minWidth: 90 }}>
+                                <input type="number" min={0} step="any" value={it.desconto || ''} onChange={e => updateEditItem(i, 'desconto', parseFloat(e.target.value) || 0)} style={{ ...inputStyle, padding: '7px 10px', fontSize: 12 }} />
+                              </td>
+                              <td style={{ padding: '8px 6px', fontSize: 13, color: NAVY, fontWeight: 600, whiteSpace: 'nowrap' as const }}>{formatCurrency(it.total)}</td>
+                              <td style={{ padding: '8px 6px' }}>
+                                {editItens.length > 1 && <button type="button" onClick={() => setEditItens(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: PINK, padding: 4 }}><FontAwesomeIcon icon={faTrash} style={{ fontSize: 14 }} /></button>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <button type="button" onClick={() => setEditItens(prev => [...prev, { ...emptyItem }])} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid #e5e7eb', borderRadius: 7, padding: '6px 12px', background: 'white', fontSize: 12, color: NAVY, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 16 }}>
+                      <FontAwesomeIcon icon={faPlus} style={{ fontSize: 12 }} /> Adicionar Item
+                    </button>
 
-                {(p.obsInternas || p.obsCliente || p.observacao) && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 12 }}>
+                      <div>
+                        <FieldLabel>Frete</FieldLabel>
+                        <input type="number" min={0} step="any" value={editFrete} onChange={e => setEditFrete(e.target.value)} style={{ ...inputStyle, padding: '7px 10px', fontSize: 13 }} />
+                      </div>
+                      <div>
+                        <FieldLabel>Outras Taxas</FieldLabel>
+                        <input type="number" min={0} step="any" value={editOutrasTaxas} onChange={e => setEditOutrasTaxas(e.target.value)} style={{ ...inputStyle, padding: '7px 10px', fontSize: 13 }} />
+                      </div>
+                    </div>
+
+                    <div style={{ marginLeft: 'auto', width: 240, marginBottom: 16 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: '#6b7280' }}><span>Subtotal</span><span>{formatCurrency(editSubtotal)}</span></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 0', marginTop: 4, borderTop: `2px solid ${NAVY}`, fontSize: 16, fontWeight: 700, color: NAVY }}><span>Total</span><span>{formatCurrency(editTotal)}</span></div>
+                    </div>
+
+                    {editError && <div style={{ padding: '10px 14px', background: '#fff0f3', border: '1px solid #fecdd3', borderRadius: 8, fontSize: 13, color: '#c0113a', marginBottom: 12 }}>{editError}</div>}
+
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button type="button" disabled={editSaving} onClick={handleSalvarEdicao} style={{ flex: 1, padding: '12px', background: editSaving ? '#94a3b8' : BLUE, color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: editSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                        {editSaving ? 'Salvando...' : 'Salvar Alterações'}
+                      </button>
+                      <button type="button" onClick={() => setEditando(false)} style={{ padding: '12px 18px', background: 'white', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        Cancelar
+                      </button>
+                    </div>
+                  </SecView>
+                )}
+
+                {!editando && (p.obsInternas || p.obsCliente || p.observacao) && (
                   <SecView title="Observações" sub="Notas do pedido" icon={faFileLines} iconBg="#f3f4f6" iconColor="#6b7280">
                     {p.observacao && <p style={{ fontSize: 13, color: '#374151', margin: '0 0 8px' }}>{p.observacao}</p>}
                     {p.obsInternas && <div style={{ marginBottom: 8 }}><p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 2px' }}>Internas</p><p style={{ fontSize: 13, color: '#374151', margin: 0 }}>{p.obsInternas}</p></div>}
