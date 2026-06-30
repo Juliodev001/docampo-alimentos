@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faArrowTrendUp, faArrowTrendDown, faCaretUp, faCaretDown,
-  faChevronLeft, faChevronRight, faCartShopping, faReceipt, faPercent, faTags, faBoxesStacked,
+  faChevronLeft, faChevronRight, faCartShopping, faReceipt, faPercent, faTags, faBoxesStacked, faTag,
 } from '@fortawesome/free-solid-svg-icons'
 import {
   ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, Tooltip,
@@ -31,6 +31,7 @@ type Resumo = {
     topMeeiros: { nome: string; caixas: number }[]
     series: SeriePonto[]
     nVendas: number; nCompras: number; carteiraPendente: number; caixasLavoura: number
+    precoMedioMorango: number; caixasMorango: number
   }
   comparacao: { vendas: number; compras: number; lucro: number }
 }
@@ -38,7 +39,7 @@ type Resumo = {
 const EMPTY: Resumo = {
   periodo: 'mes',
   range: { inicio: '', fim: '' },
-  atual: { totalVendas: 0, totalCompras: 0, lucro: 0, canais: [], fornecedores: [], topMeeiros: [], series: [], nVendas: 0, nCompras: 0, carteiraPendente: 0, caixasLavoura: 0 },
+  atual: { totalVendas: 0, totalCompras: 0, lucro: 0, canais: [], fornecedores: [], topMeeiros: [], series: [], nVendas: 0, nCompras: 0, carteiraPendente: 0, caixasLavoura: 0, precoMedioMorango: 0, caixasMorango: 0 },
   comparacao: { vendas: 0, compras: 0, lucro: 0 },
 }
 
@@ -203,12 +204,21 @@ export default function VisaoGeralClient() {
 
       <div style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s' }}>
         {/* KPIs */}
-        <div className="kpi-grid-5" style={{ margin: '20px 0' }}>
+        <div className="kpi-grid-3" style={{ margin: '20px 0 12px' }}>
           <KpiCard label="Total vendido" value={formatCurrency(atual.totalVendas)} color={GREEN} icon={faArrowTrendUp} variacao={comparacao.vendas} sub={`${atual.nVendas} venda(s)`} />
           <KpiCard label="Total comprado" value={formatCurrency(atual.totalCompras)} color={PINK} icon={faCartShopping} variacao={comparacao.compras} sub={`${atual.nCompras} compra(s)`} />
-          <KpiCard label="Caixas compradas" value={atual.caixasLavoura.toLocaleString('pt-BR')} color="#8b5cf6" icon={faBoxesStacked} sub="Produtores e meeiros" />
           <KpiCard label="Lucro" value={formatCurrency(atual.lucro)} color={atual.lucro >= 0 ? BLUE : PINK} icon={atual.lucro >= 0 ? faArrowTrendUp : faArrowTrendDown} variacao={comparacao.lucro} />
+        </div>
+        <div className="kpi-grid-3" style={{ margin: '0 0 16px' }}>
+          <KpiCard label="Caixas compradas" value={atual.caixasLavoura.toLocaleString('pt-BR')} color="#8b5cf6" icon={faBoxesStacked} sub="Produtores e meeiros" />
           <KpiCard label="Margem de lucro" value={`${margem.toFixed(1)}%`} color={ORANGE} icon={faPercent} sub={`Ticket médio: ${formatCurrency(ticketMedio)}`} />
+          <KpiCard
+            label="Preço médio cx morango"
+            value={atual.precoMedioMorango > 0 ? formatCurrency(atual.precoMedioMorango) : '—'}
+            color={PINK}
+            icon={faTag}
+            sub={atual.caixasMorango > 0 ? `${atual.caixasMorango.toLocaleString('pt-BR')} cx no período` : 'Sem colheitas no período'}
+          />
         </div>
 
         {/* gráfico principal: vendas vs compras + lucro */}

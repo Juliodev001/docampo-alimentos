@@ -80,6 +80,7 @@ async function somarPeriodo(periodo: Periodo, range: { inicio: Date; fim: Date }
       where: colheitasWhere,
       select: {
         data: true, quantidadeTotal: true, descarte: true, preco: true,
+        produto: { select: { nome: true } },
         produtor: { select: { nome: true } }, parceiro: { select: { nome: true } },
       },
     }),
@@ -136,6 +137,12 @@ async function somarPeriodo(periodo: Periodo, range: { inicio: Date; fim: Date }
 
   const carteiraPendente = pdv.filter(p => p.formaPagamento === 'FIADO' && p.status !== 'PAGO' && p.status !== 'CANCELADO').reduce((s, p) => s + Number(p.totalValor), 0)
 
+  const colheitasMorango = colheitas.filter(c => c.produto.nome.toLowerCase().includes('morango'))
+  const caixasMorango = colheitasMorango.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
+  const precoMedioMorango = caixasMorango > 0
+    ? colheitasMorango.reduce((s, c) => s + Number(c.preco) * (c.quantidadeTotal - c.descarte), 0) / caixasMorango
+    : 0
+
   return {
     totalVendas, totalCompras: totalComprasGeral, lucro: totalVendas - totalComprasGeral,
     canais: [
@@ -150,6 +157,8 @@ async function somarPeriodo(periodo: Periodo, range: { inicio: Date; fim: Date }
     nCompras: compras.length + colheitas.length,
     carteiraPendente,
     caixasLavoura,
+    precoMedioMorango,
+    caixasMorango,
   }
 }
 
