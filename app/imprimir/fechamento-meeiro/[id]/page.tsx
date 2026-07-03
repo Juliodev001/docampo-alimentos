@@ -142,9 +142,7 @@ export default function ImprimirFechamentoMeeiro() {
         <div style={{ marginBottom: 10, fontSize: 11 }}>
           Período: {fmtDate(dataInicio)} a {fmtDate(dataFim)}
           {' — '}
-          {todasDatas.length === 1
-            ? `Pagamento em ${fmtDate(todasDatas[0])}`
-            : `Pagamentos: ${todasDatas.map(fmtDate).join(', ')}`}
+          Pagamento feito em {fmtDate(dataPagamento)}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11 }}>

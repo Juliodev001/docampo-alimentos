@@ -5740,8 +5740,8 @@ export default function RocasClient({
               setFechError("Período é obrigatório");
               return;
             }
-            if (fechDatasAdicionais.length === 0) {
-              setFechError("Selecione ao menos uma data de pagamento");
+            if (!fechForm.dataPagamento) {
+              setFechError("Data de pagamento é obrigatória");
               return;
             }
             setSavingFech(true);
@@ -6940,6 +6940,15 @@ export default function RocasClient({
                                       <div style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", padding: "4px 0" }}>Clique nos dias para selecionar as datas de pagamento</div>
                                     )}
                                   </div>
+
+                                  <FormField label="Data de pagamento (para o PDF)">
+                                    <input
+                                      type="date"
+                                      style={inputStyle}
+                                      value={fechForm.dataPagamento}
+                                      onChange={(e) => setFechForm(f => ({ ...f, dataPagamento: e.target.value }))}
+                                    />
+                                  </FormField>
 
                                   {/* Vales em aberto */}
                                   {valesAbertosProd.length > 0 && (
@@ -9485,7 +9494,7 @@ export default function RocasClient({
                     parceiroId: meeiro.id,
                     dataInicio: fecharDataInicio,
                     dataFim: fecharDataFim,
-                    dataPagamento: [...fecharDatasAdicionais].sort()[0] ?? fecharDataPagamento,
+                    dataPagamento: fecharDataPagamento,
                     datasAdicionais: fecharDatasAdicionais,
                     valorBruto: fecharBruto,
                     combustivel:
@@ -9749,6 +9758,15 @@ export default function RocasClient({
                         <div style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", padding: "4px 0" }}>Clique nos dias para selecionar as datas de pagamento</div>
                       )}
                     </div>
+
+                    <FormField label="Data de pagamento (para o PDF)">
+                      <input
+                        type="date"
+                        style={inputStyle}
+                        value={fecharDataPagamento}
+                        onChange={(e) => setFecharDataPagamento(e.target.value)}
+                      />
+                    </FormField>
 
                     <div
                       style={{
