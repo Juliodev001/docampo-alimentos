@@ -262,6 +262,7 @@ model FechamentoPagamento {
   creditos          Decimal  @default(0) @db.Decimal(12, 4)
   debitosAnteriores Decimal  @default(0) @db.Decimal(12, 4)
   status            String   @default("PENDENTE")
+  datasAdicionais   String?
   vales             Vale[]
   createdAt         DateTime @default(now())
 }

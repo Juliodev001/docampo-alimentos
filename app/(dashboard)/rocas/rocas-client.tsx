@@ -871,6 +871,8 @@ export default function RocasClient({
   const [deletingFech, setDeletingFech] = useState(false);
   const [fechAjustar, setFechAjustar] = useState(false);
   const [fechDebitarBandeja, setFechDebitarBandeja] = useState(true);
+  const [fechDatasAdicionais, setFechDatasAdicionais] = useState<string[]>([new Date().toISOString().slice(0, 10)]);
+  const [fechCalNav, setFechCalNav] = useState({ year: new Date().getFullYear(), month: new Date().getMonth() });
   const [fechValesSelecionados, setFechValesSelecionados] = useState<
     string[]
   >([]);
@@ -5724,8 +5726,8 @@ export default function RocasClient({
               setFechError("Período é obrigatório");
               return;
             }
-            if (!fechForm.dataPagamento) {
-              setFechError("Data de pagamento é obrigatória");
+            if (fechDatasAdicionais.length === 0) {
+              setFechError("Selecione ao menos uma data de pagamento");
               return;
             }
             setSavingFech(true);
@@ -5746,7 +5748,8 @@ export default function RocasClient({
                   produtorId: fechForm.produtorId,
                   dataInicio: fechForm.dataInicio,
                   dataFim: fechForm.dataFim,
-                  dataPagamento: fechForm.dataPagamento,
+                  dataPagamento: [...fechDatasAdicionais].sort()[0] ?? fechForm.dataPagamento,
+                  datasAdicionais: fechDatasAdicionais,
                   combustivel: fechDebitarBandeja ? Number(fechForm.combustivel) || 0 : 0,
                   bandejaEmbalagem: fechDebitarBandeja ? Number(fechForm.bandejaEmbalagem) || 0 : 0,
                   valesDinheiro: fechDebitarBandeja
@@ -5791,6 +5794,7 @@ export default function RocasClient({
               setFechDebitarBandeja(true);
               setShowFechModal(false);
               toast.success("Fechamento criado", produtor?.nome ?? "");
+              window.open(`/imprimir/pagamento/${saved.id}`, "_blank");
             } catch {
               setFechError("Erro ao salvar");
             } finally {
@@ -5989,6 +5993,8 @@ export default function RocasClient({
                               setFechAjustar(false);
                               setFechDebitarBandeja(true);
                               setFechValesSelecionados([]);
+                              setFechDatasAdicionais([new Date().toISOString().slice(0, 10)]);
+                              setFechCalNav({ year: new Date().getFullYear(), month: new Date().getMonth() });
                               setShowFechModal(true);
                             }}
                             style={{
@@ -6148,6 +6154,8 @@ export default function RocasClient({
                       setFechForm(emptyFechForm);
                       setFechDebitarBandeja(true);
                       setFechValesSelecionados([]);
+                      setFechDatasAdicionais([new Date().toISOString().slice(0, 10)]);
+                      setFechCalNav({ year: new Date().getFullYear(), month: new Date().getMonth() });
                       setShowFechModal(true);
                     }}
                     style={{
@@ -6874,20 +6882,61 @@ export default function RocasClient({
                                     </div>
                                   </div>
 
-                                  {/* Data pagamento */}
-                                  <FormField label="Data de Pagamento *">
-                                    <input
-                                      type="date"
-                                      style={inputStyle}
-                                      value={fechForm.dataPagamento}
-                                      onChange={(e) =>
-                                        setFechForm((f) => ({
-                                          ...f,
-                                          dataPagamento: e.target.value,
-                                        }))
-                                      }
-                                    />
-                                  </FormField>
+                                  {/* Calendário multi-data de pagamento */}
+                                  <div style={{ border: "1.5px solid #e0e7ff", borderRadius: 10, padding: 14, background: "#f8faff" }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, marginBottom: 10, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
+                                      Datas de pagamento *
+                                    </div>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                                      <button
+                                        onClick={() => setFechCalNav(n => { const d = new Date(n.year, n.month - 1); return { year: d.getFullYear(), month: d.getMonth() } })}
+                                        style={{ background: "none", border: "1px solid #e5e7eb", borderRadius: 6, cursor: "pointer", padding: "3px 10px", fontSize: 15, color: NAVY, lineHeight: 1 }}
+                                      >‹</button>
+                                      <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
+                                        {new Date(fechCalNav.year, fechCalNav.month).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+                                      </span>
+                                      <button
+                                        onClick={() => setFechCalNav(n => { const d = new Date(n.year, n.month + 1); return { year: d.getFullYear(), month: d.getMonth() } })}
+                                        style={{ background: "none", border: "1px solid #e5e7eb", borderRadius: 6, cursor: "pointer", padding: "3px 10px", fontSize: 15, color: NAVY, lineHeight: 1 }}
+                                      >›</button>
+                                    </div>
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 8 }}>
+                                      {["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].map((d, i) => (
+                                        <div key={i} style={{ textAlign: "center", fontSize: 10, color: "#9ca3af", fontWeight: 700, padding: "3px 0" }}>{d}</div>
+                                      ))}
+                                      {(() => {
+                                        const { year, month } = fechCalNav;
+                                        const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
+                                        const daysInMonth = new Date(year, month + 1, 0).getDate();
+                                        const cells: JSX.Element[] = [];
+                                        for (let i = 0; i < firstDay; i++) cells.push(<div key={`e${i}`} />);
+                                        for (let d = 1; d <= daysInMonth; d++) {
+                                          const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+                                          const sel = fechDatasAdicionais.includes(ds);
+                                          cells.push(
+                                            <button
+                                              key={ds}
+                                              onClick={() => setFechDatasAdicionais(prev => prev.includes(ds) ? prev.filter(x => x !== ds) : [...prev, ds])}
+                                              style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel ? 700 : 400, background: sel ? NAVY : "transparent", color: sel ? "#fff" : "#374151" }}
+                                            >{d}</button>
+                                          );
+                                        }
+                                        return cells;
+                                      })()}
+                                    </div>
+                                    {fechDatasAdicionais.length > 0 ? (
+                                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                        {[...fechDatasAdicionais].sort().map(ds => (
+                                          <span key={ds} style={{ background: `${NAVY}20`, color: NAVY, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                            {new Date(ds + "T12:00:00").toLocaleDateString("pt-BR")}
+                                            <button onClick={() => setFechDatasAdicionais(prev => prev.filter(x => x !== ds))} style={{ background: "none", border: "none", cursor: "pointer", color: NAVY, padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", padding: "4px 0" }}>Clique nos dias para selecionar as datas de pagamento</div>
+                                    )}
+                                  </div>
 
                                   {/* Vales em aberto */}
                                   {valesAbertosProd.length > 0 && (
@@ -9679,7 +9728,7 @@ export default function RocasClient({
                           const { year, month } = fecharCalNav;
                           const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
                           const daysInMonth = new Date(year, month + 1, 0).getDate();
-                          const cells: React.ReactNode[] = [];
+                          const cells: JSX.Element[] = [];
                           for (let i = 0; i < firstDay; i++) cells.push(<div key={`e${i}`} />);
                           for (let d = 1; d <= daysInMonth; d++) {
                             const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;

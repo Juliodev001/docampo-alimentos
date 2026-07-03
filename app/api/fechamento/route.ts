@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { produtorId, dataInicio, dataFim, dataPagamento, combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores, valeIds } = body
+  const { produtorId, dataInicio, dataFim, dataPagamento, combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores, valeIds, datasAdicionais } = body
 
   if (!produtorId || !dataInicio || !dataFim || !dataPagamento) {
     return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 })
@@ -55,6 +55,13 @@ export async function POST(req: NextRequest) {
         where: { id: { in: valeIds }, produtorId, status: 'ABERTO' },
         data: { status: 'DESCONTADO', fechamentoId: created.id },
       })
+    }
+
+    const datas = Array.isArray(datasAdicionais) && datasAdicionais.length > 0
+      ? JSON.stringify(datasAdicionais)
+      : null
+    if (datas) {
+      await tx.$executeRaw`UPDATE "FechamentoPagamento" SET "datasAdicionais" = ${datas} WHERE id = ${created.id}`
     }
 
     return created
