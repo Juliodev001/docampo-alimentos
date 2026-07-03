@@ -1900,6 +1900,16 @@ export default function RocasClient({
     return { pads: Array(firstDay).fill(0) as number[], days: Array.from({ length: daysInMonth }, (_, i) => i + 1) as number[], year, month };
   }, [fecharCalNav]);
 
+  const diasAcertadosMeeiro = useMemo(() => new Set(
+    fecharMeeiroModal
+      ? fechamentosMeeiroState.filter(f => f.parceiroId === fecharMeeiroModal.id).map(f => f.dataPagamento.slice(0, 10))
+      : []
+  ), [fecharMeeiroModal?.id, fechamentosMeeiroState]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const diasAcertadosProdutor = useMemo(() => new Set(
+    fechamentosState.filter(f => f.produtorId === fechForm.produtorId).map(f => f.dataPagamento.slice(0, 10))
+  ), [fechForm.produtorId, fechamentosState]);
+
   const filteredLanc = useMemo(
     () =>
       colheitas.filter(
@@ -6922,8 +6932,19 @@ export default function RocasClient({
                                       {fechCalDias.days.map(d => {
                                         const ds = `${fechCalDias.year}-${String(fechCalDias.month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
                                         const sel = fechDatasAdicionais.includes(ds);
+                                        const acertado = diasAcertadosProdutor.has(ds);
                                         return (
-                                          <button key={ds} onClick={() => setFechDatasAdicionais(prev => prev.includes(ds) ? prev.filter(x => x !== ds) : [...prev, ds])} style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel ? 700 : 400, background: sel ? NAVY : "transparent", color: sel ? "#fff" : "#374151" }}>{d}</button>
+                                          <button key={ds} onClick={() => {
+                                            const next = fechDatasAdicionais.includes(ds) ? fechDatasAdicionais.filter(x => x !== ds) : [...fechDatasAdicionais, ds];
+                                            setFechDatasAdicionais(next);
+                                            if (next.length > 0) {
+                                              const sorted = [...next].sort();
+                                              setFechForm(f => ({ ...f, dataInicio: sorted[0], dataFim: sorted[sorted.length - 1] }));
+                                            }
+                                          }} style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel || acertado ? 700 : 400, background: sel ? NAVY : acertado ? "#dcfce7" : "transparent", color: sel ? "#fff" : acertado ? "#15803d" : "#374151", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                                            <span>{d}</span>
+                                            {acertado && <div style={{ width: 5, height: 5, borderRadius: "50%", background: sel ? "#fff" : "#15803d" }} />}
+                                          </button>
                                         );
                                       })}
                                     </div>
@@ -6932,7 +6953,11 @@ export default function RocasClient({
                                         {[...fechDatasAdicionais].sort().map(ds => (
                                           <span key={ds} style={{ background: `${NAVY}20`, color: NAVY, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
                                             {new Date(ds + "T12:00:00").toLocaleDateString("pt-BR")}
-                                            <button onClick={() => setFechDatasAdicionais(prev => prev.filter(x => x !== ds))} style={{ background: "none", border: "none", cursor: "pointer", color: NAVY, padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
+                                            <button onClick={() => {
+                                              const next = fechDatasAdicionais.filter(x => x !== ds);
+                                              setFechDatasAdicionais(next);
+                                              if (next.length > 0) { const sorted = [...next].sort(); setFechForm(f => ({ ...f, dataInicio: sorted[0], dataFim: sorted[sorted.length - 1] })); }
+                                            }} style={{ background: "none", border: "none", cursor: "pointer", color: NAVY, padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
                                           </span>
                                         ))}
                                       </div>
@@ -9740,8 +9765,20 @@ export default function RocasClient({
                         {fecharCalDias.days.map(d => {
                           const ds = `${fecharCalDias.year}-${String(fecharCalDias.month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
                           const sel = fecharDatasAdicionais.includes(ds);
+                          const acertado = diasAcertadosMeeiro.has(ds);
                           return (
-                            <button key={ds} onClick={() => setFecharDatasAdicionais(prev => prev.includes(ds) ? prev.filter(x => x !== ds) : [...prev, ds])} style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel ? 700 : 400, background: sel ? NAVY : "transparent", color: sel ? "#fff" : "#374151" }}>{d}</button>
+                            <button key={ds} onClick={() => {
+                              const next = fecharDatasAdicionais.includes(ds) ? fecharDatasAdicionais.filter(x => x !== ds) : [...fecharDatasAdicionais, ds];
+                              setFecharDatasAdicionais(next);
+                              if (next.length > 0) {
+                                const sorted = [...next].sort();
+                                setFecharDataInicio(sorted[0]);
+                                setFecharDataFim(sorted[sorted.length - 1]);
+                              }
+                            }} style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel || acertado ? 700 : 400, background: sel ? NAVY : acertado ? "#dcfce7" : "transparent", color: sel ? "#fff" : acertado ? "#15803d" : "#374151", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                              <span>{d}</span>
+                              {acertado && <div style={{ width: 5, height: 5, borderRadius: "50%", background: sel ? "#fff" : "#15803d" }} />}
+                            </button>
                           );
                         })}
                       </div>
@@ -9750,7 +9787,11 @@ export default function RocasClient({
                           {[...fecharDatasAdicionais].sort().map(ds => (
                             <span key={ds} style={{ background: `${NAVY}20`, color: NAVY, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
                               {new Date(ds + "T12:00:00").toLocaleDateString("pt-BR")}
-                              <button onClick={() => setFecharDatasAdicionais(prev => prev.filter(x => x !== ds))} style={{ background: "none", border: "none", cursor: "pointer", color: NAVY, padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
+                              <button onClick={() => {
+                                const next = fecharDatasAdicionais.filter(x => x !== ds);
+                                setFecharDatasAdicionais(next);
+                                if (next.length > 0) { const sorted = [...next].sort(); setFecharDataInicio(sorted[0]); setFecharDataFim(sorted[sorted.length - 1]); }
+                              }} style={{ background: "none", border: "none", cursor: "pointer", color: NAVY, padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
                             </span>
                           ))}
                         </div>
