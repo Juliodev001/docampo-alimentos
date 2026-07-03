@@ -334,6 +334,7 @@ model FechamentoMeeiro {
   valorPago         Decimal  @db.Decimal(12, 4)
   status            String   @default("PENDENTE")
   observacao        String?
+  datasAdicionais   String?
   vales             Vale[]
   createdAt         DateTime @default(now())
 }

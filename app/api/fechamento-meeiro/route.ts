@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
   const {
     parceiroId, dataInicio, dataFim, dataPagamento, valorBruto, valeIds, observacao,
     combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores,
+    datasAdicionais,
   } = body
 
   if (!parceiroId || !dataInicio || !dataFim || !dataPagamento || valorBruto == null) {
@@ -81,6 +82,13 @@ export async function POST(req: NextRequest) {
           where: { id: { in: ids }, parceiroId, status: 'ABERTO' },
           data: { status: 'DESCONTADO', fechamentoMeeiroId: created.id },
         })
+      }
+
+      const datas = Array.isArray(datasAdicionais) && datasAdicionais.length > 0
+        ? JSON.stringify(datasAdicionais)
+        : null
+      if (datas) {
+        await tx.$executeRaw`UPDATE "FechamentoMeeiro" SET "datasAdicionais" = ${datas} WHERE id = ${created.id}`
       }
 
       return created

@@ -23,6 +23,7 @@ type Fechamento = {
   status: string; observacao: string | null
   vales: Vale[]
   colheitas: Colheita[]
+  datasAdicionais: string[]
 }
 
 function fmtN(v: number) { return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
@@ -96,8 +97,11 @@ export default function ImprimirFechamentoMeeiro() {
   const {
     parceiro, dataInicio, dataFim, dataPagamento, valorBruto,
     combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores,
-    valesDeduzidos, valorPago, vales, colheitas,
+    valesDeduzidos, valorPago, vales, colheitas, datasAdicionais,
   } = fechamento
+  const todasDatas = datasAdicionais && datasAdicionais.length > 0
+    ? [...datasAdicionais].sort()
+    : [dataPagamento]
   const valesDescontados = vales.filter(v => v.status === 'DESCONTADO')
   const outrasDeducoes = combustivel + valesDinheiro + creditos + debitosAnteriores
   const totalQtd = colheitas.reduce((s, c) => s + c.quantidadeTotal, 0)
@@ -136,7 +140,11 @@ export default function ImprimirFechamentoMeeiro() {
         </div>
 
         <div style={{ marginBottom: 10, fontSize: 11 }}>
-          Período: {fmtDate(dataInicio)} a {fmtDate(dataFim)} — Pagamento em {fmtDate(dataPagamento)}
+          Período: {fmtDate(dataInicio)} a {fmtDate(dataFim)}
+          {' — '}
+          {todasDatas.length === 1
+            ? `Pagamento em ${fmtDate(todasDatas[0])}`
+            : `Pagamentos: ${todasDatas.map(fmtDate).join(', ')}`}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11 }}>

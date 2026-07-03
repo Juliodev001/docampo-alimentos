@@ -812,6 +812,8 @@ export default function RocasClient({
   const [fecharMeeiroError, setFecharMeeiroError] = useState("");
   const [fecharBruto, setFecharBruto] = useState(0);
   const [fecharAjustar, setFecharAjustar] = useState(false);
+  const [fecharDatasAdicionais, setFecharDatasAdicionais] = useState<string[]>([]);
+  const [fecharCalNav, setFecharCalNav] = useState({ year: new Date().getFullYear(), month: new Date().getMonth() });
   const [fecharDedForm, setFecharDedForm] = useState({
     combustivel: "0",
     bandejaEmbalagem: "0",
@@ -849,6 +851,9 @@ export default function RocasClient({
     setFecharDataInicio(inicio);
     setFecharDataFim(new Date().toISOString().slice(0, 10));
     setFecharDataPagamento(new Date().toISOString().slice(0, 10));
+    const todayStr = new Date().toISOString().slice(0, 10);
+    setFecharDatasAdicionais([todayStr]);
+    setFecharCalNav({ year: new Date().getFullYear(), month: new Date().getMonth() });
     setFecharMeeiroModal(item);
   }
 
@@ -9414,8 +9419,8 @@ export default function RocasClient({
             );
 
             async function handleCriarFechamentoMeeiro() {
-              if (!fecharDataInicio || !fecharDataFim || !fecharDataPagamento) {
-                setFecharMeeiroError("Datas são obrigatórias");
+              if (!fecharDataInicio || !fecharDataFim || fecharDatasAdicionais.length === 0) {
+                setFecharMeeiroError("Selecione ao menos uma data de pagamento");
                 return;
               }
               setSavingFecharMeeiro(true);
@@ -9428,7 +9433,8 @@ export default function RocasClient({
                     parceiroId: meeiro.id,
                     dataInicio: fecharDataInicio,
                     dataFim: fecharDataFim,
-                    dataPagamento: fecharDataPagamento,
+                    dataPagamento: [...fecharDatasAdicionais].sort()[0] ?? fecharDataPagamento,
+                    datasAdicionais: fecharDatasAdicionais,
                     valorBruto: fecharBruto,
                     combustivel:
                       (parseFloat(fecharDedForm.combustivel) || 0) *
@@ -9625,7 +9631,7 @@ export default function RocasClient({
                       </span>
                     </div>
 
-                    <div className="grid-3" style={{ gap: 10 }}>
+                    <div className="grid-2" style={{ gap: 10 }}>
                       <FormField label="Início do período">
                         <input
                           type="date"
@@ -9644,16 +9650,62 @@ export default function RocasClient({
                           onChange={(e) => setFecharDataFim(e.target.value)}
                         />
                       </FormField>
-                      <FormField label="Data de pagamento">
-                        <input
-                          type="date"
-                          style={inputStyle}
-                          value={fecharDataPagamento}
-                          onChange={(e) =>
-                            setFecharDataPagamento(e.target.value)
+                    </div>
+
+                    {/* Calendário multi-data de pagamento */}
+                    <div style={{ border: "1.5px solid #e0e7ff", borderRadius: 10, padding: 14, background: "#f8faff" }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, marginBottom: 10, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
+                        Datas de pagamento
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <button
+                          onClick={() => setFecharCalNav(n => { const d = new Date(n.year, n.month - 1); return { year: d.getFullYear(), month: d.getMonth() } })}
+                          style={{ background: "none", border: "1px solid #e5e7eb", borderRadius: 6, cursor: "pointer", padding: "3px 10px", fontSize: 15, color: NAVY, lineHeight: 1 }}
+                        >‹</button>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
+                          {new Date(fecharCalNav.year, fecharCalNav.month).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+                        </span>
+                        <button
+                          onClick={() => setFecharCalNav(n => { const d = new Date(n.year, n.month + 1); return { year: d.getFullYear(), month: d.getMonth() } })}
+                          style={{ background: "none", border: "1px solid #e5e7eb", borderRadius: 6, cursor: "pointer", padding: "3px 10px", fontSize: 15, color: NAVY, lineHeight: 1 }}
+                        >›</button>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 8 }}>
+                        {["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].map((d, i) => (
+                          <div key={i} style={{ textAlign: "center", fontSize: 10, color: "#9ca3af", fontWeight: 700, padding: "3px 0" }}>{d}</div>
+                        ))}
+                        {(() => {
+                          const { year, month } = fecharCalNav;
+                          const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
+                          const daysInMonth = new Date(year, month + 1, 0).getDate();
+                          const cells: React.ReactNode[] = [];
+                          for (let i = 0; i < firstDay; i++) cells.push(<div key={`e${i}`} />);
+                          for (let d = 1; d <= daysInMonth; d++) {
+                            const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+                            const sel = fecharDatasAdicionais.includes(ds);
+                            cells.push(
+                              <button
+                                key={ds}
+                                onClick={() => setFecharDatasAdicionais(prev => prev.includes(ds) ? prev.filter(x => x !== ds) : [...prev, ds])}
+                                style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel ? 700 : 400, background: sel ? NAVY : "transparent", color: sel ? "#fff" : "#374151" }}
+                              >{d}</button>
+                            );
                           }
-                        />
-                      </FormField>
+                          return cells;
+                        })()}
+                      </div>
+                      {fecharDatasAdicionais.length > 0 ? (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                          {[...fecharDatasAdicionais].sort().map(ds => (
+                            <span key={ds} style={{ background: `${NAVY}20`, color: NAVY, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                              {new Date(ds + "T12:00:00").toLocaleDateString("pt-BR")}
+                              <button onClick={() => setFecharDatasAdicionais(prev => prev.filter(x => x !== ds))} style={{ background: "none", border: "none", cursor: "pointer", color: NAVY, padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", padding: "4px 0" }}>Clique nos dias para selecionar as datas de pagamento</div>
+                      )}
                     </div>
 
                     <div

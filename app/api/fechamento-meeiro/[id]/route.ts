@@ -16,16 +16,20 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const dataFimFim = new Date(fechamento.dataFim)
   dataFimFim.setUTCDate(dataFimFim.getUTCDate() + 1)
-  const colheitas = await prisma.colheitaDiaria.findMany({
-    where: {
-      parceiroId: fechamento.parceiroId,
-      data: { gte: fechamento.dataInicio, lt: dataFimFim },
-    },
-    include: { produto: true, roca: { select: { nome: true } } },
-    orderBy: { data: 'asc' },
-  })
+  const [colheitas, [extra]] = await Promise.all([
+    prisma.colheitaDiaria.findMany({
+      where: {
+        parceiroId: fechamento.parceiroId,
+        data: { gte: fechamento.dataInicio, lt: dataFimFim },
+      },
+      include: { produto: true, roca: { select: { nome: true } } },
+      orderBy: { data: 'asc' },
+    }),
+    prisma.$queryRaw<{ datasAdicionais: string | null }[]>`SELECT "datasAdicionais" FROM "FechamentoMeeiro" WHERE id = ${id}`,
+  ])
+  const datasAdicionais: string[] = extra?.datasAdicionais ? JSON.parse(extra.datasAdicionais) : []
 
-  return NextResponse.json(s({ ...fechamento, colheitas }))
+  return NextResponse.json(s({ ...fechamento, colheitas, datasAdicionais }))
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
