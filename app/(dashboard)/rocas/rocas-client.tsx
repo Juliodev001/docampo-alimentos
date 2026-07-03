@@ -9490,6 +9490,7 @@ export default function RocasClient({
                 }
                 setFecharValesSelecionados([]);
                 toast.success("Fechamento criado", meeiro.nome);
+                window.open(`/imprimir/fechamento-meeiro/${saved.id}`, "_blank");
               } catch {
                 setFecharMeeiroError("Erro ao salvar");
               } finally {
