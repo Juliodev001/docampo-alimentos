@@ -6904,26 +6904,21 @@ export default function RocasClient({
                                       {["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].map((d, i) => (
                                         <div key={i} style={{ textAlign: "center", fontSize: 10, color: "#9ca3af", fontWeight: 700, padding: "3px 0" }}>{d}</div>
                                       ))}
-                                      {(() => {
-                                        const { year, month } = fechCalNav;
-                                        const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
-                                        const daysInMonth = new Date(year, month + 1, 0).getDate();
-                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          const cells: any[] = [];
-                                        for (let i = 0; i < firstDay; i++) cells.push(<div key={`e${i}`} />);
-                                        for (let d = 1; d <= daysInMonth; d++) {
-                                          const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-                                          const sel = fechDatasAdicionais.includes(ds);
-                                          cells.push(
-                                            <button
-                                              key={ds}
-                                              onClick={() => setFechDatasAdicionais(prev => prev.includes(ds) ? prev.filter(x => x !== ds) : [...prev, ds])}
-                                              style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel ? 700 : 400, background: sel ? NAVY : "transparent", color: sel ? "#fff" : "#374151" }}
-                                            >{d}</button>
-                                          );
-                                        }
-                                        return cells;
-                                      })()}
+                                      {Array.from({ length: (new Date(fechCalNav.year, fechCalNav.month, 1).getDay() + 6) % 7 }, (_, i) => (
+                                        <div key={`ep${i}`} />
+                                      ))}
+                                      {Array.from({ length: new Date(fechCalNav.year, fechCalNav.month + 1, 0).getDate() }, (_, i) => {
+                                        const d = i + 1;
+                                        const ds = `${fechCalNav.year}-${String(fechCalNav.month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+                                        const sel = fechDatasAdicionais.includes(ds);
+                                        return (
+                                          <button
+                                            key={ds}
+                                            onClick={() => setFechDatasAdicionais(prev => prev.includes(ds) ? prev.filter(x => x !== ds) : [...prev, ds])}
+                                            style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel ? 700 : 400, background: sel ? NAVY : "transparent", color: sel ? "#fff" : "#374151" }}
+                                          >{d}</button>
+                                        );
+                                      })}
                                     </div>
                                     {fechDatasAdicionais.length > 0 ? (
                                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -9725,26 +9720,21 @@ export default function RocasClient({
                         {["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].map((d, i) => (
                           <div key={i} style={{ textAlign: "center", fontSize: 10, color: "#9ca3af", fontWeight: 700, padding: "3px 0" }}>{d}</div>
                         ))}
-                        {(() => {
-                          const { year, month } = fecharCalNav;
-                          const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
-                          const daysInMonth = new Date(year, month + 1, 0).getDate();
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          const cells: any[] = [];
-                          for (let i = 0; i < firstDay; i++) cells.push(<div key={`e${i}`} />);
-                          for (let d = 1; d <= daysInMonth; d++) {
-                            const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-                            const sel = fecharDatasAdicionais.includes(ds);
-                            cells.push(
-                              <button
-                                key={ds}
-                                onClick={() => setFecharDatasAdicionais(prev => prev.includes(ds) ? prev.filter(x => x !== ds) : [...prev, ds])}
-                                style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel ? 700 : 400, background: sel ? NAVY : "transparent", color: sel ? "#fff" : "#374151" }}
-                              >{d}</button>
-                            );
-                          }
-                          return cells;
-                        })()}
+                        {Array.from({ length: (new Date(fecharCalNav.year, fecharCalNav.month, 1).getDay() + 6) % 7 }, (_, i) => (
+                          <div key={`em${i}`} />
+                        ))}
+                        {Array.from({ length: new Date(fecharCalNav.year, fecharCalNav.month + 1, 0).getDate() }, (_, i) => {
+                          const d = i + 1;
+                          const ds = `${fecharCalNav.year}-${String(fecharCalNav.month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+                          const sel = fecharDatasAdicionais.includes(ds);
+                          return (
+                            <button
+                              key={ds}
+                              onClick={() => setFecharDatasAdicionais(prev => prev.includes(ds) ? prev.filter(x => x !== ds) : [...prev, ds])}
+                              style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel ? 700 : 400, background: sel ? NAVY : "transparent", color: sel ? "#fff" : "#374151" }}
+                            >{d}</button>
+                          );
+                        })}
                       </div>
                       {fecharDatasAdicionais.length > 0 ? (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
