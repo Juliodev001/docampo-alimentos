@@ -6908,7 +6908,8 @@ export default function RocasClient({
                                         const { year, month } = fechCalNav;
                                         const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
                                         const daysInMonth = new Date(year, month + 1, 0).getDate();
-                                        const cells: JSX.Element[] = [];
+                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          const cells: any[] = [];
                                         for (let i = 0; i < firstDay; i++) cells.push(<div key={`e${i}`} />);
                                         for (let d = 1; d <= daysInMonth; d++) {
                                           const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -9728,7 +9729,8 @@ export default function RocasClient({
                           const { year, month } = fecharCalNav;
                           const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
                           const daysInMonth = new Date(year, month + 1, 0).getDate();
-                          const cells: JSX.Element[] = [];
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          const cells: any[] = [];
                           for (let i = 0; i < firstDay; i++) cells.push(<div key={`e${i}`} />);
                           for (let d = 1; d <= daysInMonth; d++) {
                             const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
