@@ -6941,7 +6941,7 @@ export default function RocasClient({
                                     )}
                                   </div>
 
-                                  <FormField label="Data de pagamento (para o PDF)">
+                                  <FormField label="Data de pagamento">
                                     <input
                                       type="date"
                                       style={inputStyle}
@@ -9759,7 +9759,7 @@ export default function RocasClient({
                       )}
                     </div>
 
-                    <FormField label="Data de pagamento (para o PDF)">
+                    <FormField label="Data de pagamento">
                       <input
                         type="date"
                         style={inputStyle}
