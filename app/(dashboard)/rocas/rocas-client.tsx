@@ -839,7 +839,11 @@ export default function RocasClient({
       .filter((c) => c.parceiroId === item.id)
       .sort((a, b) => (a.data < b.data ? -1 : 1));
     const inicio = fechsDoParceiro[0]
-      ? fechsDoParceiro[0].dataFim.slice(0, 10)
+      ? (() => {
+          const d = new Date(fechsDoParceiro[0].dataFim)
+          d.setUTCDate(d.getUTCDate() + 1)
+          return d.toISOString().slice(0, 10)
+        })()
       : (csParceiro[0]?.data.slice(0, 10) ??
         new Date().toISOString().slice(0, 10));
     setFecharDataInicio(inicio);
@@ -905,6 +909,18 @@ export default function RocasClient({
   useEffect(() => {
     setFechamentosState(initialFechamentos ?? []);
   }, [initialFechamentos]);
+
+  // Recalcula o bruto do meeiro quando o período muda no modal de fechamento
+  useEffect(() => {
+    if (!fecharMeeiroModal || !fecharDataInicio || !fecharDataFim) return
+    const csRange = colheitas.filter(c =>
+      c.parceiroId === fecharMeeiroModal.id &&
+      c.data.slice(0, 10) >= fecharDataInicio &&
+      c.data.slice(0, 10) <= fecharDataFim
+    )
+    const bruto = csRange.reduce((s, c) => s + c.quantidadeTotal * Number(c.preco) * (c.percParceiro / 100), 0)
+    setFecharBruto(bruto)
+  }, [fecharMeeiroModal?.id, fecharDataInicio, fecharDataFim, colheitas])
 
   // Ao selecionar produtor: auto-preenche datas (a partir do último fechamento) e custos dos lançamentos
   useEffect(() => {

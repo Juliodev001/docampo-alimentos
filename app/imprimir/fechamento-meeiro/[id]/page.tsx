@@ -101,6 +101,7 @@ export default function ImprimirFechamentoMeeiro() {
   const valesDescontados = vales.filter(v => v.status === 'DESCONTADO')
   const outrasDeducoes = combustivel + valesDinheiro + creditos + debitosAnteriores
   const totalQtd = colheitas.reduce((s, c) => s + c.quantidadeTotal, 0)
+  const valorRecebido = valorBruto - bandejaEmbalagem - valesDeduzidos - outrasDeducoes
   const rocas = Array.from(new Set(colheitas.map(c => c.roca?.nome).filter(Boolean))) as string[]
 
   const B: React.CSSProperties = { border: '1px solid #000' }
@@ -220,7 +221,7 @@ export default function ImprimirFechamentoMeeiro() {
               <td style={totCell}>{fmtN(bandejaEmbalagem)}</td>
               <td style={totCell}>{fmtN(valesAbertos)}</td>
               <td style={totCell}>{fmtN(valesDeduzidos)}</td>
-              <td style={{ ...totCell, color: NAVY }}>{fmtN(valorPago)}</td>
+              <td style={{ ...totCell, color: NAVY }}>{fmtN(valorRecebido)}</td>
             </tr>
           </tbody>
         </table>
@@ -232,7 +233,7 @@ export default function ImprimirFechamentoMeeiro() {
         )}
 
         <p style={{ fontSize: 12, fontWeight: 700, margin: '10px 0 16px' }}>
-          Total líquido a receber pelo parceiro: <span style={{ color: NAVY }}>{fmtN(valorPago)}</span>
+          Total líquido a receber pelo parceiro: <span style={{ color: NAVY }}>{fmtN(valorRecebido)}</span>
         </p>
 
         <div style={{ marginTop: 18, fontSize: 10 }}>

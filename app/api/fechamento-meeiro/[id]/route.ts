@@ -14,10 +14,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   })
   if (!fechamento) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 })
 
+  const dataFimFim = new Date(fechamento.dataFim)
+  dataFimFim.setUTCDate(dataFimFim.getUTCDate() + 1)
   const colheitas = await prisma.colheitaDiaria.findMany({
     where: {
       parceiroId: fechamento.parceiroId,
-      data: { gte: fechamento.dataInicio, lte: fechamento.dataFim },
+      data: { gte: fechamento.dataInicio, lt: dataFimFim },
     },
     include: { produto: true, roca: { select: { nome: true } } },
     orderBy: { data: 'asc' },
