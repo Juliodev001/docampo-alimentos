@@ -1886,6 +1886,20 @@ export default function RocasClient({
       ),
     [produtosState, searchProduto],
   );
+  const fechCalDias = useMemo(() => {
+    const { year, month } = fechCalNav;
+    const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    return { pads: Array(firstDay).fill(0) as number[], days: Array.from({ length: daysInMonth }, (_, i) => i + 1) as number[], year, month };
+  }, [fechCalNav]);
+
+  const fecharCalDias = useMemo(() => {
+    const { year, month } = fecharCalNav;
+    const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    return { pads: Array(firstDay).fill(0) as number[], days: Array.from({ length: daysInMonth }, (_, i) => i + 1) as number[], year, month };
+  }, [fecharCalNav]);
+
   const filteredLanc = useMemo(
     () =>
       colheitas.filter(
@@ -6904,19 +6918,12 @@ export default function RocasClient({
                                       {["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].map((d, i) => (
                                         <div key={i} style={{ textAlign: "center", fontSize: 10, color: "#9ca3af", fontWeight: 700, padding: "3px 0" }}>{d}</div>
                                       ))}
-                                      {Array.from({ length: (new Date(fechCalNav.year, fechCalNav.month, 1).getDay() + 6) % 7 }, (_, i) => (
-                                        <div key={`ep${i}`} />
-                                      ))}
-                                      {Array.from({ length: new Date(fechCalNav.year, fechCalNav.month + 1, 0).getDate() }, (_, i) => {
-                                        const d = i + 1;
-                                        const ds = `${fechCalNav.year}-${String(fechCalNav.month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+                                      {fechCalDias.pads.map((_, i) => <div key={`ep${i}`} />)}
+                                      {fechCalDias.days.map(d => {
+                                        const ds = `${fechCalDias.year}-${String(fechCalDias.month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
                                         const sel = fechDatasAdicionais.includes(ds);
                                         return (
-                                          <button
-                                            key={ds}
-                                            onClick={() => setFechDatasAdicionais(prev => prev.includes(ds) ? prev.filter(x => x !== ds) : [...prev, ds])}
-                                            style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel ? 700 : 400, background: sel ? NAVY : "transparent", color: sel ? "#fff" : "#374151" }}
-                                          >{d}</button>
+                                          <button key={ds} onClick={() => setFechDatasAdicionais(prev => prev.includes(ds) ? prev.filter(x => x !== ds) : [...prev, ds])} style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel ? 700 : 400, background: sel ? NAVY : "transparent", color: sel ? "#fff" : "#374151" }}>{d}</button>
                                         );
                                       })}
                                     </div>
@@ -9720,19 +9727,12 @@ export default function RocasClient({
                         {["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].map((d, i) => (
                           <div key={i} style={{ textAlign: "center", fontSize: 10, color: "#9ca3af", fontWeight: 700, padding: "3px 0" }}>{d}</div>
                         ))}
-                        {Array.from({ length: (new Date(fecharCalNav.year, fecharCalNav.month, 1).getDay() + 6) % 7 }, (_, i) => (
-                          <div key={`em${i}`} />
-                        ))}
-                        {Array.from({ length: new Date(fecharCalNav.year, fecharCalNav.month + 1, 0).getDate() }, (_, i) => {
-                          const d = i + 1;
-                          const ds = `${fecharCalNav.year}-${String(fecharCalNav.month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+                        {fecharCalDias.pads.map((_, i) => <div key={`em${i}`} />)}
+                        {fecharCalDias.days.map(d => {
+                          const ds = `${fecharCalDias.year}-${String(fecharCalDias.month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
                           const sel = fecharDatasAdicionais.includes(ds);
                           return (
-                            <button
-                              key={ds}
-                              onClick={() => setFecharDatasAdicionais(prev => prev.includes(ds) ? prev.filter(x => x !== ds) : [...prev, ds])}
-                              style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel ? 700 : 400, background: sel ? NAVY : "transparent", color: sel ? "#fff" : "#374151" }}
-                            >{d}</button>
+                            <button key={ds} onClick={() => setFecharDatasAdicionais(prev => prev.includes(ds) ? prev.filter(x => x !== ds) : [...prev, ds])} style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel ? 700 : 400, background: sel ? NAVY : "transparent", color: sel ? "#fff" : "#374151" }}>{d}</button>
                           );
                         })}
                       </div>
