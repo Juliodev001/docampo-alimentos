@@ -230,7 +230,7 @@ function buildRelatorioProdutor(
   );
   const totalMeeirosBruto = colheitasPeriodo.reduce((s, c) => {
     if (!c.parceiroId) return s;
-    return s + (c.quantidadeTotal - c.descarte) * c.preco * (c.percParceiro / 100);
+    return s + Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100)) * c.preco;
   }, 0);
   const donoBruto = totalBruto - totalMeeirosBruto;
   const fatorProdutor = totalBruto > 0 ? donoBruto / totalBruto : 0;
@@ -249,13 +249,12 @@ function buildRelatorioProdutor(
   const meeiros = prod.parceiros.map((p) => {
     const bruto = colheitasPeriodo.reduce((s, c) => {
       if (c.parceiroId !== p.id) return s;
-      return s + (c.quantidadeTotal - c.descarte) * c.preco * (c.percParceiro / 100);
+      return s + Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100)) * c.preco;
     }, 0);
     const brutoProdutor = colheitasPeriodo.reduce((s, c) => {
       if (c.parceiroId !== p.id) return s;
-      return (
-        s + (c.quantidadeTotal - c.descarte) * c.preco * ((100 - c.percParceiro) / 100)
-      );
+      const qtdMeeiro = Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100));
+      return s + ((c.quantidadeTotal - c.descarte) - qtdMeeiro) * c.preco;
     }, 0);
     const fator = totalBruto > 0 ? bruto / totalBruto : 0;
     const fatorP = totalBruto > 0 ? brutoProdutor / totalBruto : 0;
@@ -925,7 +924,7 @@ export default function RocasClient({
       c.data.slice(0, 10) >= fecharDataInicio &&
       c.data.slice(0, 10) <= fecharDataFim
     )
-    const bruto = csRange.reduce((s, c) => s + c.quantidadeTotal * Number(c.preco) * (c.percParceiro / 100), 0)
+    const bruto = csRange.reduce((s, c) => s + Math.floor(c.quantidadeTotal * (c.percParceiro / 100)) * Number(c.preco), 0)
     setFecharBruto(bruto)
   }, [fecharMeeiroModal?.id, fecharDataInicio, fecharDataFim, colheitas])
 
@@ -4301,7 +4300,7 @@ export default function RocasClient({
                 ) : (
                   filteredLanc.slice((Math.min(lancPage, Math.max(1, Math.ceil(filteredLanc.length / 10))) - 1) * 10, Math.min(lancPage, Math.max(1, Math.ceil(filteredLanc.length / 10))) * 10).map((c) => {
                     const valorMeeiro =
-                      c.quantidadeTotal * c.preco * (c.percParceiro / 100);
+                      Math.floor(c.quantidadeTotal * (c.percParceiro / 100)) * c.preco;
                     const valorTotal = c.quantidadeTotal * c.preco;
                     return (
                       <tr
@@ -9768,13 +9767,7 @@ export default function RocasClient({
                           const acertado = diasAcertadosMeeiro.has(ds);
                           return (
                             <button key={ds} onClick={() => {
-                              const next = fecharDatasAdicionais.includes(ds) ? fecharDatasAdicionais.filter(x => x !== ds) : [...fecharDatasAdicionais, ds];
-                              setFecharDatasAdicionais(next);
-                              if (next.length > 0) {
-                                const sorted = [...next].sort();
-                                setFecharDataInicio(sorted[0]);
-                                setFecharDataFim(sorted[sorted.length - 1]);
-                              }
+                              setFecharDatasAdicionais(prev => prev.includes(ds) ? prev.filter(x => x !== ds) : [...prev, ds]);
                             }} style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel || acertado ? 700 : 400, background: sel ? NAVY : acertado ? "#dcfce7" : "transparent", color: sel ? "#fff" : acertado ? "#15803d" : "#374151", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                               <span>{d}</span>
                               {acertado && <div style={{ width: 5, height: 5, borderRadius: "50%", background: sel ? "#fff" : "#15803d" }} />}
