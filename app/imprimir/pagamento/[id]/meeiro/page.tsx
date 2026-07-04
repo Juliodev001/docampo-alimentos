@@ -203,9 +203,9 @@ function ImprimirPagamentoMeeiro() {
             {colheitasMeeiro.length === 0 ? (
               <tr><td colSpan={7} style={{ ...cell, textAlign: 'center' as const, color: '#888' }}>Nenhum lançamento neste período</td></tr>
             ) : colheitasMeeiro.map(c => {
-              const liquido = c.quantidadeTotal - c.descarte
+              const liquido = Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100))
               const sub = liquido * Number(c.preco)
-              const repasse = sub * (c.percParceiro / 100)
+              const repasse = sub
               return (
                 <tr key={c.id}>
                   <td style={cell}>{fmtDate(c.data)}</td>

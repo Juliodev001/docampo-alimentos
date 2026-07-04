@@ -1754,7 +1754,7 @@ export default function RocasClient({
             )
             .reduce(
               (s, c) =>
-                s + c.quantidadeTotal * c.preco * (c.percParceiro / 100),
+                s + Math.floor(c.quantidadeTotal * (c.percParceiro / 100)) * c.preco,
               0,
             );
           if (pendente > 0) {
@@ -1764,7 +1764,7 @@ export default function RocasClient({
         } else {
           const cs = colheitas.filter((c) => c.parceiroId === m.id);
           valorTotal = cs.reduce(
-            (s, c) => s + c.quantidadeTotal * c.preco * (c.percParceiro / 100),
+            (s, c) => s + Math.floor(c.quantidadeTotal * (c.percParceiro / 100)) * c.preco,
             0,
           );
           temMovimento = valorTotal > 0;
@@ -1979,7 +1979,7 @@ export default function RocasClient({
         ? `<tr><td colspan="11" style="text-align:center;padding:24px;color:#9ca3af">Nenhum lançamento encontrado</td></tr>`
         : dados
             .map((c) => {
-              const vm = c.quantidadeTotal * c.preco * (c.percParceiro / 100);
+              const vm = Math.floor(c.quantidadeTotal * (c.percParceiro / 100)) * c.preco;
               return `<tr><td>${fmtDate(c.data)}</td><td>${c.rocaNome ?? "—"}</td><td>${c.produtoNome}</td><td>${c.bandeja > 0 ? fmtCurrency(c.bandeja) : "—"}</td><td>${fmtNum(c.quantidadeTotal, 0)}</td><td>${c.descarte > 0 ? fmtNum(c.descarte, 0) : "0"}</td><td>${fmtCurrency(c.preco)}</td><td>${c.parceiroNome ?? "—"}</td><td>${c.percParceiro}%</td><td>${fmtCurrency(vm)}</td><td class="bold">${fmtCurrency(c.quantidadeTotal * c.preco)}</td></tr>`;
             })
             .join("");
@@ -2003,11 +2003,11 @@ export default function RocasClient({
     const meeiroNome = forceMeeiroNome ?? meeiroObj?.nome;
     const valorEmba = meeiroObj?.valorEmba ?? 0;
     const totalBruto = dados.reduce(
-      (s, c) => s + c.quantidadeTotal * c.preco * (c.percParceiro / 100),
+      (s, c) => s + Math.floor(c.quantidadeTotal * (c.percParceiro / 100)) * c.preco,
       0,
     );
     const totalEmba = dados.reduce(
-      (s, c) => s + valorEmba * c.quantidadeTotal * (c.percParceiro / 100),
+      (s, c) => s + valorEmba * Math.floor(c.quantidadeTotal * (c.percParceiro / 100)),
       0,
     );
     const totalLiquido = totalBruto - totalEmba;
@@ -2016,8 +2016,8 @@ export default function RocasClient({
         ? `<tr><td colspan="10" style="text-align:center;padding:24px;color:#9ca3af">Nenhum lançamento encontrado</td></tr>`
         : dados
             .map((c) => {
-              const vm = c.quantidadeTotal * c.preco * (c.percParceiro / 100);
-              const de = valorEmba * c.quantidadeTotal * (c.percParceiro / 100);
+              const vm = Math.floor(c.quantidadeTotal * (c.percParceiro / 100)) * c.preco;
+              const de = valorEmba * Math.floor(c.quantidadeTotal * (c.percParceiro / 100));
               return `<tr><td>${fmtDate(c.data)}</td><td>${c.rocaNome ?? "—"}</td><td>${c.produtoNome}</td><td>${c.bandeja > 0 ? fmtCurrency(c.bandeja) : "—"}</td><td>${fmtNum(c.quantidadeTotal, 0)}</td><td>${c.descarte > 0 ? fmtNum(c.descarte, 0) : "0"}</td><td>${fmtCurrency(c.preco)}</td><td>${c.percParceiro}%</td><td class="bold">${fmtCurrency(vm)}</td><td style="color:#e87320">- ${fmtCurrency(de)}</td></tr>`;
             })
             .join("");
@@ -2036,7 +2036,7 @@ export default function RocasClient({
     const meeiro = parceirosState.find((m) => m.id === p.id);
     const valorEmba = meeiro?.valorEmba ?? 0;
     const totalEmba = dados.reduce(
-      (s, c) => s + valorEmba * c.quantidadeTotal * (c.percParceiro / 100),
+      (s, c) => s + valorEmba * Math.floor(c.quantidadeTotal * (c.percParceiro / 100)),
       0,
     );
     const liquidoFinal = p.valorFinal - totalEmba;
@@ -2045,7 +2045,7 @@ export default function RocasClient({
     const rows = dados
       .map(
         (c) =>
-          `<tr><td>${fmtDate(c.data)}</td><td>${c.rocaNome ?? "—"}</td><td>${c.produtoNome}</td><td>${c.bandeja > 0 ? fmtCurrency(c.bandeja) : "—"}</td><td>${fmtNum(c.quantidadeTotal, 0)}</td><td>${c.descarte > 0 ? fmtNum(c.descarte, 0) : "0"}</td><td>${fmtCurrency(c.preco)}</td><td>${c.percParceiro}%</td><td class="bold">${fmtCurrency(c.quantidadeTotal * c.preco * (c.percParceiro / 100))}</td></tr>`,
+          `<tr><td>${fmtDate(c.data)}</td><td>${c.rocaNome ?? "—"}</td><td>${c.produtoNome}</td><td>${c.bandeja > 0 ? fmtCurrency(c.bandeja) : "—"}</td><td>${fmtNum(c.quantidadeTotal, 0)}</td><td>${c.descarte > 0 ? fmtNum(c.descarte, 0) : "0"}</td><td>${fmtCurrency(c.preco)}</td><td>${c.percParceiro}%</td><td class="bold">${fmtCurrency(Math.floor(c.quantidadeTotal * (c.percParceiro / 100)) * c.preco)}</td></tr>`,
       )
       .join("");
     const embaRow =
@@ -2067,7 +2067,7 @@ export default function RocasClient({
     });
     const parc = parceirosState.find((p) => p.id === repParcId);
     const totalRep = dados.reduce(
-      (s, c) => s + c.quantidadeTotal * c.preco * (c.percParceiro / 100),
+      (s, c) => s + Math.floor(c.quantidadeTotal * (c.percParceiro / 100)) * c.preco,
       0,
     );
     const rows =
@@ -2076,7 +2076,7 @@ export default function RocasClient({
         : dados
             .map(
               (c) =>
-                `<tr><td>${c.parceiroNome ?? "—"}</td><td>${fmtDate(c.data)}</td><td>${c.rocaNome ?? "—"}</td><td>${c.produtoNome}</td><td>${fmtNum(c.quantidadeTotal, 0)}</td><td>${c.descarte > 0 ? fmtNum(c.descarte, 0) : "0"}</td><td>${c.percParceiro}%</td><td class="bold">${fmtCurrency(c.quantidadeTotal * c.preco * (c.percParceiro / 100))}</td></tr>`,
+                `<tr><td>${c.parceiroNome ?? "—"}</td><td>${fmtDate(c.data)}</td><td>${c.rocaNome ?? "—"}</td><td>${c.produtoNome}</td><td>${fmtNum(c.quantidadeTotal, 0)}</td><td>${c.descarte > 0 ? fmtNum(c.descarte, 0) : "0"}</td><td>${c.percParceiro}%</td><td class="bold">${fmtCurrency(Math.floor(c.quantidadeTotal * (c.percParceiro / 100)) * c.preco)}</td></tr>`,
             )
             .join("");
     abrirJanela(

@@ -96,7 +96,7 @@ export default function ImprimirPagamento() {
 
   const totalMeeirosBruto = colheitas.reduce((s, c) => {
     if (!c.parceiroId) return s
-    return s + (c.quantidadeTotal - c.descarte) * c.preco * (c.percParceiro / 100)
+    return s + Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100)) * c.preco
   }, 0)
   const donoBruto = totalBruto - totalMeeirosBruto
   const fatorProdutor = totalBruto > 0 ? donoBruto / totalBruto : 0
@@ -256,12 +256,13 @@ export default function ImprimirPagamento() {
                 {produtor.parceiros.map(p => {
                   const bruto = colheitas.reduce((s, c) => {
                     if (c.parceiroId !== p.id) return s
-                    return s + (c.quantidadeTotal - c.descarte) * c.preco * (c.percParceiro / 100)
+                    return s + Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100)) * c.preco
                   }, 0)
                   // Bruto do produtor referente às mesmas colheitas desse meeiro (a fatia complementar)
                   const brutoProdutor = colheitas.reduce((s, c) => {
                     if (c.parceiroId !== p.id) return s
-                    return s + (c.quantidadeTotal - c.descarte) * c.preco * ((100 - c.percParceiro) / 100)
+                    const qtdMeeiro = Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100))
+                    return s + ((c.quantidadeTotal - c.descarte) - qtdMeeiro) * c.preco
                   }, 0)
                   const totalDed = combustivel + bandejaEmbalagem + valesDinheiro + creditos + debitosAnteriores
                   const fator = totalBruto > 0 ? bruto / totalBruto : 0
