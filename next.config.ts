@@ -14,10 +14,14 @@ const SECURITY_HEADERS = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      // unsafe-inline necessário para Next.js inline styles; unsafe-eval removido
-      "script-src 'self' 'unsafe-inline'",
+      // unsafe-inline necessário para Next.js inline styles; unsafe-eval removido.
+      // wasm-unsafe-eval liberado só pra WebAssembly.instantiate (Tesseract.js no /leitor) —
+      // mais restrito que unsafe-eval, não permite eval()/Function() arbitrário.
+      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
+      // Tesseract.js cria o worker a partir de um blob: URL (padrão do bundler)
+      "worker-src 'self' blob:",
       "font-src 'self'",
       "connect-src 'self'",
       "frame-ancestors 'none'",

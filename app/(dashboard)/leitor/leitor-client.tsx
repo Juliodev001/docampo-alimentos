@@ -95,10 +95,13 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
       // Motor, núcleo WASM e idioma são servidos pelo PRÓPRIO site (public/tesseract),
       // não por um CDN externo — assim funciona em qualquer celular e sem depender
       // de terceiros. Ver public/tesseract/ (copiado no build) e README abaixo.
+      // URLs absolutas (com origin) — o worker roda a partir de um blob: URL e
+      // não resolve caminhos raiz-relativos (importScripts falha com "URL inválida").
+      const origin = window.location.origin
       const { data } = await Tesseract.recognize(dataUrl, 'por', {
-        workerPath: '/tesseract/worker.min.js',
-        corePath: '/tesseract',
-        langPath: '/tesseract/lang',
+        workerPath: `${origin}/tesseract/worker.min.js`,
+        corePath: `${origin}/tesseract`,
+        langPath: `${origin}/tesseract/lang`,
         logger: (m: { status?: string; progress?: number }) => {
           if (m.status === 'recognizing text' && typeof m.progress === 'number') {
             setProgresso(Math.round(m.progress * 100))

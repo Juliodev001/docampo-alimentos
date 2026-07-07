@@ -19,22 +19,10 @@ export default async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL('/', req.nextUrl))
   }
 
-  const res = NextResponse.next()
-  res.headers.set('X-Frame-Options',        'DENY')
-  res.headers.set('X-Content-Type-Options', 'nosniff')
-  res.headers.set('X-XSS-Protection',       '1; mode=block')
-  res.headers.set('Referrer-Policy',        'strict-origin-when-cross-origin')
-  res.headers.set('Permissions-Policy',     'camera=(), microphone=(), geolocation=()')
-  res.headers.set('Content-Security-Policy', [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
-    "font-src 'self'",
-    "connect-src 'self'",
-    "frame-ancestors 'none'",
-  ].join('; '))
-  return res
+  // Headers de segurança (CSP incluída) são aplicados globalmente via
+  // headers() em next.config.ts — única fonte de verdade, evita as duas
+  // cópias divergirem (foi o que quebrou o WebAssembly do /leitor antes).
+  return NextResponse.next()
 }
 
 export const config = {

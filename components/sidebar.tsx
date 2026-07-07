@@ -30,7 +30,6 @@ type NavItem = {
 /* ─── Menu principal — igual ao TopERP ─── */
 const MAIN_ITEMS: NavItem[] = [
   { href: '/',               label: 'Dashboard',        icon: faTableColumns,  color: '#6c7fc4' },
-  { href: '/leitor',         label: 'Leitor de Documentos', icon: faCamera,    color: '#0ea5e9' },
   { href: '/rocas',          label: 'Controle de Roça', icon: faLeaf,          color: '#16a34a' },
   { href: '/lavoura/pagamento', label: 'Demonstrativos',  icon: faSeedling,    color: '#84cc16' },
   { href: '/vales',          label: 'Vales em Dinheiro',icon: faHandHoldingDollar, color: '#d97706' },
@@ -49,6 +48,7 @@ const MAIN_ITEMS: NavItem[] = [
 
 /* ─── Itens específicos do negócio (Mais) ─── */
 const SECONDARY_ITEMS: NavItem[] = [
+  { href: '/leitor',          label: 'Leitor de Documentos', icon: faCamera,      color: '#0ea5e9' },
   { href: '/produtores',      label: 'Produtores',        icon: faUsers,           color: '#10b981' },
   { href: '/nfe',             label: 'NF-e',              icon: faFileLines,       color: '#06b6d4' },
   { href: '/producao',        label: 'Produção',          icon: faSeedling,        color: '#5ab952' },
