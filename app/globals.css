@@ -1004,6 +1004,39 @@ html::-webkit-scrollbar-thumb:hover {
   }
 }
 
+/* ══════════════════════════════════════════════════════════
+   REDE DE SEGURANÇA DE RESPONSIVIDADE (2026-07-07)
+   Muitas páginas montam grids com estilo inline
+   (style={{ gridTemplateColumns: '...' }}). As media queries por
+   classe (.grid-2, .kpi-grid-*, etc.) não alcançam esses grids.
+   Aqui forçamos, no mobile, qualquer grid com colunas fixas inline
+   dentro do dashboard a colapsar para 1 coluna — mesmo comportamento
+   das utilities. Modais são descendentes de .dashboard-main/.modal-wrapper
+   no DOM (mesmo com position:fixed), então também são cobertos.
+   O escopo evita afetar /login e as páginas de impressão (/imprimir).
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  .dashboard-main [style*="grid-template-columns"],
+  .modal-wrapper [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+}
+
+/* Tablet: grids inline muito largos (KPIs de 4+ colunas) ficam
+   apertados entre 768–1023px. O seletor casa o valor serializado do
+   style inline (o navegador normaliza para "repeat(N, 1fr)"). */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .dashboard-main [style*="repeat(5,"],
+  .dashboard-main [style*="repeat(6,"],
+  .dashboard-main [style*="repeat(7,"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  .dashboard-main [style*="repeat(4,"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
