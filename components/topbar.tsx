@@ -9,7 +9,7 @@ import {
   faBoxes, faCartShopping, faArrowTrendUp, faFileLines, faLandmark,
   faAddressCard, faUsers, faSliders,
   faTruck, faReceipt, faLeaf, faDollarSign, faBuilding, faCreditCard, faArrowsUpDown, faBox,
-  faTriangleExclamation,
+  faTriangleExclamation, faCamera,
 } from '@fortawesome/free-solid-svg-icons'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 
@@ -34,6 +34,7 @@ type RouteInfo = { label: string; parent?: string; parentHref?: string; icon?: I
 
 const ROUTE_MAP: Record<string, RouteInfo> = {
   '/':                  { label: 'Dashboard',          icon: faTableColumns },
+  '/leitor':            { label: 'Leitor de Documentos', icon: faCamera,         parent: 'Dashboard', parentHref: '/' },
   '/caixa':             { label: 'Financeiro',          icon: faDollarSign,       parent: 'Dashboard', parentHref: '/' },
   '/compras':           { label: 'Centro de Despesa',   icon: faBuilding,         parent: 'Dashboard', parentHref: '/' },
   '/contas-pagar':      { label: 'Contas a Pagar',      icon: faCreditCard,       parent: 'Dashboard', parentHref: '/' },

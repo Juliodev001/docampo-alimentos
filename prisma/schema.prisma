@@ -749,3 +749,19 @@ model LancamentoCusto {
   observacao        String?
   createdAt         DateTime  @default(now())
 }
+
+/// Documento fotografado pelo celular e lido por OCR (Leitor de Documentos).
+/// A foto é armazenada como data URL (base64) reduzida; `campos` guarda a
+/// "planilha" extraída — array de { campo, valor } editável pelo usuário.
+model DocumentoDigitalizado {
+  id         String   @id @default(cuid())
+  nome       String                              // rótulo do documento (ex.: "Nota Sítio 12/07")
+  imagem     String?  @db.Text                   // foto reduzida em data URL (base64)
+  textoBruto String?  @db.Text                   // texto completo devolvido pelo OCR
+  campos     Json     @default("[]")             // [{ campo: string, valor: string }]
+  total      Decimal? @db.Decimal(14, 2)         // maior valor monetário detectado (palpite de total)
+  userId     String?
+  criadoEm   DateTime @default(now())
+
+  @@index([criadoEm])
+}

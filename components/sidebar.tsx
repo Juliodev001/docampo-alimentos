@@ -12,6 +12,7 @@ import {
   faWifi, faShield, faSliders, faChartBar, faChevronDown,
   faChevronLeft, faChevronRight, faTruck, faEllipsisH, faLeaf, faReceipt,
   faBuilding, faCreditCard, faArrowsUpDown, faBell, faHandHoldingDollar,
+  faCamera,
 } from '@fortawesome/free-solid-svg-icons'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 
@@ -29,6 +30,7 @@ type NavItem = {
 /* ─── Menu principal — igual ao TopERP ─── */
 const MAIN_ITEMS: NavItem[] = [
   { href: '/',               label: 'Dashboard',        icon: faTableColumns,  color: '#6c7fc4' },
+  { href: '/leitor',         label: 'Leitor de Documentos', icon: faCamera,    color: '#0ea5e9' },
   { href: '/rocas',          label: 'Controle de Roça', icon: faLeaf,          color: '#16a34a' },
   { href: '/lavoura/pagamento', label: 'Demonstrativos',  icon: faSeedling,    color: '#84cc16' },
   { href: '/vales',          label: 'Vales em Dinheiro',icon: faHandHoldingDollar, color: '#d97706' },
