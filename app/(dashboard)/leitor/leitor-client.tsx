@@ -6,7 +6,7 @@ import {
   faCamera, faImage, faTrashCan, faDownload, faPlus, faXmark,
   faSpinner, faTableList, faCheck, faFileLines, faMagnifyingGlass,
 } from '@fortawesome/free-solid-svg-icons'
-import { extrairCampos, parseMoneyToNumber, type CampoExtraido } from '@/lib/ocr-parse'
+import { extrairCampos, parseMoneyToNumber, reconstruirLinhas, type CampoExtraido } from '@/lib/ocr-parse'
 
 const GREEN = '#5ab952'
 const NAVY = '#2d3561'
@@ -58,6 +58,48 @@ function reduzirImagem(file: File): Promise<string> {
   })
 }
 
+/**
+ * Prepara uma versão só para o OCR: escala de cinza + mais contraste + upscale
+ * se a imagem for pequena. Ajuda bastante em screenshots de planilha (texto
+ * miúdo, cores, badges) — a imagem exibida na tela continua a original colorida.
+ *
+ * (Testado também um contraste LOCAL adaptativo — cada pixel comparado com a
+ * média da sua vizinhança — na tentativa de recuperar texto claro sobre fundo
+ * colorido sólido; piorou a leitura das células normais, então foi revertido.)
+ */
+function prepararParaOcr(dataUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const MIN = 1600
+      let { width, height } = img
+      if (Math.max(width, height) < MIN) {
+        const r = MIN / Math.max(width, height)
+        width = Math.round(width * r)
+        height = Math.round(height * r)
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return reject(new Error('canvas'))
+      ctx.drawImage(img, 0, 0, width, height)
+      const imgData = ctx.getImageData(0, 0, width, height)
+      const d = imgData.data
+      const CONTRAST = 1.35
+      for (let i = 0; i < d.length; i += 4) {
+        const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]
+        const contrastado = Math.min(255, Math.max(0, (gray - 128) * CONTRAST + 128))
+        d[i] = d[i + 1] = d[i + 2] = contrastado
+      }
+      ctx.putImageData(imgData, 0, 0)
+      resolve(canvas.toDataURL('image/png'))
+    }
+    img.onerror = reject
+    img.src = dataUrl
+  })
+}
+
 export default function LeitorClient({ documentosIniciais }: { documentosIniciais: DocLista[] }) {
   const [docs, setDocs] = useState<DocLista[]>(documentosIniciais)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -91,6 +133,8 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
       const dataUrl = await reduzirImagem(file)
       setImagem(dataUrl)
 
+      const ocrInput = await prepararParaOcr(dataUrl)
+
       const { default: Tesseract } = await import('tesseract.js')
       // Motor, núcleo WASM e idioma são servidos pelo PRÓPRIO site (public/tesseract),
       // não por um CDN externo — assim funciona em qualquer celular e sem depender
@@ -98,7 +142,9 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
       // URLs absolutas (com origin) — o worker roda a partir de um blob: URL e
       // não resolve caminhos raiz-relativos (importScripts falha com "URL inválida").
       const origin = window.location.origin
-      const { data } = await Tesseract.recognize(dataUrl, 'por', {
+      // Worker manual (não o atalho Tesseract.recognize) pra poder ajustar o PSM
+      // e usar reconstruirLinhas (data.words) em vez de data.text.
+      const worker = await Tesseract.createWorker('por', 1, {
         workerPath: `${origin}/tesseract/worker.min.js`,
         corePath: `${origin}/tesseract`,
         langPath: `${origin}/tesseract/lang`,
@@ -108,7 +154,13 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
           }
         },
       })
-      const txt = data.text ?? ''
+      await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.AUTO })
+      const { data } = await worker.recognize(ocrInput)
+      await worker.terminate()
+      // Reconstrói as linhas pela posição real das palavras na imagem — mais
+      // confiável que a segmentação de linha do Tesseract em tabelas com
+      // células coloridas/com borda (célula por célula perde o contexto da linha).
+      const txt = reconstruirLinhas(data.words ?? []) || data.text || ''
       setTexto(txt)
       const { campos: extraidos } = extrairCampos(txt)
       setCampos(extraidos)
