@@ -6,7 +6,8 @@ import {
   faCamera, faImage, faTrashCan, faDownload, faPlus, faXmark,
   faSpinner, faTableList, faCheck, faFileLines, faMagnifyingGlass,
 } from '@fortawesome/free-solid-svg-icons'
-import { extrairCampos, parseMoneyToNumber, reconstruirLinhas, type CampoExtraido } from '@/lib/ocr-parse'
+import { extrairCampos, parseMoneyToNumber, reconstruirLinhas, type CampoExtraido, type OcrWord } from '@/lib/ocr-parse'
+import { detectarRegioesColoridas, normalizarRegiaoColorida, dentroDeAlgumaRegiao, faixasDeTexto } from '@/lib/ocr-regioes'
 
 const GREEN = '#5ab952'
 const NAVY = '#2d3561'
@@ -63,11 +64,16 @@ function reduzirImagem(file: File): Promise<string> {
  * se a imagem for pequena. Ajuda bastante em screenshots de planilha (texto
  * miúdo, cores, badges) — a imagem exibida na tela continua a original colorida.
  *
+ * Além do PNG em cinza, devolve o canvas COLORIDO na mesma escala: é nele que
+ * o segundo passe detecta as regiões coloridas (badges, células com fundo) que
+ * a binarização global do Tesseract perde — ver lib/ocr-regioes.ts.
+ *
  * (Testado também um contraste LOCAL adaptativo — cada pixel comparado com a
  * média da sua vizinhança — na tentativa de recuperar texto claro sobre fundo
- * colorido sólido; piorou a leitura das células normais, então foi revertido.)
+ * colorido sólido; piorou a leitura das células normais, então foi revertido
+ * em favor do segundo passe por região.)
  */
-function prepararParaOcr(dataUrl: string): Promise<string> {
+function prepararParaOcr(dataUrl: string): Promise<{ cinza: string; colorida: HTMLCanvasElement }> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => {
@@ -78,12 +84,19 @@ function prepararParaOcr(dataUrl: string): Promise<string> {
         width = Math.round(width * r)
         height = Math.round(height * r)
       }
+      const colorida = document.createElement('canvas')
+      colorida.width = width
+      colorida.height = height
+      const ctxColor = colorida.getContext('2d')
+      if (!ctxColor) return reject(new Error('canvas'))
+      ctxColor.drawImage(img, 0, 0, width, height)
+
       const canvas = document.createElement('canvas')
       canvas.width = width
       canvas.height = height
       const ctx = canvas.getContext('2d')
       if (!ctx) return reject(new Error('canvas'))
-      ctx.drawImage(img, 0, 0, width, height)
+      ctx.drawImage(colorida, 0, 0)
       const imgData = ctx.getImageData(0, 0, width, height)
       const d = imgData.data
       const CONTRAST = 1.35
@@ -93,7 +106,7 @@ function prepararParaOcr(dataUrl: string): Promise<string> {
         d[i] = d[i + 1] = d[i + 2] = contrastado
       }
       ctx.putImageData(imgData, 0, 0)
-      resolve(canvas.toDataURL('image/png'))
+      resolve({ cinza: canvas.toDataURL('image/png'), colorida })
     }
     img.onerror = reject
     img.src = dataUrl
@@ -133,7 +146,7 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
       const dataUrl = await reduzirImagem(file)
       setImagem(dataUrl)
 
-      const ocrInput = await prepararParaOcr(dataUrl)
+      const { cinza: ocrInput, colorida } = await prepararParaOcr(dataUrl)
 
       const { default: Tesseract } = await import('tesseract.js')
       // Motor, núcleo WASM e idioma são servidos pelo PRÓPRIO site (public/tesseract),
@@ -156,11 +169,83 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
       })
       await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.AUTO })
       const { data } = await worker.recognize(ocrInput)
+
+      // Palavras do passe principal, sem os cacos de pontuação que as bordas
+      // de tabela viram ("|", "—"...): só fica o que tem letra ou número.
+      let palavras: OcrWord[] = (data.words ?? [])
+        .filter((w) => /[\p{L}\p{N}]/u.test(w.text))
+        .map((w) => ({ text: w.text, bbox: { x0: w.bbox.x0, y0: w.bbox.y0, x1: w.bbox.x1, y1: w.bbox.y1 } }))
+
+      // Segundo passe: regiões coloridas (badges, células verdes/amarelas) que
+      // a binarização global perde. Cada recorte é normalizado (texto escuro
+      // sobre branco) e reconhecido separadamente; as palavras novas entram no
+      // lugar das (geralmente mutiladas) que o passe 1 achou ali dentro.
+      const ctxColor = colorida.getContext('2d')
+      if (ctxColor) {
+        const regioes = detectarRegioesColoridas(
+          ctxColor.getImageData(0, 0, colorida.width, colorida.height)
+        )
+        if (regioes.length) {
+          // Linha única por faixa: o PSM de bloco pulava linhas em recortes
+          // esparsos (coluna de valores com células empilhadas).
+          await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE })
+          const extras: OcrWord[] = []
+          for (const rg of regioes) {
+            // a erosão da detecção encolhe o bbox ~1 célula da grade; o pad devolve o respiro
+            const pad = 6
+            const x = Math.max(0, rg.x0 - pad)
+            const y = Math.max(0, rg.y0 - pad)
+            const w = Math.min(colorida.width, rg.x1 + pad) - x
+            const h = Math.min(colorida.height, rg.y1 + pad) - y
+            const recorte = ctxColor.getImageData(x, y, w, h)
+            normalizarRegiaoColorida(recorte)
+            const cv = document.createElement('canvas')
+            cv.width = w
+            cv.height = h
+            const cvCtx = cv.getContext('2d')
+            if (!cvCtx) continue
+            cvCtx.putImageData(recorte, 0, 0)
+            for (const faixa of faixasDeTexto(recorte)) {
+              // inset horizontal: deixa as bordas verticais da célula fora da faixa
+              const insetX = Math.min(8, w >> 2)
+              const fw = w - insetX * 2
+              const fh = faixa.y1 - faixa.y0
+              const fx = document.createElement('canvas')
+              fx.width = fw
+              fx.height = fh
+              fx.getContext('2d')?.drawImage(cv, insetX, faixa.y0, fw, fh, 0, 0, fw, fh)
+              const rec = await worker.recognize(fx)
+              for (const wd of rec.data.words ?? []) {
+                if ((wd.confidence ?? 0) < 55) continue
+                if (!/[\p{L}\p{N}]/u.test(wd.text)) continue
+                // fragmento curto e incerto = quase sempre a seta/ícone do badge
+                if (wd.text.trim().length <= 2 && (wd.confidence ?? 0) < 80) continue
+                extras.push({
+                  text: wd.text,
+                  bbox: {
+                    x0: wd.bbox.x0 + x + insetX,
+                    y0: wd.bbox.y0 + y + faixa.y0,
+                    x1: wd.bbox.x1 + x + insetX,
+                    y1: wd.bbox.y1 + y + faixa.y0,
+                  },
+                })
+              }
+            }
+          }
+          // margem 10: a erosão encolhe o bbox da região, e as palavras que o
+          // passe 1 "leu" na beirada de um badge (a borda vira ruído tipo "II",
+          // "[I") ficam com o centro um pouco fora dela.
+          palavras = palavras
+            .filter((wd) => !dentroDeAlgumaRegiao(wd.bbox, regioes, 10))
+            .concat(extras)
+        }
+      }
+
       await worker.terminate()
       // Reconstrói as linhas pela posição real das palavras na imagem — mais
       // confiável que a segmentação de linha do Tesseract em tabelas com
       // células coloridas/com borda (célula por célula perde o contexto da linha).
-      const txt = reconstruirLinhas(data.words ?? []) || data.text || ''
+      const txt = reconstruirLinhas(palavras) || data.text || ''
       setTexto(txt)
       const { campos: extraidos } = extrairCampos(txt)
       setCampos(extraidos)

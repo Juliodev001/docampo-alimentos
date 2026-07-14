@@ -4,10 +4,15 @@ import { NextResponse } from 'next/server'
 
 type CampoExtraido = { campo: string; valor: string }
 
-/** Escapa um campo para CSV (aspas duplas + separador ponto-e-vírgula, padrão pt-BR/Excel). */
+/**
+ * Escapa um campo para CSV. O separador é ";" (padrão pt-BR/Excel), mas os
+ * valores em real têm VÍRGULA decimal ("192,00") — sem aspas, o LibreOffice
+ * acaba usando a vírgula como separador e quebra a linha em várias colunas.
+ * Por isso citamos qualquer célula com vírgula, ponto-e-vírgula, aspas ou quebra.
+ */
 function csvCell(v: string): string {
   const s = String(v ?? '')
-  return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  return /[",;\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
 /** Slug de arquivo sem acentos nem caracteres especiais. */
