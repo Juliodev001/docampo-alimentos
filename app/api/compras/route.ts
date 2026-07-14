@@ -69,13 +69,19 @@ export async function POST(req: NextRequest) {
 
   // Build items — simplified form sends valor + descricao instead of itens array
   type RawItem = { produto: string; unidade: never; quantidade: number; valorUnit: number; total: number }
-  const resolvedItens: RawItem[] = itens ?? [{
+  const rawItens: RawItem[] = itens ?? [{
     produto:    descricao ?? 'Despesa',
     unidade:    'UNIDADE' as never,
     quantidade: 1,
     valorUnit:  valor ?? 0,
     total:      valor ?? 0,
   }]
+
+  // Total sempre recalculado no servidor — nunca confiar no valor vindo do cliente
+  const resolvedItens: RawItem[] = rawItens.map(i => ({
+    ...i,
+    total: (Number(i.quantidade) || 0) * (Number(i.valorUnit) || 0),
+  }))
 
   const totalValor = resolvedItens.reduce((s: number, i: RawItem) => s + i.total, 0)
 

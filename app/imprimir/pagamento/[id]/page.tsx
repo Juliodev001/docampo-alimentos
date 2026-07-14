@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
+import { calcularFechamento } from '@/lib/fechamento-calc'
 
 const NAVY = '#2d3561'
 
@@ -91,20 +92,20 @@ export default function ImprimirPagamento() {
 
   const { produtor, colheitas, dataInicio, dataFim, dataPagamento, combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores, vales } = fechamento
 
-  const totalBruto = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
-  const totalQtd   = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
-
-  const totalMeeirosBruto = colheitas.reduce((s, c) => {
-    if (!c.parceiroId) return s
-    return s + Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100)) * c.preco
-  }, 0)
-  const donoBruto = totalBruto - totalMeeirosBruto
+  const abatimEmprestimo = vales.reduce((s, v) => s + Number(v.valor), 0)
+  const calculo = calcularFechamento(
+    colheitas,
+    { combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores },
+    abatimEmprestimo,
+  )
+  const totalBruto = calculo.totalBruto
+  const totalQtd = calculo.totalCaixas
+  const donoBruto = calculo.produtor.bruto
   const fatorProdutor = totalBruto > 0 ? donoBruto / totalBruto : 0
 
   const descEmb = bandejaEmbalagem * fatorProdutor
-  const outrasDeducoes = (combustivel + creditos + debitosAnteriores) * fatorProdutor
-  const abatimEmprestimo = vales.reduce((s, v) => s + Number(v.valor), 0)
-  const valorRecebido = donoBruto - descEmb - outrasDeducoes - abatimEmprestimo
+  const outrasDeducoes = (combustivel + valesDinheiro + creditos + debitosAnteriores) * fatorProdutor
+  const valorRecebido = calculo.produtor.liquido
 
   const rocas = Array.from(new Set(colheitas.map(c => c.roca?.nome).filter(Boolean))) as string[]
 
@@ -188,8 +189,8 @@ export default function ImprimirPagamento() {
             {colheitas.map(c => {
               const liquido = c.quantidadeTotal - c.descarte
               const sub = liquido * c.preco
-              const percProdutorRow = c.parceiroId ? 100 - c.percParceiro : 100
-              const repasse = sub * (percProdutorRow / 100)
+              const caixasMeeiro = c.parceiroId ? Math.floor(liquido * (c.percParceiro / 100)) : 0
+              const repasse = sub - caixasMeeiro * c.preco
               return (
                 <tr key={c.id}>
                   <td style={cell}>{fmtDate(c.data)}</td>
@@ -254,21 +255,16 @@ export default function ImprimirPagamento() {
               </thead>
               <tbody>
                 {produtor.parceiros.map(p => {
-                  const bruto = colheitas.reduce((s, c) => {
-                    if (c.parceiroId !== p.id) return s
-                    return s + Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100)) * c.preco
-                  }, 0)
+                  const participacao = calculo.meeiros.find(m => m.parceiroId === p.id)
+                  const valorMeeiro = participacao?.liquido ?? 0
                   // Bruto do produtor referente às mesmas colheitas desse meeiro (a fatia complementar)
                   const brutoProdutor = colheitas.reduce((s, c) => {
                     if (c.parceiroId !== p.id) return s
                     const qtdMeeiro = Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100))
                     return s + ((c.quantidadeTotal - c.descarte) - qtdMeeiro) * c.preco
                   }, 0)
-                  const totalDed = combustivel + bandejaEmbalagem + valesDinheiro + creditos + debitosAnteriores
-                  const fator = totalBruto > 0 ? bruto / totalBruto : 0
-                  const fatorProdutor = totalBruto > 0 ? brutoProdutor / totalBruto : 0
-                  const valorMeeiro = bruto - totalDed * fator
-                  const valorProdutorMeeiro = brutoProdutor - totalDed * fatorProdutor
+                  const fatorProdutorRow = totalBruto > 0 ? brutoProdutor / totalBruto : 0
+                  const valorProdutorMeeiro = brutoProdutor - calculo.totalDeducoes * fatorProdutorRow
                   return (
                     <tr key={p.id}>
                       <td style={cell}>{p.nome}</td>

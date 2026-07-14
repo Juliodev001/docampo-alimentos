@@ -35,7 +35,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Selecione um fornecedor para pedido de compra.' }, { status: 400 })
   }
 
-  const subtotal   = itens.reduce((s: number, it: { total: number }) => s + it.total, 0)
+  // Total sempre recalculado no servidor — nunca confiar no valor vindo do cliente
+  type ItemPedido = { produtoId?: string; produto: string; unidade: string; quantidade: number; valorUnit: number; desconto?: number; total: number }
+  const itensCalc: ItemPedido[] = (itens as ItemPedido[]).map(it => ({
+    ...it,
+    total: Math.max(0, (Number(it.quantidade) || 0) * (Number(it.valorUnit) || 0) - (Number(it.desconto) || 0)),
+  }))
+  const subtotal   = itensCalc.reduce((s: number, it: ItemPedido) => s + it.total, 0)
   const totalValor = subtotal + (frete ?? 0) + (outrasTaxas ?? 0)
 
   const pedido = await prisma.pedido.create({
@@ -56,7 +62,7 @@ export async function POST(req: NextRequest) {
       obsCliente:      obsCliente  || null,
       totalValor,
       itens: {
-        create: itens.map((it: { produtoId?: string; produto: string; unidade: string; quantidade: number; valorUnit: number; desconto: number; total: number }) => ({
+        create: itensCalc.map(it => ({
           produto:    it.produto,
           unidade:    (it.unidade ?? 'CAIXA') as never,
           quantidade: it.quantidade,

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'motion/react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faChevronLeft, faCircleExclamation, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons'
+import { calcularFechamento } from '@/lib/fechamento-calc'
 
 const GREEN = '#5ab952'
 const NAVY = '#2d3561'
@@ -18,6 +19,7 @@ type Colheita = {
   id: string; data: string; produto: Produto
   quantidadeTotal: number; preco: number; qualidade: string | null
   descarte: number; nrDoc: string | null
+  parceiroId: string | null; percParceiro: number
 }
 
 function fmtBRL(v: number) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
@@ -108,12 +110,19 @@ export default function NovoFechamento() {
     }
   }, [produtorId, dataInicio, dataFim])
 
-  const totalFaturas = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
   const totalCaixas = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
   const bandejaEmbalagem = (parseFloat(valorEmbalagem) || 0) * totalCaixas
+  const calculo = calcularFechamento(colheitas, {
+    combustivel: parseFloat(combustivel) || 0,
+    bandejaEmbalagem,
+    valesDinheiro: parseFloat(valesDinheiro) || 0,
+    creditos: parseFloat(creditos) || 0,
+    debitosAnteriores: parseFloat(debitosAnteriores) || 0,
+  })
+  const totalFaturas = calculo.totalBruto
   const totalInsumos = (parseFloat(combustivel) || 0) + bandejaEmbalagem
-  const totalDeducoes = totalInsumos + (parseFloat(valesDinheiro) || 0) + (parseFloat(creditos) || 0) + (parseFloat(debitosAnteriores) || 0)
-  const aReceber = totalFaturas - totalDeducoes
+  const totalDeducoes = calculo.totalDeducoes
+  const aReceber = calculo.liquidoTotal
 
   const produtorSelecionado = produtores.find(p => p.id === produtorId)
 
@@ -275,25 +284,24 @@ export default function NovoFechamento() {
                   <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Valor Líquido Total</span>
                   <span style={{ fontSize: 18, fontWeight: 800, color: aReceber >= 0 ? GREEN : PINK }}>{fmtBRL(aReceber)}</span>
                 </div>
-                {produtorSelecionado && produtorSelecionado.parceiros.length > 0 && (() => {
-                  const totalPercMeeiro = produtorSelecionado.parceiros.reduce((s, p) => s + p.percentual, 0)
-                  const percProdutor = 100 - totalPercMeeiro
-                  return (
-                    <>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: 6, borderTop: '1px solid #e0e7ff', paddingTop: 8 }}>Divisão por Participante</div>
-                      {produtorSelecionado.parceiros.map(p => (
-                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <span style={{ fontSize: 13, color: '#7c3aed' }}>{p.nome} ({p.percentual}%)</span>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: '#7c3aed' }}>{fmtBRL(aReceber * p.percentual / 100)}</span>
+                {produtorSelecionado && calculo.meeiros.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: 6, borderTop: '1px solid #e0e7ff', paddingTop: 8 }}>Divisão por Participante</div>
+                    {calculo.meeiros.map(m => {
+                      const parceiro = produtorSelecionado.parceiros.find(p => p.id === m.parceiroId)
+                      return (
+                        <div key={m.parceiroId} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 13, color: '#7c3aed' }}>{parceiro?.nome ?? 'Meeiro'} ({m.caixas} cx)</span>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: '#7c3aed' }}>{fmtBRL(m.liquido)}</span>
                         </div>
-                      ))}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6, borderTop: '1px solid #e0e7ff', marginTop: 2 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{produtorSelecionado.nome} ({percProdutor}%)</span>
-                        <span style={{ fontSize: 14, fontWeight: 800, color: GREEN }}>{fmtBRL(aReceber * percProdutor / 100)}</span>
-                      </div>
-                    </>
-                  )
-                })()}
+                      )
+                    })}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6, borderTop: '1px solid #e0e7ff', marginTop: 2 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{produtorSelecionado.nome}</span>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: GREEN }}>{fmtBRL(calculo.produtor.liquido)}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

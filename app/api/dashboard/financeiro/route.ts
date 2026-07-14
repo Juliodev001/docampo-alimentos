@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
+import { calcularFechamento } from '@/lib/fechamento-calc'
 
 export async function GET(req: NextRequest) {
   const session = await getSession()
@@ -37,6 +38,7 @@ export async function GET(req: NextRequest) {
 
   const pdvWhere = {
     tipo: 'PDV',
+    status: { not: 'CANCELADO' as never },
     ...(dateFilter ? { data: dateFilter } : {}),
   }
 
@@ -86,6 +88,7 @@ export async function GET(req: NextRequest) {
       select: {
         id: true, produtorId: true, dataInicio: true, dataFim: true, status: true,
         combustivel: true, bandejaEmbalagem: true, valesDinheiro: true, creditos: true, debitosAnteriores: true,
+        vales: { select: { valor: true } },
       },
     }),
     prisma.fechamentoMeeiro.findMany({
@@ -129,15 +132,19 @@ export async function GET(req: NextRequest) {
     const cx = colheitasLavoura.filter(c =>
       c.produtorId === f.produtorId && c.data >= f.dataInicio && c.data <= f.dataFim,
     )
-    const totalBruto = cx.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * Number(c.preco), 0)
-    const meeiroBruto = cx.reduce((s, c) => {
-      if (!c.parceiroId) return s
-      return s + (c.quantidadeTotal - c.descarte) * Number(c.preco) * (c.percParceiro / 100)
-    }, 0)
-    const donoBruto = totalBruto - meeiroBruto
-    const totalDed = Number(f.combustivel) + Number(f.bandejaEmbalagem) + Number(f.valesDinheiro) + Number(f.creditos) + Number(f.debitosAnteriores)
-    const fracao = totalBruto > 0 ? donoBruto / totalBruto : 0
-    const aReceberProdutor = donoBruto - totalDed * fracao
+    const valesVinculados = f.vales.reduce((s, v) => s + Number(v.valor), 0)
+    const calculo = calcularFechamento(
+      cx.map(c => ({ ...c, preco: Number(c.preco) })),
+      {
+        combustivel: Number(f.combustivel),
+        bandejaEmbalagem: Number(f.bandejaEmbalagem),
+        valesDinheiro: Number(f.valesDinheiro),
+        creditos: Number(f.creditos),
+        debitosAnteriores: Number(f.debitosAnteriores),
+      },
+      valesVinculados,
+    )
+    const aReceberProdutor = calculo.produtor.liquido
     if (f.status === 'PAGO') pagoProdutor += aReceberProdutor
     else aPagarProdutor += aReceberProdutor
   }

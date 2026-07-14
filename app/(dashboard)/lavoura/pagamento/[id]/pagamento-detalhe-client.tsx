@@ -7,6 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faChevronLeft, faPrint, faCircleCheck, faTrash, faComment } from '@fortawesome/free-solid-svg-icons'
 import PageSkeleton from '@/components/page-skeleton'
 import { useToast } from '@/components/toast'
+import { calcularFechamento } from '@/lib/fechamento-calc'
 
 const GREEN = '#5ab952'
 const NAVY = '#2d3561'
@@ -21,6 +22,7 @@ type Colheita = {
   id: string; data: string; produto: Produto
   quantidadeTotal: number; preco: number; qualidade: string | null
   descarte: number; nrDoc: string | null
+  parceiroId: string | null; percParceiro: number
 }
 type Fechamento = {
   id: string
@@ -29,6 +31,7 @@ type Fechamento = {
   combustivel: number; bandejaEmbalagem: number; valesDinheiro: number; creditos: number; debitosAnteriores: number
   status: string; createdAt: string
   colheitas: Colheita[]
+  vales: { valor: number }[]
 }
 
 function fmtBRL(v: number) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
@@ -54,9 +57,15 @@ export default function PagamentoDetalheClient() {
 
   const { produtor, colheitas, dataInicio, dataFim, dataPagamento, combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores, status } = fechamento
 
-  const totalFaturas = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
-  const totalDeducoes = combustivel + bandejaEmbalagem + valesDinheiro + creditos + debitosAnteriores
-  const aReceber = totalFaturas - totalDeducoes
+  const valesVinculados = (fechamento.vales ?? []).reduce((s, v) => s + Number(v.valor), 0)
+  const calculo = calcularFechamento(
+    colheitas,
+    { combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores },
+    valesVinculados,
+  )
+  const totalFaturas = calculo.totalBruto
+  const totalDeducoes = calculo.totalDeducoes
+  const aReceber = calculo.liquidoTotal
 
   async function marcarPago() {
     setMarking(true)
@@ -321,23 +330,30 @@ export default function PagamentoDetalheClient() {
                 <span style={{ fontSize: 13, fontWeight: 600, color: PINK }}>- {fmtBRL(totalDeducoes)}</span>
               </div>
             )}
+            {valesVinculados > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#6b7280' }}>Abatimento de Vales (produtor)</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: PINK }}>- {fmtBRL(valesVinculados)}</span>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#f8faff', borderRadius: 10, marginTop: 10, border: '1.5px solid #e0e7ff' }}>
               <span style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>Valor Líquido Total</span>
               <span style={{ fontSize: 20, fontWeight: 800, color: aReceber >= 0 ? GREEN : PINK }}>{fmtBRL(aReceber)}</span>
             </div>
-            {produtor.parceiros.length > 0 && (() => {
-              const totalPercMeeiro = produtor.parceiros.reduce((s, p) => s + p.percentual, 0)
-              const percProdutor = 100 - totalPercMeeiro
-              const valorProdutor = aReceber * (percProdutor / 100)
+            {calculo.meeiros.length > 0 && (() => {
+              const valorProdutor = calculo.produtor.liquido
               return (
                 <div style={{ marginTop: 12 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: 8 }}>Divisão por Participante</div>
-                  {produtor.parceiros.map(p => (
-                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0' }}>
-                      <span style={{ fontSize: 13, color: '#7c3aed' }}>{p.nome} ({p.percentual}%)</span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#7c3aed' }}>{fmtBRL(aReceber * (p.percentual / 100))}</span>
-                    </div>
-                  ))}
+                  {calculo.meeiros.map(m => {
+                    const parceiro = produtor.parceiros.find(p => p.id === m.parceiroId)
+                    return (
+                      <div key={m.parceiroId} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0' }}>
+                        <span style={{ fontSize: 13, color: '#7c3aed' }}>{parceiro?.nome ?? 'Meeiro'} ({m.caixas} cx)</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#7c3aed' }}>{fmtBRL(m.liquido)}</span>
+                      </div>
+                    )
+                  })}
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', backgroundColor: valorProdutor >= 0 ? '#f0faf0' : '#fff0f3', borderRadius: 10, marginTop: 8, border: `2px solid ${valorProdutor >= 0 ? GREEN : PINK}30` }}>
                     <span style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>{produtor.nome} — A Receber</span>
                     <span style={{ fontSize: 20, fontWeight: 800, color: valorProdutor >= 0 ? GREEN : PINK }}>{fmtBRL(valorProdutor)}</span>
@@ -345,7 +361,7 @@ export default function PagamentoDetalheClient() {
                 </div>
               )
             })()}
-            {produtor.parceiros.length === 0 && (
+            {calculo.meeiros.length === 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', backgroundColor: aReceber >= 0 ? '#f0faf0' : '#fff0f3', borderRadius: 10, marginTop: 8, border: `2px solid ${aReceber >= 0 ? GREEN : PINK}30` }}>
                 <span style={{ fontSize: 16, fontWeight: 800, color: NAVY }}>A Receber</span>
                 <span style={{ fontSize: 22, fontWeight: 800, color: aReceber >= 0 ? GREEN : PINK }}>{fmtBRL(aReceber)}</span>

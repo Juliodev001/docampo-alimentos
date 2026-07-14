@@ -169,7 +169,7 @@ export default function ImprimirFechamentoMeeiro() {
             </thead>
             <tbody>
               {colheitas.map(c => {
-                const liquido = Math.floor(c.quantidadeTotal * (c.percParceiro / 100))
+                const liquido = Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100))
                 const sub = liquido * c.preco
                 const repasse = sub
                 return (

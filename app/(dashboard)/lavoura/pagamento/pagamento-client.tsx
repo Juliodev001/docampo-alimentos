@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSearch, faPrint, faPlus, faFileLines, faChevronDown, faChevronUp, faCheck, faXmark, faFilter, faDownload } from '@fortawesome/free-solid-svg-icons'
 import PageSkeleton from '@/components/page-skeleton'
+import { calcularFechamento } from '@/lib/fechamento-calc'
 
 const GREEN  = '#5ab952'
 const NAVY   = '#2d3561'
@@ -32,7 +33,10 @@ type ColheitaItem = {
   responsavel: { name: string }
   createdAt: string
 }
-type FechamentoDetalhe = Fechamento & { colheitas: { id: string; data: string; nrDoc: string | null; produto: { nome: string }; quantidadeTotal: number; descarte: number; preco: number; qualidade: string | null }[] }
+type FechamentoDetalhe = Fechamento & {
+  colheitas: { id: string; data: string; nrDoc: string | null; produto: { nome: string }; quantidadeTotal: number; descarte: number; preco: number; qualidade: string | null; parceiroId: string | null; percParceiro: number }[]
+  vales?: { valor: number }[]
+}
 
 const fmt    = (d: string) => new Date(d).toLocaleDateString('pt-BR')
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -87,15 +91,15 @@ function gerarPDFLancamentos(produtor: Produtor, lancamentos: ColheitaItem[], fi
     </style>
   `
 
-  const totalBruto   = lista.reduce((s, c) => s + c.quantidadeTotal * c.preco, 0)
-  const totalQtd     = lista.reduce((s, c) => s + c.quantidadeTotal, 0)
+  const totalBruto   = lista.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
+  const totalQtd     = lista.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
   const aprovados    = lista.filter(c => c.aprovado).length
   const parceiros    = produtor.parceiros
 
   const rows = lista.length === 0
     ? `<tr><td colspan="7" style="text-align:center;padding:24px;color:#9ca3af">Nenhum lançamento encontrado</td></tr>`
     : lista.map(c => {
-        const sub = c.quantidadeTotal * c.preco
+        const sub = (c.quantidadeTotal - c.descarte) * c.preco
         return `
           <tr>
             <td>${fmt(c.data)}</td>
@@ -108,9 +112,14 @@ function gerarPDFLancamentos(produtor: Produtor, lancamentos: ColheitaItem[], fi
           </tr>`
       }).join('')
 
+  // Divisão canônica: floor por colheita, só nas colheitas de cada meeiro (sem deduções neste relatório)
+  const divisao = calcularFechamento(
+    lista.map(c => ({ quantidadeTotal: c.quantidadeTotal, descarte: c.descarte, preco: c.preco, parceiroId: c.parceiro?.id ?? null, percParceiro: c.percParceiro })),
+    { combustivel: 0, bandejaEmbalagem: 0, valesDinheiro: 0, creditos: 0, debitosAnteriores: 0 },
+  )
   const parteRows = parceiros.map(p => {
-    const val = totalBruto * (p.percentual / 100)
-    return `<tr><td>${p.nome}</td><td class="r">${p.percentual}%</td><td class="r bold" style="color:#7c3aed">${fmtBRL(val)}</td></tr>`
+    const m = divisao.meeiros.find(x => x.parceiroId === p.id)
+    return `<tr><td>${p.nome}</td><td class="r">${p.percentual}%</td><td class="r bold" style="color:#7c3aed">${fmtBRL(m?.bruto ?? 0)}</td></tr>`
   }).join('')
   const percProdutor = Math.max(0, 100 - parceiros.reduce((s, p) => s + p.percentual, 0))
 
@@ -153,7 +162,7 @@ function gerarPDFLancamentos(produtor: Produtor, lancamentos: ColheitaItem[], fi
     </div>
     <div class="summary-card purple">
       <label>A Receber (${percProdutor}%)</label>
-      <div class="val">${fmtBRL(totalBruto * percProdutor / 100)}</div>
+      <div class="val">${fmtBRL(divisao.produtor.bruto)}</div>
     </div>
   </div>
 
@@ -186,7 +195,7 @@ function gerarPDFLancamentos(produtor: Produtor, lancamentos: ColheitaItem[], fi
       <tr>
         <td class="bold">${produtor.nome}</td>
         <td class="r">${percProdutor}%</td>
-        <td class="r bold" style="color:#2d3561">${fmtBRL(totalBruto * percProdutor / 100)}</td>
+        <td class="r bold" style="color:#2d3561">${fmtBRL(divisao.produtor.bruto)}</td>
       </tr>
     </tbody>
   </table>` : ''}
@@ -212,13 +221,19 @@ function gerarPDFLancamentos(produtor: Produtor, lancamentos: ColheitaItem[], fi
 
 /* ─── FECHAMENTO INLINE ────────────────────────────────────────────── */
 function RelatorioInline({ fechamento, produtor }: { fechamento: FechamentoDetalhe; produtor: Produtor }) {
-  const totalParceirosPct = produtor.parceiros.reduce((s, p) => s + p.percentual, 0)
-  const percProdutor = Math.max(0, 100 - totalParceirosPct)
-  const bruto    = fechamento.colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
-  const totalDed = fechamento.combustivel + fechamento.bandejaEmbalagem + fechamento.valesDinheiro + fechamento.creditos + fechamento.debitosAnteriores
-  const partes   = [
-    { nome: produtor.nome, pct: percProdutor, cor: NAVY, tipo: 'Produtor' },
-    ...produtor.parceiros.map(p => ({ nome: p.nome, pct: p.percentual, cor: PURPLE, tipo: 'Meeiro' })),
+  const valesVinculados = (fechamento.vales ?? []).reduce((s, v) => s + Number(v.valor), 0)
+  const calculo = calcularFechamento(
+    fechamento.colheitas.map(c => ({ quantidadeTotal: c.quantidadeTotal, descarte: c.descarte, preco: c.preco, parceiroId: c.parceiroId, percParceiro: c.percParceiro })),
+    { combustivel: fechamento.combustivel, bandejaEmbalagem: fechamento.bandejaEmbalagem, valesDinheiro: fechamento.valesDinheiro, creditos: fechamento.creditos, debitosAnteriores: fechamento.debitosAnteriores },
+    valesVinculados,
+  )
+  const bruto = calculo.totalBruto
+  const partes = [
+    { nome: produtor.nome, cor: NAVY, tipo: 'Produtor', bruto: calculo.produtor.bruto, vales: calculo.produtor.abatimentoVales, liquido: calculo.produtor.liquido },
+    ...produtor.parceiros.map(p => {
+      const m = calculo.meeiros.find(x => x.parceiroId === p.id)
+      return { nome: p.nome, cor: PURPLE, tipo: 'Meeiro', bruto: m?.bruto ?? 0, vales: 0, liquido: m?.liquido ?? 0 }
+    }),
   ]
   const th: React.CSSProperties = { padding: '8px 12px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 0.4, color: '#6b7280', backgroundColor: '#f9fafb', textAlign: 'left' as const }
   const td: React.CSSProperties = { padding: '9px 12px', fontSize: 13, borderBottom: '1px solid #f3f4f6', color: '#374151' }
@@ -255,28 +270,29 @@ function RelatorioInline({ fechamento, produtor }: { fechamento: FechamentoDetal
       <p style={{ fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.6, margin: '0 0 10px' }}>Resumo por participante</p>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         {partes.map(parte => {
-          const fator = parte.pct / 100
-          const liquido = (bruto - totalDed) * fator
+          const fator = bruto > 0 ? parte.bruto / bruto : 0
+          const pctReal = Math.round(fator * 100)
           return (
             <div key={parte.nome} style={{ flex: 1, minWidth: 220, border: `1.5px solid ${parte.cor}20`, borderRadius: 10, overflow: 'hidden' }}>
               <div style={{ backgroundColor: `${parte.cor}10`, padding: '10px 14px', borderBottom: `1px solid ${parte.cor}15` }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: parte.cor, textTransform: 'uppercase', letterSpacing: 0.5 }}>{parte.tipo}</span>
                 <p style={{ margin: '2px 0 0', fontSize: 14, fontWeight: 700, color: NAVY }}>{parte.nome}</p>
-                <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>{parte.pct}% da produção</p>
+                <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>{pctReal}% da produção</p>
               </div>
               <div style={{ padding: '10px 14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f3f4f6' }}>
-                  <span style={{ fontSize: 13, color: '#6b7280' }}>Bruto ({parte.pct}%)</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{fmtBRL(bruto * fator)}</span>
+                  <span style={{ fontSize: 13, color: '#6b7280' }}>Bruto</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{fmtBRL(parte.bruto)}</span>
                 </div>
                 {fechamento.combustivel > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span style={{ fontSize: 12, color: '#9ca3af' }}>Combustível</span><span style={{ fontSize: 12, color: ORANGE }}>- {fmtBRL(fechamento.combustivel * fator)}</span></div>}
                 {fechamento.bandejaEmbalagem > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span style={{ fontSize: 12, color: '#9ca3af' }}>Bandeja/Embalagens</span><span style={{ fontSize: 12, color: ORANGE }}>- {fmtBRL(fechamento.bandejaEmbalagem * fator)}</span></div>}
                 {fechamento.valesDinheiro > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span style={{ fontSize: 12, color: '#9ca3af' }}>Vales Dinheiro</span><span style={{ fontSize: 12, color: PINK }}>- {fmtBRL(fechamento.valesDinheiro * fator)}</span></div>}
                 {fechamento.creditos > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span style={{ fontSize: 12, color: '#9ca3af' }}>Créditos</span><span style={{ fontSize: 12, color: PINK }}>- {fmtBRL(fechamento.creditos * fator)}</span></div>}
                 {fechamento.debitosAnteriores > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span style={{ fontSize: 12, color: '#9ca3af' }}>Déb. Anteriores</span><span style={{ fontSize: 12, color: PINK }}>- {fmtBRL(fechamento.debitosAnteriores * fator)}</span></div>}
+                {parte.vales > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}><span style={{ fontSize: 12, color: '#9ca3af' }}>Vales vinculados</span><span style={{ fontSize: 12, color: PINK }}>- {fmtBRL(parte.vales)}</span></div>}
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 0', marginTop: 4, borderTop: `2px solid ${parte.cor}20` }}>
                   <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>A Receber</span>
-                  <span style={{ fontSize: 16, fontWeight: 800, color: liquido >= 0 ? parte.cor : PINK }}>{fmtBRL(liquido)}</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: parte.liquido >= 0 ? parte.cor : PINK }}>{fmtBRL(parte.liquido)}</span>
                 </div>
               </div>
             </div>
@@ -428,8 +444,8 @@ export default function PagamentoClient() {
   const totalParceirosPct = produtorSel ? produtorSel.parceiros.reduce((s, p) => s + p.percentual, 0) : 0
   const percProdutor      = Math.max(0, 100 - totalParceirosPct)
 
-  const totalBruto   = lancamentosFiltrados.reduce((s, c) => s + c.quantidadeTotal * c.preco, 0)
-  const totalQtd     = lancamentosFiltrados.reduce((s, c) => s + c.quantidadeTotal, 0)
+  const totalBruto   = lancamentosFiltrados.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco, 0)
+  const totalQtd     = lancamentosFiltrados.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
   const qtdAprovados = lancamentos.filter(c => c.aprovado).length
   const qtdPendentes = lancamentos.filter(c => !c.aprovado).length
 
@@ -606,7 +622,7 @@ export default function PagamentoClient() {
                       </thead>
                       <tbody>
                         {lancamentosFiltrados.map((c, i) => {
-                          const sub    = c.quantidadeTotal * c.preco
+                          const sub    = (c.quantidadeTotal - c.descarte) * c.preco
                           const meeiro = c.parceiro?.nome ?? (produtorSel.parceiros[0]?.nome ?? '—')
                           return (
                             <tr key={c.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>

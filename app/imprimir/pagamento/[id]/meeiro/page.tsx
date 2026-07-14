@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
+import { calcularFechamento } from '@/lib/fechamento-calc'
 
 const NAVY = '#2d3561'
 
@@ -105,21 +106,20 @@ function ImprimirPagamentoMeeiro() {
 
   // Apenas os lançamentos (colheitas) que de fato pertencem a este meeiro
   const colheitasMeeiro = colheitas.filter(c => c.parceiroId === meeiro.id)
-  const percMeeiro = colheitasMeeiro[0]?.percParceiro ?? meeiro.percentual
 
-  const totalGeralBruto = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * Number(c.preco), 0)
-  const totalQtd = colheitasMeeiro.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
-  const totalFaturaBruto = colheitasMeeiro.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * Number(c.preco), 0)
+  // Cálculo canônico sobre TODAS as colheitas do fechamento (rateio correto das deduções)
+  const calculo = calcularFechamento(colheitas, { combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores })
+  const participacao = calculo.meeiros.find(m => m.parceiroId === meeiro.id)
 
-  // Deduções proporcional ao bruto deste meeiro no total geral (exceto embalagem)
-  const fator = totalGeralBruto > 0 ? totalFaturaBruto / totalGeralBruto : 0
-  const outrasDeducoes = (combustivel + valesDinheiro + creditos + debitosAnteriores) * fator
-  const valorRepasse = totalFaturaBruto * (percMeeiro / 100)
-  // Desc. embalagem = caixas do parceiro × bandeja do lançamento
-  const descEmbMeeiro = colheitasMeeiro.reduce((s, c) => s + (c.quantidadeTotal - c.descarte) * (c.percParceiro / 100) * (c.bandeja ?? 0), 0)
-  const outrasDeducoesMeeiro = outrasDeducoes * (percMeeiro / 100)
+  const totalQtd = participacao?.caixas ?? 0
+  const valorRepasse = participacao?.bruto ?? 0
+  const deducaoRateada = participacao?.deducaoRateada ?? 0
+  // Fatia da dedução rateada correspondente à embalagem (exibida em coluna própria)
+  const fracaoMeeiro = calculo.totalBruto > 0 ? valorRepasse / calculo.totalBruto : 0
+  const descEmbMeeiro = bandejaEmbalagem * fracaoMeeiro
+  const outrasDeducoesMeeiro = deducaoRateada - descEmbMeeiro
   const abatimEmprestimo = 0
-  const valorRecebido = valorRepasse - descEmbMeeiro - outrasDeducoesMeeiro - abatimEmprestimo
+  const valorRecebido = participacao?.liquido ?? 0
 
   const rocas = Array.from(new Set(colheitasMeeiro.map(c => c.roca?.nome).filter(Boolean))) as string[]
 

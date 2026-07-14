@@ -67,7 +67,7 @@ function bucketInfo(periodo: Periodo, range: { inicio: Date; fim: Date }) {
 async function somarPeriodo(periodo: Periodo, range: { inicio: Date; fim: Date }, rocaId: string | null) {
   const comprasWhere = { data: { gte: range.inicio, lte: range.fim }, ...(rocaId ? { centroCustoId: rocaId } : {}) }
   const nfesWhere = { dataEmissao: { gte: range.inicio, lte: range.fim } }
-  const pdvWhere = { tipo: 'PDV', data: { gte: range.inicio, lte: range.fim } }
+  const pdvWhere = { tipo: 'PDV', status: { not: 'CANCELADO' as never }, data: { gte: range.inicio, lte: range.fim } }
   const lavouraWhere = { data: { gte: range.inicio, lte: range.fim } }
   const colheitasWhere = { data: { gte: range.inicio, lte: range.fim } }
 
