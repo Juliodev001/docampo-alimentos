@@ -756,6 +756,9 @@ export default function RocasClient({
   const [pagamentoFiltroProdutor, setPagamentoFiltroProdutor] = useState("");
   const [showPagamentoFiltros, setShowPagamentoFiltros] = useState(false);
   const [showHistoricoPag, setShowHistoricoPag] = useState(false);
+  const [histBuscaNome, setHistBuscaNome] = useState("");
+  const [histDataInicio, setHistDataInicio] = useState("");
+  const [histDataFim, setHistDataFim] = useState("");
 
   const [notasProdId, setNotasProdId] = useState("");
   const [notasRocaId, setNotasRocaId] = useState("");
@@ -5502,7 +5505,12 @@ export default function RocasClient({
                   Relatórios
                 </button>
                 <button
-                  onClick={() => setShowHistoricoPag(true)}
+                  onClick={() => {
+                    setHistBuscaNome("");
+                    setHistDataInicio("");
+                    setHistDataFim("");
+                    setShowHistoricoPag(true);
+                  }}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -10295,14 +10303,123 @@ export default function RocasClient({
                 </button>
               </div>
               <div style={{ padding: "12px 24px 24px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    alignItems: "flex-end",
+                    marginBottom: 14,
+                  }}
+                >
+                  <div style={{ flex: "1 1 180px", minWidth: 160 }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: "#6b7280",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Buscar meeiro
+                    </label>
+                    <input
+                      type="text"
+                      value={histBuscaNome}
+                      onChange={(e) => setHistBuscaNome(e.target.value)}
+                      placeholder="Buscar por nome..."
+                      style={{ ...inputStyle, fontSize: 13 }}
+                    />
+                  </div>
+                  <div style={{ flex: "0 1 150px", minWidth: 130 }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: "#6b7280",
+                        marginBottom: 4,
+                      }}
+                    >
+                      De
+                    </label>
+                    <input
+                      type="date"
+                      value={histDataInicio}
+                      onChange={(e) => setHistDataInicio(e.target.value)}
+                      style={{ ...inputStyle, fontSize: 13 }}
+                    />
+                  </div>
+                  <div style={{ flex: "0 1 150px", minWidth: 130 }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: "#6b7280",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Até
+                    </label>
+                    <input
+                      type="date"
+                      value={histDataFim}
+                      onChange={(e) => setHistDataFim(e.target.value)}
+                      style={{ ...inputStyle, fontSize: 13 }}
+                    />
+                  </div>
+                  {(histBuscaNome || histDataInicio || histDataFim) && (
+                    <button
+                      onClick={() => {
+                        setHistBuscaNome("");
+                        setHistDataInicio("");
+                        setHistDataFim("");
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: BLUE,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        padding: "8px 4px",
+                      }}
+                    >
+                      Limpar
+                    </button>
+                  )}
+                </div>
                 {(() => {
+                  const nomeBusca = histBuscaNome.trim().toLowerCase();
                   const historico = [...pagamentosState]
                     .filter((p) => p.status === "CONFIRMADO")
+                    .filter((p) => {
+                      if (nomeBusca) {
+                        const meeiro = parceirosState.find(
+                          (m) => m.id === p.parceiroId,
+                        );
+                        if (
+                          !(meeiro?.nome ?? "")
+                            .toLowerCase()
+                            .includes(nomeBusca)
+                        )
+                          return false;
+                      }
+                      const dia = p.dataPag.slice(0, 10);
+                      if (histDataInicio && dia < histDataInicio) return false;
+                      if (histDataFim && dia > histDataFim) return false;
+                      return true;
+                    })
                     .sort(
                       (a, b) =>
                         new Date(b.dataPag).getTime() -
                         new Date(a.dataPag).getTime(),
                     );
+                  const temFiltro = Boolean(
+                    nomeBusca || histDataInicio || histDataFim,
+                  );
                   if (historico.length === 0)
                     return (
                       <p
@@ -10312,7 +10429,9 @@ export default function RocasClient({
                           padding: "32px 0",
                         }}
                       >
-                        Nenhum pagamento registrado
+                        {temFiltro
+                          ? "Nenhum pagamento encontrado para os filtros"
+                          : "Nenhum pagamento registrado"}
                       </p>
                     );
                   return (
