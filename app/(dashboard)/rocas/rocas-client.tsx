@@ -826,6 +826,7 @@ export default function RocasClient({
 
   function openFecharMeeiro(item: PagItem) {
     setFecharMeeiroError("");
+    setConfirmDeleteFechMeeiroId(null);
     setFecharValesSelecionados([]);
     setFecharAjustar(false);
     setFecharDedForm({
@@ -892,6 +893,8 @@ export default function RocasClient({
   const [savingEditFech, setSavingEditFech] = useState(false);
   const [editFechError, setEditFechError] = useState('');
 
+  const [confirmDeleteFechMeeiroId, setConfirmDeleteFechMeeiroId] = useState<string | null>(null);
+  const [deletingFechMeeiroId, setDeletingFechMeeiroId] = useState<string | null>(null);
   const [editFechMeeiroTarget, setEditFechMeeiroTarget] = useState<FechamentoMeeiroRecord | null>(null);
   const [editFechMeeiroForm, setEditFechMeeiroForm] = useState({ dataInicio: '', dataFim: '', dataPagamento: '', valorBruto: '0', valorPago: '0', combustivel: '0', bandejaEmbalagem: '0', valesDinheiro: '0', creditos: '0', debitosAnteriores: '0', valesDeduzidos: '0' });
   const [editFechMeeiroColheitas, setEditFechMeeiroColheitas] = useState<ColheitaEditRow[]>([]);
@@ -9592,6 +9595,9 @@ export default function RocasClient({
             }
 
             async function handleMarcarPagoMeeiro(id: string) {
+              setConfirmDeleteFechMeeiroId((prev) =>
+                prev === id ? null : prev,
+              );
               try {
                 const res = await fetch(`/api/fechamento-meeiro/${id}`, {
                   method: "PATCH",
@@ -9607,6 +9613,51 @@ export default function RocasClient({
                 toast.success("Marcado como pago");
               } catch {
                 toast.error("Erro ao atualizar");
+              }
+            }
+
+            async function handleDesmarcarPagoMeeiro(id: string) {
+              try {
+                const res = await fetch(`/api/fechamento-meeiro/${id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ status: "PENDENTE" }),
+                });
+                if (!res.ok) throw new Error();
+                setFechamentosMeeiroState((prev) =>
+                  prev.map((f) =>
+                    f.id === id ? { ...f, status: "PENDENTE" } : f,
+                  ),
+                );
+                toast.success("Pagamento desmarcado");
+              } catch {
+                toast.error("Erro ao atualizar");
+              }
+            }
+
+            async function handleExcluirFechamentoMeeiro(id: string) {
+              setDeletingFechMeeiroId(id);
+              try {
+                const res = await fetch(`/api/fechamento-meeiro/${id}`, {
+                  method: "DELETE",
+                });
+                if (!res.ok) throw new Error();
+                setFechamentosMeeiroState((prev) =>
+                  prev.filter((f) => f.id !== id),
+                );
+                setValesState((prev) =>
+                  prev.map((v) =>
+                    v.fechamentoMeeiroId === id
+                      ? { ...v, status: "ABERTO", fechamentoMeeiroId: null }
+                      : v,
+                  ),
+                );
+                setConfirmDeleteFechMeeiroId(null);
+                toast.success("Fechamento excluído");
+              } catch {
+                toast.error("Erro ao excluir");
+              } finally {
+                setDeletingFechMeeiroId(null);
               }
             }
 
@@ -10194,7 +10245,7 @@ export default function RocasClient({
                                 >
                                   editar
                                 </button>
-                                {f.status !== "PAGO" && (
+                                {f.status !== "PAGO" ? (
                                   <button
                                     onClick={() =>
                                       handleMarcarPagoMeeiro(f.id)
@@ -10211,6 +10262,98 @@ export default function RocasClient({
                                     }}
                                   >
                                     marcar pago
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() =>
+                                      handleDesmarcarPagoMeeiro(f.id)
+                                    }
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: 600,
+                                      color: "#6b7280",
+                                      background: "none",
+                                      border: "none",
+                                      cursor: "pointer",
+                                      textDecoration: "underline",
+                                      padding: 0,
+                                    }}
+                                  >
+                                    desmarcar pago
+                                  </button>
+                                )}
+                                {f.status === "PAGO" ? null : confirmDeleteFechMeeiroId === f.id ? (
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 6,
+                                      fontSize: 11,
+                                    }}
+                                  >
+                                    <span style={{ color: "#6b7280" }}>
+                                      Excluir?
+                                    </span>
+                                    <button
+                                      onClick={() =>
+                                        handleExcluirFechamentoMeeiro(f.id)
+                                      }
+                                      disabled={
+                                        deletingFechMeeiroId === f.id
+                                      }
+                                      style={{
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: "#dc2626",
+                                        background: "none",
+                                        border: "none",
+                                        cursor:
+                                          deletingFechMeeiroId === f.id
+                                            ? "wait"
+                                            : "pointer",
+                                        textDecoration: "underline",
+                                        padding: 0,
+                                      }}
+                                    >
+                                      {deletingFechMeeiroId === f.id
+                                        ? "..."
+                                        : "sim"}
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        setConfirmDeleteFechMeeiroId(null)
+                                      }
+                                      style={{
+                                        fontSize: 11,
+                                        fontWeight: 600,
+                                        color: "#6b7280",
+                                        background: "none",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        textDecoration: "underline",
+                                        padding: 0,
+                                      }}
+                                    >
+                                      não
+                                    </button>
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() =>
+                                      setConfirmDeleteFechMeeiroId(f.id)
+                                    }
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: 600,
+                                      color: "#dc2626",
+                                      background: "none",
+                                      border: "none",
+                                      cursor: "pointer",
+                                      textDecoration: "underline",
+                                      padding: 0,
+                                    }}
+                                  >
+                                    excluir
                                   </button>
                                 )}
                               </span>
