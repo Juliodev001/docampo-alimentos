@@ -10,11 +10,24 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   })
   if (!parceiro) return NextResponse.json({ error: 'Meeiro não encontrado' }, { status: 404 })
 
-  const colheitas = await prisma.colheitaDiaria.findMany({
-    where: { parceiroId: id },
-    include: { produto: { select: { id: true, nome: true } }, roca: { select: { nome: true } } },
-    orderBy: { data: 'asc' },
-  })
+  const [colheitas, pagamentos, fechamentosPagos] = await Promise.all([
+    prisma.colheitaDiaria.findMany({
+      where: { parceiroId: id },
+      include: { produto: { select: { id: true, nome: true } }, roca: { select: { nome: true } } },
+      orderBy: { data: 'asc' },
+    }),
+    prisma.pagamentoMeeiro.aggregate({
+      where: { parceiroId: id, status: 'CONFIRMADO' },
+      _sum: { valor: true },
+    }),
+    prisma.fechamentoMeeiro.aggregate({
+      where: { parceiroId: id, status: 'PAGO' },
+      _sum: { valorPago: true },
+    }),
+  ])
 
-  return NextResponse.json({ parceiro, colheitas })
+  const pagamentosAnteriores =
+    Number(pagamentos._sum.valor ?? 0) + Number(fechamentosPagos._sum.valorPago ?? 0)
+
+  return NextResponse.json({ parceiro, colheitas, pagamentosAnteriores })
 }

@@ -13,7 +13,7 @@ type Colheita = {
   descarte: number; nrDoc: string | null; bandeja: number; percParceiro: number
   roca: { nome: string } | null
 }
-type Data = { parceiro: Parceiro; colheitas: Colheita[] }
+type Data = { parceiro: Parceiro; colheitas: Colheita[]; pagamentosAnteriores: number }
 
 function fmtN(v: number) { return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) }
@@ -83,12 +83,13 @@ export default function ImprimirMeeiro() {
   )
 
   const { parceiro, colheitas } = data
+  const pagamentosAnteriores = data.pagamentosAnteriores ?? 0
 
   const totalQtd     = colheitas.reduce((s, c) => { const perc = (c.percParceiro ?? parceiro.percentual) / 100; return s + Math.floor((c.quantidadeTotal - c.descarte) * perc) }, 0)
   const valorRepasse = colheitas.reduce((s, c) => { const perc = (c.percParceiro ?? parceiro.percentual) / 100; return s + Math.floor((c.quantidadeTotal - c.descarte) * perc) * c.preco }, 0)
   const descEmba     = colheitas.reduce((s, c) => { const perc = (c.percParceiro ?? parceiro.percentual) / 100; return s + Math.floor((c.quantidadeTotal - c.descarte) * perc) * (c.bandeja ?? 0) }, 0)
   const abatimEmprestimo = 0
-  const valorRecebido = valorRepasse - descEmba - abatimEmprestimo
+  const valorRecebido = Math.max(0, valorRepasse - descEmba - abatimEmprestimo - pagamentosAnteriores)
 
   const dataInicio = colheitas.length > 0 ? fmtDate(colheitas[0].data) : '—'
   const dataFim    = colheitas.length > 0 ? fmtDate(colheitas[colheitas.length - 1].data) : '—'
@@ -181,7 +182,8 @@ export default function ImprimirMeeiro() {
               <th style={totHd}>Desc Emb.</th>
               <th style={totHd}>Empr. em aberto</th>
               <th style={totHd}>Abatim. emprést.</th>
-              <th style={totHd}>Valor recebido</th>
+              <th style={totHd}>Pagto. anterior</th>
+              <th style={totHd}>Valor a receber</th>
             </tr>
           </thead>
           <tbody>
@@ -191,6 +193,7 @@ export default function ImprimirMeeiro() {
               <td style={totCell}>{fmtN(descEmba)}</td>
               <td style={totCell}>{fmtN(valesAbertos)}</td>
               <td style={totCell}>{fmtN(abatimEmprestimo)}</td>
+              <td style={totCell}>{fmtN(pagamentosAnteriores)}</td>
               <td style={{ ...totCell, color: NAVY }}>{fmtN(valorRecebido)}</td>
             </tr>
           </tbody>

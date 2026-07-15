@@ -1752,21 +1752,20 @@ export default function RocasClient({
                   (f) => c.data >= f.dataInicio && c.data <= f.dataFim,
                 ),
             )
-            .reduce(
-              (s, c) =>
-                s + Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100)) * c.preco,
-              0,
-            );
+            .reduce((s, c) => {
+              const caixas = Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100));
+              return s + caixas * c.preco - caixas * c.bandeja;
+            }, 0);
           if (pendente > 0) {
             valorTotal += pendente;
             temMovimento = true;
           }
         } else {
           const cs = colheitas.filter((c) => c.parceiroId === m.id);
-          valorTotal = cs.reduce(
-            (s, c) => s + Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100)) * c.preco,
-            0,
-          );
+          valorTotal = cs.reduce((s, c) => {
+            const caixas = Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100));
+            return s + caixas * c.preco - caixas * c.bandeja;
+          }, 0);
           temMovimento = valorTotal > 0;
         }
 
