@@ -922,7 +922,7 @@ export default function RocasClient({
     setFechamentosState(initialFechamentos ?? []);
   }, [initialFechamentos]);
 
-  // Recalcula o bruto do meeiro quando o período muda no modal de fechamento
+  // Recalcula o bruto e a embalagem do meeiro quando o período muda no modal de fechamento
   useEffect(() => {
     if (!fecharMeeiroModal || !fecharDataInicio || !fecharDataFim) return
     const csRange = colheitas.filter(c =>
@@ -932,7 +932,15 @@ export default function RocasClient({
     )
     const bruto = csRange.reduce((s, c) => s + Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100)) * Number(c.preco), 0)
     setFecharBruto(bruto)
-  }, [fecharMeeiroModal?.id, fecharDataInicio, fecharDataFim, colheitas])
+    // Embalagem devida pelo meeiro no período: caixas do meeiro × bandeja de cada
+    // colheita (mesma regra da lista "Valor a receber" e do recibo avulso). O campo
+    // do formulário guarda o custo TOTAL do período e o envio desconta só a fatia
+    // do meeiro (× perc%), então converte de volta dividindo pelo percentual.
+    const embMeeiro = csRange.reduce((s, c) => s + Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100)) * (c.bandeja || 0), 0)
+    const perc = parceirosState.find(p => p.id === fecharMeeiroModal.id)?.percentual ?? 0
+    const embTotal = perc > 0 ? Math.round((embMeeiro / (perc / 100)) * 100) / 100 : 0
+    setFecharDedForm(f => ({ ...f, bandejaEmbalagem: String(embTotal) }))
+  }, [fecharMeeiroModal, fecharDataInicio, fecharDataFim, colheitas, parceirosState])
 
   // Ao selecionar produtor: auto-preenche datas (a partir do último fechamento) e custos dos lançamentos
   useEffect(() => {

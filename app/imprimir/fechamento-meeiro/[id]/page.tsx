@@ -104,7 +104,8 @@ export default function ImprimirFechamentoMeeiro() {
     : [dataPagamento]
   const valesDescontados = vales.filter(v => v.status === 'DESCONTADO')
   const outrasDeducoes = combustivel + valesDinheiro + creditos + debitosAnteriores
-  const totalQtd = colheitas.reduce((s, c) => s + c.quantidadeTotal, 0)
+  // Caixas do meeiro (mesma conta da coluna Quant.), não o total bruto da colheita
+  const totalQtd = colheitas.reduce((s, c) => s + Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100)), 0)
   const valorRecebido = valorBruto - bandejaEmbalagem - valesDeduzidos - outrasDeducoes
   const rocas = Array.from(new Set(colheitas.map(c => c.roca?.nome).filter(Boolean))) as string[]
 
