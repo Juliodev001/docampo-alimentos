@@ -214,27 +214,6 @@ export default function ImprimirFechamentoMeeiro() {
           </table>
         )}
 
-        {(pagamentos ?? []).length > 0 && (
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
-            <thead>
-              <tr>
-                <th style={hd}>Pagamento já feito — Data</th>
-                <th style={hd}>Forma</th>
-                <th style={{ ...hd, textAlign: 'right' as const }}>Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(pagamentos ?? []).map(p => (
-                <tr key={p.id}>
-                  <td style={cell}>{fmtDate(p.dataPag)}</td>
-                  <td style={cell}>{p.formaPag}{p.observacao ? ` — ${p.observacao}` : ''}</td>
-                  <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(p.valor)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 6 }}>
           <thead>
             <tr>
@@ -261,12 +240,6 @@ export default function ImprimirFechamentoMeeiro() {
         {outrasDeducoes > 0 && (
           <p style={{ fontSize: 10, color: '#555', margin: '0 0 8px' }}>
             Outras deduções (combustível, vales de dinheiro, créditos, débitos anteriores) já incluídas no valor recebido: - {fmtN(outrasDeducoes)}
-          </p>
-        )}
-
-        {pagosAbsorvidos > 0 && (
-          <p style={{ fontSize: 10, color: '#555', margin: '0 0 8px' }}>
-            Pagamentos avulsos já recebidos pelo parceiro (descontados do valor a receber): - {fmtN(pagosAbsorvidos)}
           </p>
         )}
 
