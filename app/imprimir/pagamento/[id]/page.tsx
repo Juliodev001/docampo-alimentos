@@ -108,6 +108,8 @@ export default function ImprimirPagamento() {
   const valorRecebido = calculo.produtor.liquido
 
   const rocas = Array.from(new Set(colheitas.map(c => c.roca?.nome).filter(Boolean))) as string[]
+  // Só meeiros com participação nas colheitas do período (evita linhas zeradas)
+  const parceirosComParticipacao = produtor.parceiros.filter(p => calculo.meeiros.some(m => m.parceiroId === p.id))
 
   const B: React.CSSProperties = { border: '1px solid #000' }
   const cell: React.CSSProperties = { ...B, padding: '3px 6px', fontSize: 11 }
@@ -231,7 +233,7 @@ export default function ImprimirPagamento() {
 
         {outrasDeducoes > 0 && (
           <p style={{ fontSize: 10, color: '#555', margin: '0 0 10px' }}>
-            Outras deduções (combustível, créditos, débitos anteriores) já incluídas no valor recebido: - {fmtN(outrasDeducoes)}
+            Outras deduções (combustível, vales de dinheiro, créditos, débitos anteriores) já incluídas no valor recebido: - {fmtN(outrasDeducoes)}
           </p>
         )}
 
@@ -240,7 +242,7 @@ export default function ImprimirPagamento() {
         </p>
 
         {/* Detalhamento por meeiro (informação complementar) */}
-        {produtor.parceiros.length > 0 && (
+        {parceirosComParticipacao.length > 0 && (
           <div style={{ marginTop: 20 }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: NAVY, margin: '0 0 6px' }}>Detalhamento por meeiro</p>
             <table style={{ borderCollapse: 'collapse', minWidth: 320 }}>
@@ -254,7 +256,7 @@ export default function ImprimirPagamento() {
                 </tr>
               </thead>
               <tbody>
-                {produtor.parceiros.map(p => {
+                {parceirosComParticipacao.map(p => {
                   const participacao = calculo.meeiros.find(m => m.parceiroId === p.id)
                   const valorMeeiro = participacao?.liquido ?? 0
                   // Bruto do produtor referente às mesmas colheitas desse meeiro (a fatia complementar)
