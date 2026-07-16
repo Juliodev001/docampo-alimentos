@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   const {
     parceiroId, dataInicio, dataFim, dataPagamento, valorBruto, valeIds, observacao,
     combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores,
-    datasAdicionais,
+    datasAdicionais, pagamentoIds,
   } = body
 
   if (!parceiroId || !dataInicio || !dataFim || !dataPagamento || valorBruto == null) {
@@ -49,13 +49,25 @@ export async function POST(req: NextRequest) {
         valesDeduzidos = vales.reduce((s, v) => s + Number(v.valor), 0)
       }
 
+      // Pagamentos avulsos já feitos ao meeiro que este fechamento absorve
+      const pagIds = Array.isArray(pagamentoIds) ? pagamentoIds : []
+      let pagamentosDeduzidos = 0
+      if (pagIds.length > 0) {
+        const pags = await tx.pagamentoMeeiro.findMany({
+          where: { id: { in: pagIds }, parceiroId, status: 'CONFIRMADO', fechamentoMeeiroId: null },
+        })
+        pagamentosDeduzidos = pags.reduce((s, p) => s + Number(p.valor), 0)
+      }
+
       const deducoes =
         (Number(combustivel) || 0) +
         (Number(bandejaEmbalagem) || 0) +
         (Number(valesDinheiro) || 0) +
         (Number(creditos) || 0) +
         (Number(debitosAnteriores) || 0)
-      const valorPago = Number(valorBruto) - deducoes - valesDeduzidos
+      // Nunca gravar negativo: o modal exibe 0 nesses casos e um valorPago negativo
+      // marcado como PAGO somaria "a receber" fantasma na lista de meeiros
+      const valorPago = Math.max(0, Number(valorBruto) - deducoes - valesDeduzidos - pagamentosDeduzidos)
 
       const created = await tx.fechamentoMeeiro.create({
         data: {
@@ -80,6 +92,13 @@ export async function POST(req: NextRequest) {
       if (ids.length > 0) {
         await tx.vale.updateMany({
           where: { id: { in: ids }, parceiroId, status: 'ABERTO' },
+          data: { status: 'DESCONTADO', fechamentoMeeiroId: created.id },
+        })
+      }
+
+      if (pagIds.length > 0) {
+        await tx.pagamentoMeeiro.updateMany({
+          where: { id: { in: pagIds }, parceiroId, status: 'CONFIRMADO', fechamentoMeeiroId: null },
           data: { status: 'DESCONTADO', fechamentoMeeiroId: created.id },
         })
       }

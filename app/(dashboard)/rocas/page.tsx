@@ -153,6 +153,7 @@ export default async function RocasPage() {
         dataPag:    pg.dataPag.toISOString(),
         observacao: pg.observacao,
         status:     pg.status,
+        fechamentoMeeiroId: pg.fechamentoMeeiroId,
         createdAt:  pg.createdAt.toISOString(),
       }))}
       fechamentos={rawFechamentos.map(f => ({

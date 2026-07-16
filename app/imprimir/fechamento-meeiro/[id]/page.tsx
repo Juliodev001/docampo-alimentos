@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 const NAVY = '#2d3561'
 
 type Vale = { id: string; valor: number; data: string; observacao: string | null; status: string }
+type Pagamento = { id: string; valor: number; dataPag: string; formaPag: string; observacao: string | null }
 type Produto = { id: string; nome: string }
 type Colheita = {
   id: string; data: string; produto: Produto
@@ -22,6 +23,7 @@ type Fechamento = {
   valesDeduzidos: number; valorPago: number
   status: string; observacao: string | null
   vales: Vale[]
+  pagamentos?: Pagamento[]
   colheitas: Colheita[]
   datasAdicionais: string[]
 }
@@ -97,16 +99,18 @@ export default function ImprimirFechamentoMeeiro() {
   const {
     parceiro, dataInicio, dataFim, dataPagamento, valorBruto,
     combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores,
-    valesDeduzidos, valorPago, vales, colheitas, datasAdicionais,
+    valesDeduzidos, valorPago, vales, pagamentos, colheitas, datasAdicionais,
   } = fechamento
   const todasDatas = datasAdicionais && datasAdicionais.length > 0
     ? [...datasAdicionais].sort()
     : [dataPagamento]
   const valesDescontados = vales.filter(v => v.status === 'DESCONTADO')
   const outrasDeducoes = combustivel + valesDinheiro + creditos + debitosAnteriores
+  // Pagamentos avulsos absorvidos por este fechamento (já recebidos pelo parceiro)
+  const pagosAbsorvidos = (pagamentos ?? []).reduce((s, p) => s + p.valor, 0)
   // Caixas do meeiro (mesma conta da coluna Quant.), não o total bruto da colheita
   const totalQtd = colheitas.reduce((s, c) => s + Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100)), 0)
-  const valorRecebido = valorBruto - bandejaEmbalagem - valesDeduzidos - outrasDeducoes
+  const valorRecebido = valorBruto - bandejaEmbalagem - valesDeduzidos - outrasDeducoes - pagosAbsorvidos
   const rocas = Array.from(new Set(colheitas.map(c => c.roca?.nome).filter(Boolean))) as string[]
 
   const B: React.CSSProperties = { border: '1px solid #000' }
@@ -210,6 +214,27 @@ export default function ImprimirFechamentoMeeiro() {
           </table>
         )}
 
+        {(pagamentos ?? []).length > 0 && (
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
+            <thead>
+              <tr>
+                <th style={hd}>Pagamento já feito — Data</th>
+                <th style={hd}>Forma</th>
+                <th style={{ ...hd, textAlign: 'right' as const }}>Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(pagamentos ?? []).map(p => (
+                <tr key={p.id}>
+                  <td style={cell}>{fmtDate(p.dataPag)}</td>
+                  <td style={cell}>{p.formaPag}{p.observacao ? ` — ${p.observacao}` : ''}</td>
+                  <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(p.valor)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 6 }}>
           <thead>
             <tr>
@@ -236,6 +261,12 @@ export default function ImprimirFechamentoMeeiro() {
         {outrasDeducoes > 0 && (
           <p style={{ fontSize: 10, color: '#555', margin: '0 0 8px' }}>
             Outras deduções (combustível, vales de dinheiro, créditos, débitos anteriores) já incluídas no valor recebido: - {fmtN(outrasDeducoes)}
+          </p>
+        )}
+
+        {pagosAbsorvidos > 0 && (
+          <p style={{ fontSize: 10, color: '#555', margin: '0 0 8px' }}>
+            Pagamentos avulsos já recebidos pelo parceiro (descontados do valor a receber): - {fmtN(pagosAbsorvidos)}
           </p>
         )}
 

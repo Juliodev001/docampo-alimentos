@@ -17,7 +17,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       orderBy: { data: 'asc' },
     }),
     prisma.pagamentoMeeiro.aggregate({
-      where: { parceiroId: id, status: 'CONFIRMADO' },
+      // DESCONTADO = absorvido por um fechamento; continua sendo dinheiro já pago
+      where: { parceiroId: id, status: { in: ['CONFIRMADO', 'DESCONTADO'] } },
       _sum: { valor: true },
     }),
     prisma.fechamentoMeeiro.aggregate({

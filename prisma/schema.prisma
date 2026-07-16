@@ -288,16 +288,18 @@ model Parceiro {
 }
 
 model PagamentoMeeiro {
-  id         String   @id @default(cuid())
-  parceiroId String
-  parceiro   Parceiro @relation(fields: [parceiroId], references: [id], onDelete: Cascade)
-  valor      Decimal  @db.Decimal(12, 4)
-  formaPag   String   @default("PIX")
-  conta      String?
-  dataPag    DateTime
-  observacao String?
-  status     String   @default("CONFIRMADO")
-  createdAt  DateTime @default(now())
+  id                 String            @id @default(cuid())
+  parceiroId         String
+  parceiro           Parceiro          @relation(fields: [parceiroId], references: [id], onDelete: Cascade)
+  valor              Decimal           @db.Decimal(12, 4)
+  formaPag           String            @default("PIX")
+  conta              String?
+  dataPag            DateTime
+  observacao         String?
+  status             String            @default("CONFIRMADO")
+  fechamentoMeeiroId String?
+  fechamentoMeeiro   FechamentoMeeiro? @relation(fields: [fechamentoMeeiroId], references: [id])
+  createdAt          DateTime          @default(now())
 }
 
 model Vale {
@@ -335,6 +337,7 @@ model FechamentoMeeiro {
   status            String   @default("PENDENTE")
   observacao        String?
   vales             Vale[]
+  pagamentos        PagamentoMeeiro[]
   createdAt         DateTime @default(now())
 }
 

@@ -542,6 +542,7 @@ type PagamentoMeeiroRecord = {
   dataPag: string;
   observacao: string | null;
   status: string;
+  fechamentoMeeiroId: string | null;
   createdAt: string;
 };
 
@@ -1784,7 +1785,8 @@ export default function RocasClient({
         }
 
         const totalPago = pagamentosState
-          .filter((p) => p.parceiroId === m.id && p.status === "CONFIRMADO")
+          // DESCONTADO = absorvido por um fechamento; segue sendo dinheiro já pago
+          .filter((p) => p.parceiroId === m.id && (p.status === "CONFIRMADO" || p.status === "DESCONTADO"))
           .reduce((s, p) => s + p.valor, 0);
         const totalFechado = fechamentosMeeiroState
           .filter((f) => f.parceiroId === m.id && f.status === "PAGO")
@@ -9504,6 +9506,18 @@ export default function RocasClient({
             const valesDeduzidos = valesAbertosMeeiro
               .filter((v) => fecharValesSelecionados.includes(v.id))
               .reduce((s, v) => s + v.valor, 0);
+            // Pagamentos avulsos já feitos e ainda não absorvidos por nenhum
+            // fechamento — são abatidos integralmente do valor a pagar.
+            const pagosAbsorviveis = pagamentosState.filter(
+              (p) =>
+                p.parceiroId === meeiro.id &&
+                p.status === "CONFIRMADO" &&
+                !p.fechamentoMeeiroId,
+            );
+            const pagosAnteriores = pagosAbsorviveis.reduce(
+              (s, p) => s + p.valor,
+              0,
+            );
             const dedManualTotal =
               (parseFloat(fecharDedForm.combustivel) || 0) +
               (parseFloat(fecharDedForm.bandejaEmbalagem) || 0) +
@@ -9516,7 +9530,7 @@ export default function RocasClient({
             const dedManual = dedManualTotal * (percentualMeeiro / 100);
             const valorPago = Math.max(
               0,
-              fecharBruto - dedManual - valesDeduzidos,
+              fecharBruto - dedManual - valesDeduzidos - pagosAnteriores,
             );
             const historico = fechamentosMeeiroState.filter(
               (f) => f.parceiroId === meeiro.id,
@@ -9556,6 +9570,7 @@ export default function RocasClient({
                       (parseFloat(fecharDedForm.debitosAnteriores) || 0) *
                       (percentualMeeiro / 100),
                     valeIds: fecharValesSelecionados,
+                    pagamentoIds: pagosAbsorviveis.map((p) => p.id),
                   }),
                 });
                 if (!res.ok) throw new Error();
@@ -9589,6 +9604,20 @@ export default function RocasClient({
                             fechamentoMeeiroId: saved.id,
                           }
                         : v,
+                    ),
+                  );
+                }
+                if (pagosAbsorviveis.length > 0) {
+                  const absorvidos = pagosAbsorviveis.map((p) => p.id);
+                  setPagamentosState((prev) =>
+                    prev.map((p) =>
+                      absorvidos.includes(p.id)
+                        ? {
+                            ...p,
+                            status: "DESCONTADO",
+                            fechamentoMeeiroId: saved.id,
+                          }
+                        : p,
                     ),
                   );
                 }
@@ -9658,6 +9687,13 @@ export default function RocasClient({
                     v.fechamentoMeeiroId === id
                       ? { ...v, status: "ABERTO", fechamentoMeeiroId: null }
                       : v,
+                  ),
+                );
+                setPagamentosState((prev) =>
+                  prev.map((p) =>
+                    p.fechamentoMeeiroId === id
+                      ? { ...p, status: "CONFIRMADO", fechamentoMeeiroId: null }
+                      : p,
                   ),
                 );
                 setConfirmDeleteFechMeeiroId(null);
@@ -9961,6 +9997,48 @@ export default function RocasClient({
                         </div>
                       )}
                     </div>
+
+                    {pagosAnteriores > 0 && (
+                      <div
+                        style={{
+                          background: "#f9fafb",
+                          borderRadius: 10,
+                          padding: "10px 14px",
+                          border: "1px solid #e5e7eb",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
+                          <span style={{ fontSize: 13, color: "#6b7280" }}>
+                            Pagamentos avulsos já feitos (
+                            {pagosAbsorviveis.length}) — abatidos do valor a
+                            pagar
+                          </span>
+                          <span style={{ fontWeight: 600, color: PINK }}>
+                            - {fmtCurrency(pagosAnteriores)}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "#9ca3af",
+                            marginTop: 4,
+                          }}
+                        >
+                          {pagosAbsorviveis
+                            .map(
+                              (p) =>
+                                `${fmtDate(p.dataPag)} — ${fmtCurrency(p.valor)}`,
+                            )
+                            .join(" · ")}
+                        </div>
+                      </div>
+                    )}
 
                     {valesAbertosMeeiro.length > 0 && (
                       <div
@@ -10545,7 +10623,7 @@ export default function RocasClient({
                 {(() => {
                   const nomeBusca = histBuscaNome.trim().toLowerCase();
                   const historico = [...pagamentosState]
-                    .filter((p) => p.status === "CONFIRMADO")
+                    .filter((p) => p.status === "CONFIRMADO" || p.status === "DESCONTADO")
                     .filter((p) => {
                       if (nomeBusca) {
                         const meeiro = parceirosState.find(

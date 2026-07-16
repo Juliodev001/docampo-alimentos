@@ -10,7 +10,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params
   const fechamento = await prisma.fechamentoMeeiro.findUnique({
     where: { id },
-    include: { parceiro: { include: { produtor: true } }, vales: true },
+    include: { parceiro: { include: { produtor: true } }, vales: true, pagamentos: true },
   })
   if (!fechamento) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 })
 
@@ -70,6 +70,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     prisma.vale.updateMany({
       where: { fechamentoMeeiroId: id },
       data: { status: 'ABERTO', fechamentoMeeiroId: null },
+    }),
+    prisma.pagamentoMeeiro.updateMany({
+      where: { fechamentoMeeiroId: id },
+      data: { status: 'CONFIRMADO', fechamentoMeeiroId: null },
     }),
     prisma.fechamentoMeeiro.delete({ where: { id } }),
   ])
