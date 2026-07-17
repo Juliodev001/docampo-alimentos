@@ -861,20 +861,6 @@ export default function RocasClient({
     setFecharDataPagamento(new Date().toISOString().slice(0, 10));
     const todayStr = new Date().toISOString().slice(0, 10);
     setFecharDatasAdicionais([todayStr]);
-    // Pré-marca só os pagamentos avulsos feitos dentro do período do fechamento;
-    // pagamentos de outras datas/transações ficam desmarcados (o usuário decide)
-    setFecharPagosSelecionados(
-      pagamentosState
-        .filter(
-          (p) =>
-            p.parceiroId === item.id &&
-            p.status === "CONFIRMADO" &&
-            !p.fechamentoMeeiroId &&
-            p.dataPag.slice(0, 10) >= inicio &&
-            p.dataPag.slice(0, 10) <= todayStr,
-        )
-        .map((p) => p.id),
-    );
     setFecharCalNav({ year: new Date().getFullYear(), month: new Date().getMonth() });
     setFecharMeeiroModal(item);
   }
@@ -959,7 +945,21 @@ export default function RocasClient({
     const perc = parceirosState.find(p => p.id === fecharMeeiroModal.id)?.percentual ?? 0
     const embTotal = perc > 0 ? Math.round((embMeeiro / (perc / 100)) * 100) / 100 : 0
     setFecharDedForm(f => ({ ...f, bandejaEmbalagem: String(embTotal) }))
-  }, [fecharMeeiroModal, fecharDataInicio, fecharDataFim, colheitas, parceirosState])
+    // Pré-marca só os pagamentos avulsos feitos DENTRO do período selecionado —
+    // débitos/pagamentos de outras datas pertencem ao fechamento daquele período
+    // e ficam desmarcados (o usuário ainda pode marcar manualmente se quiser).
+    setFecharPagosSelecionados(
+      pagamentosState
+        .filter(p =>
+          p.parceiroId === fecharMeeiroModal.id &&
+          p.status === 'CONFIRMADO' &&
+          !p.fechamentoMeeiroId &&
+          p.dataPag.slice(0, 10) >= fecharDataInicio &&
+          p.dataPag.slice(0, 10) <= fecharDataFim
+        )
+        .map(p => p.id),
+    )
+  }, [fecharMeeiroModal, fecharDataInicio, fecharDataFim, colheitas, parceirosState, pagamentosState])
 
   // Ao selecionar produtor: auto-preenche datas (a partir do último fechamento) e custos dos lançamentos
   useEffect(() => {
