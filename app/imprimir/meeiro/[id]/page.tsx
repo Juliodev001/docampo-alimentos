@@ -182,7 +182,6 @@ export default function ImprimirMeeiro() {
               <th style={totHd}>Desc Emb.</th>
               <th style={totHd}>Empr. em aberto</th>
               <th style={totHd}>Abatim. emprést.</th>
-              <th style={totHd}>Pagto. anterior</th>
               <th style={totHd}>Valor a receber</th>
             </tr>
           </thead>
@@ -193,7 +192,6 @@ export default function ImprimirMeeiro() {
               <td style={totCell}>{fmtN(descEmba)}</td>
               <td style={totCell}>{fmtN(valesAbertos)}</td>
               <td style={totCell}>{fmtN(abatimEmprestimo)}</td>
-              <td style={totCell}>{fmtN(pagamentosAnteriores)}</td>
               <td style={{ ...totCell, color: NAVY }}>{fmtN(valorRecebido)}</td>
             </tr>
           </tbody>
