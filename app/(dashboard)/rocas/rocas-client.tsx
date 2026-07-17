@@ -804,6 +804,10 @@ export default function RocasClient({
   const [fecharValesSelecionados, setFecharValesSelecionados] = useState<
     string[]
   >([]);
+  // Pagamentos avulsos que o usuário escolheu absorver neste fechamento
+  const [fecharPagosSelecionados, setFecharPagosSelecionados] = useState<
+    string[]
+  >([]);
   const [fecharDataInicio, setFecharDataInicio] = useState("");
   const [fecharDataFim, setFecharDataFim] = useState(
     new Date().toISOString().slice(0, 10),
@@ -857,6 +861,20 @@ export default function RocasClient({
     setFecharDataPagamento(new Date().toISOString().slice(0, 10));
     const todayStr = new Date().toISOString().slice(0, 10);
     setFecharDatasAdicionais([todayStr]);
+    // Pré-marca só os pagamentos avulsos feitos dentro do período do fechamento;
+    // pagamentos de outras datas/transações ficam desmarcados (o usuário decide)
+    setFecharPagosSelecionados(
+      pagamentosState
+        .filter(
+          (p) =>
+            p.parceiroId === item.id &&
+            p.status === "CONFIRMADO" &&
+            !p.fechamentoMeeiroId &&
+            p.dataPag.slice(0, 10) >= inicio &&
+            p.dataPag.slice(0, 10) <= todayStr,
+        )
+        .map((p) => p.id),
+    );
     setFecharCalNav({ year: new Date().getFullYear(), month: new Date().getMonth() });
     setFecharMeeiroModal(item);
   }
@@ -9507,17 +9525,17 @@ export default function RocasClient({
               .filter((v) => fecharValesSelecionados.includes(v.id))
               .reduce((s, v) => s + v.valor, 0);
             // Pagamentos avulsos já feitos e ainda não absorvidos por nenhum
-            // fechamento — são abatidos integralmente do valor a pagar.
+            // fechamento — o usuário marca quais devem ser abatidos do valor a
+            // pagar (pagamentos de outras transações ficam de fora).
             const pagosAbsorviveis = pagamentosState.filter(
               (p) =>
                 p.parceiroId === meeiro.id &&
                 p.status === "CONFIRMADO" &&
                 !p.fechamentoMeeiroId,
             );
-            const pagosAnteriores = pagosAbsorviveis.reduce(
-              (s, p) => s + p.valor,
-              0,
-            );
+            const pagosAnteriores = pagosAbsorviveis
+              .filter((p) => fecharPagosSelecionados.includes(p.id))
+              .reduce((s, p) => s + p.valor, 0);
             const dedManualTotal =
               (parseFloat(fecharDedForm.combustivel) || 0) +
               (parseFloat(fecharDedForm.bandejaEmbalagem) || 0) +
@@ -9570,7 +9588,7 @@ export default function RocasClient({
                       (parseFloat(fecharDedForm.debitosAnteriores) || 0) *
                       (percentualMeeiro / 100),
                     valeIds: fecharValesSelecionados,
-                    pagamentoIds: pagosAbsorviveis.map((p) => p.id),
+                    pagamentoIds: fecharPagosSelecionados,
                   }),
                 });
                 if (!res.ok) throw new Error();
@@ -9607,8 +9625,8 @@ export default function RocasClient({
                     ),
                   );
                 }
-                if (pagosAbsorviveis.length > 0) {
-                  const absorvidos = pagosAbsorviveis.map((p) => p.id);
+                if (fecharPagosSelecionados.length > 0) {
+                  const absorvidos = fecharPagosSelecionados;
                   setPagamentosState((prev) =>
                     prev.map((p) =>
                       absorvidos.includes(p.id)
@@ -9622,6 +9640,7 @@ export default function RocasClient({
                   );
                 }
                 setFecharValesSelecionados([]);
+                setFecharPagosSelecionados([]);
                 toast.success("Fechamento criado", meeiro.nome);
                 window.open(`/imprimir/fechamento-meeiro/${saved.id}`, "_blank");
               } catch {
@@ -9998,7 +10017,7 @@ export default function RocasClient({
                       )}
                     </div>
 
-                    {pagosAnteriores > 0 && (
+                    {pagosAbsorviveis.length > 0 && (
                       <div
                         style={{
                           background: "#f9fafb",
@@ -10009,34 +10028,83 @@ export default function RocasClient({
                       >
                         <div
                           style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: "#6b7280",
+                            textTransform: "uppercase",
+                            marginBottom: 6,
                           }}
                         >
-                          <span style={{ fontSize: 13, color: "#6b7280" }}>
-                            Pagamentos avulsos já feitos (
-                            {pagosAbsorviveis.length}) — abatidos do valor a
-                            pagar
-                          </span>
-                          <span style={{ fontWeight: 600, color: PINK }}>
-                            - {fmtCurrency(pagosAnteriores)}
-                          </span>
+                          Pagamentos avulsos já feitos — descontar deste
+                          fechamento?
                         </div>
                         <div
                           style={{
-                            fontSize: 11,
-                            color: "#9ca3af",
-                            marginTop: 4,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
                           }}
                         >
-                          {pagosAbsorviveis
-                            .map(
-                              (p) =>
-                                `${fmtDate(p.dataPag)} — ${fmtCurrency(p.valor)}`,
-                            )
-                            .join(" · ")}
+                          {pagosAbsorviveis.map((p) => (
+                            <label
+                              key={p.id}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 10,
+                                cursor: "pointer",
+                                fontSize: 12,
+                                color: "#374151",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={fecharPagosSelecionados.includes(
+                                    p.id,
+                                  )}
+                                  onChange={(e) =>
+                                    setFecharPagosSelecionados((prev) =>
+                                      e.target.checked
+                                        ? [...prev, p.id]
+                                        : prev.filter((id) => id !== p.id),
+                                    )
+                                  }
+                                />
+                                {fmtDate(p.dataPag)}
+                                {p.observacao ? ` — ${p.observacao}` : ""}
+                              </span>
+                              <span style={{ fontWeight: 700, color: PINK }}>
+                                {fmtCurrency(p.valor)}
+                              </span>
+                            </label>
+                          ))}
                         </div>
+                        {pagosAnteriores > 0 && (
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              marginTop: 8,
+                              paddingTop: 6,
+                              borderTop: "1px solid #e5e7eb",
+                              fontSize: 12,
+                              color: "#6b7280",
+                            }}
+                          >
+                            <span>Total a descontar</span>
+                            <span style={{ fontWeight: 700, color: PINK }}>
+                              - {fmtCurrency(pagosAnteriores)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
 
