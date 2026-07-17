@@ -12,6 +12,7 @@ type Colheita = {
   id: string; data: string; produto: Produto
   quantidadeTotal: number; preco: number; qualidade: string | null
   descarte: number; percParceiro: number; nrDoc: string | null
+  bandeja: number
   roca: { nome: string } | null
 }
 type Parceiro = { id: string; nome: string; cpf: string | null; percentual: number; produtor: { nome: string; codigo: string | null; inscricaoEstadual: string | null } }
@@ -98,9 +99,9 @@ export default function ImprimirFechamentoMeeiro() {
   )
 
   const {
-    parceiro, dataInicio, dataFim, dataPagamento, valorBruto,
-    combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores,
-    valesDeduzidos, valorPago, vales, pagamentos, colheitas, datasAdicionais,
+    parceiro, dataInicio, dataFim, dataPagamento,
+    combustivel, valesDinheiro, creditos, debitosAnteriores,
+    valesDeduzidos, vales, pagamentos, colheitas, datasAdicionais,
   } = fechamento
   const todasDatas = datasAdicionais && datasAdicionais.length > 0
     ? [...datasAdicionais].sort()
@@ -110,8 +111,14 @@ export default function ImprimirFechamentoMeeiro() {
   // Pagamentos avulsos absorvidos por este fechamento (já recebidos pelo parceiro)
   const pagosAbsorvidos = (pagamentos ?? []).reduce((s, p) => s + p.valor, 0)
   // Caixas do meeiro (mesma conta da coluna Quant.), não o total bruto da colheita
-  const totalQtd = colheitas.reduce((s, c) => s + arredondarCaixas((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100)), 0)
-  const valorRecebido = valorBruto - bandejaEmbalagem - valesDeduzidos - outrasDeducoes - pagosAbsorvidos
+  const caixasMeeiro = (c: Colheita) => arredondarCaixas((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100))
+  const totalQtd = colheitas.reduce((s, c) => s + caixasMeeiro(c), 0)
+  // Repasse e desconto de embalagem recalculados ao vivo pela regra de arredondamento
+  // vigente (caixas do meeiro × preço / × bandeja), para o recibo ficar consistente
+  // com a coluna de caixas mesmo em fechamentos fechados antes da mudança da regra.
+  const valorRepasse = colheitas.reduce((s, c) => s + caixasMeeiro(c) * c.preco, 0)
+  const descEmb = colheitas.reduce((s, c) => s + caixasMeeiro(c) * (c.bandeja ?? 0), 0)
+  const valorRecebido = valorRepasse - descEmb - valesDeduzidos - outrasDeducoes - pagosAbsorvidos
   const rocas = Array.from(new Set(colheitas.map(c => c.roca?.nome).filter(Boolean))) as string[]
 
   const B: React.CSSProperties = { border: '1px solid #000' }
@@ -175,7 +182,7 @@ export default function ImprimirFechamentoMeeiro() {
             </thead>
             <tbody>
               {colheitas.map(c => {
-                const liquido = arredondarCaixas((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100))
+                const liquido = caixasMeeiro(c)
                 const sub = liquido * c.preco
                 const repasse = sub
                 return (
@@ -229,8 +236,8 @@ export default function ImprimirFechamentoMeeiro() {
           <tbody>
             <tr>
               <td style={totCell}>{totalQtd.toFixed(0)}</td>
-              <td style={totCell}>{fmtN(valorBruto)}</td>
-              <td style={totCell}>{fmtN(bandejaEmbalagem)}</td>
+              <td style={totCell}>{fmtN(valorRepasse)}</td>
+              <td style={totCell}>{fmtN(descEmb)}</td>
               <td style={totCell}>{fmtN(valesAbertos)}</td>
               <td style={totCell}>{fmtN(valesDeduzidos)}</td>
               <td style={{ ...totCell, color: NAVY }}>{fmtN(valorRecebido)}</td>
