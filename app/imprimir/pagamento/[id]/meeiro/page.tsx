@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import { calcularFechamento } from '@/lib/fechamento-calc'
+import { calcularFechamento, arredondarCaixas } from '@/lib/fechamento-calc'
 
 const NAVY = '#2d3561'
 
@@ -203,7 +203,7 @@ function ImprimirPagamentoMeeiro() {
             {colheitasMeeiro.length === 0 ? (
               <tr><td colSpan={7} style={{ ...cell, textAlign: 'center' as const, color: '#888' }}>Nenhum lançamento neste período</td></tr>
             ) : colheitasMeeiro.map(c => {
-              const liquido = Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100))
+              const liquido = arredondarCaixas((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100))
               const sub = liquido * Number(c.preco)
               const repasse = sub
               return (

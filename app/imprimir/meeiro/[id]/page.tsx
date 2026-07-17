@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
+import { arredondarCaixas } from '@/lib/fechamento-calc'
 
 const NAVY = '#2d3561'
 
@@ -85,9 +86,9 @@ export default function ImprimirMeeiro() {
   const { parceiro, colheitas } = data
   const pagamentosAnteriores = data.pagamentosAnteriores ?? 0
 
-  const totalQtd     = colheitas.reduce((s, c) => { const perc = (c.percParceiro ?? parceiro.percentual) / 100; return s + Math.floor((c.quantidadeTotal - c.descarte) * perc) }, 0)
-  const valorRepasse = colheitas.reduce((s, c) => { const perc = (c.percParceiro ?? parceiro.percentual) / 100; return s + Math.floor((c.quantidadeTotal - c.descarte) * perc) * c.preco }, 0)
-  const descEmba     = colheitas.reduce((s, c) => { const perc = (c.percParceiro ?? parceiro.percentual) / 100; return s + Math.floor((c.quantidadeTotal - c.descarte) * perc) * (c.bandeja ?? 0) }, 0)
+  const totalQtd     = colheitas.reduce((s, c) => { const perc = (c.percParceiro ?? parceiro.percentual) / 100; return s + arredondarCaixas((c.quantidadeTotal - c.descarte) * perc) }, 0)
+  const valorRepasse = colheitas.reduce((s, c) => { const perc = (c.percParceiro ?? parceiro.percentual) / 100; return s + arredondarCaixas((c.quantidadeTotal - c.descarte) * perc) * c.preco }, 0)
+  const descEmba     = colheitas.reduce((s, c) => { const perc = (c.percParceiro ?? parceiro.percentual) / 100; return s + arredondarCaixas((c.quantidadeTotal - c.descarte) * perc) * (c.bandeja ?? 0) }, 0)
   const abatimEmprestimo = 0
   const valorRecebido = Math.max(0, valorRepasse - descEmba - abatimEmprestimo - pagamentosAnteriores)
 
@@ -156,7 +157,7 @@ export default function ImprimirMeeiro() {
               <tr><td colSpan={7} style={{ ...cell, textAlign: 'center' as const, color: '#666' }}>Nenhum lançamento</td></tr>
             ) : colheitas.map(c => {
               const percShare = (c.percParceiro ?? parceiro.percentual) / 100
-              const qtdParceiro = Math.floor((c.quantidadeTotal - c.descarte) * percShare)
+              const qtdParceiro = arredondarCaixas((c.quantidadeTotal - c.descarte) * percShare)
               const subParceiro = qtdParceiro * c.preco
               const repasse = subParceiro
               return (

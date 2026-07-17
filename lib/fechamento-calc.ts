@@ -1,9 +1,11 @@
 /**
  * Cálculo canônico do fechamento de pagamento de produtores/meeiros.
  *
- * Regras de negócio (definidas em 2026-07-14):
- * 1. A parte do meeiro é calculada por colheita: floor(caixas líquidas × perc%) caixas
- *    inteiras × preço. O produtor fica com o complemento exato, então
+ * Regras de negócio (definidas em 2026-07-14; arredondamento revisado em 2026-07-17):
+ * 1. A parte do meeiro é calculada por colheita: arredondarCaixas(caixas líquidas × perc%)
+ *    caixas inteiras × preço. O arredondamento das caixas segue a regra: fração até 0,5
+ *    arredonda para baixo, acima de 0,5 arredonda para cima (ex.: 9,5 → 9; 9,6 → 10).
+ *    O produtor fica com o complemento exato, então
  *    produtor + meeiros = bruto total, sempre, sem diferença de arredondamento.
  * 2. O meeiro só participa das colheitas vinculadas a ele (parceiroId). As deduções
  *    do fechamento (combustível, embalagem, vales dinheiro, créditos, débitos
@@ -15,6 +17,16 @@
  * Toda tela que exibe valores de fechamento (novo, detalhe, recibos, dashboard)
  * DEVE usar esta função — nunca reimplementar a fórmula localmente.
  */
+
+/**
+ * Arredondamento das caixas do meeiro (definido em 2026-07-17).
+ * A fração até 0,5 arredonda para baixo; acima de 0,5 arredonda para cima.
+ * Ex.: 9,5 → 9; 9,6 → 10; 9,4 → 9. Deve ser usado em toda tela/recibo que
+ * calcula a quantidade de caixas do meeiro — nunca reimplementar com Math.floor.
+ */
+export function arredondarCaixas(caixas: number): number {
+  return Math.ceil(caixas - 0.5)
+}
 
 export type ColheitaCalc = {
   quantidadeTotal: number
@@ -76,7 +88,7 @@ export function calcularFechamento(
     totalBruto += sub
 
     if (c.parceiroId) {
-      const caixasMeeiro = Math.floor(liquido * ((c.percParceiro ?? 0) / 100))
+      const caixasMeeiro = arredondarCaixas(liquido * ((c.percParceiro ?? 0) / 100))
       const brutoMeeiro = caixasMeeiro * preco
       const atual = meeirosMap.get(c.parceiroId) ?? { caixas: 0, bruto: 0 }
       atual.caixas += caixasMeeiro

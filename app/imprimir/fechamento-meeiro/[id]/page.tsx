@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
+import { arredondarCaixas } from '@/lib/fechamento-calc'
 
 const NAVY = '#2d3561'
 
@@ -109,7 +110,7 @@ export default function ImprimirFechamentoMeeiro() {
   // Pagamentos avulsos absorvidos por este fechamento (já recebidos pelo parceiro)
   const pagosAbsorvidos = (pagamentos ?? []).reduce((s, p) => s + p.valor, 0)
   // Caixas do meeiro (mesma conta da coluna Quant.), não o total bruto da colheita
-  const totalQtd = colheitas.reduce((s, c) => s + Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100)), 0)
+  const totalQtd = colheitas.reduce((s, c) => s + arredondarCaixas((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100)), 0)
   const valorRecebido = valorBruto - bandejaEmbalagem - valesDeduzidos - outrasDeducoes - pagosAbsorvidos
   const rocas = Array.from(new Set(colheitas.map(c => c.roca?.nome).filter(Boolean))) as string[]
 
@@ -174,7 +175,7 @@ export default function ImprimirFechamentoMeeiro() {
             </thead>
             <tbody>
               {colheitas.map(c => {
-                const liquido = Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100))
+                const liquido = arredondarCaixas((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100))
                 const sub = liquido * c.preco
                 const repasse = sub
                 return (

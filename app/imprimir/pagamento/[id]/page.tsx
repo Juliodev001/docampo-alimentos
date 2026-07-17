@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
-import { calcularFechamento } from '@/lib/fechamento-calc'
+import { calcularFechamento, arredondarCaixas } from '@/lib/fechamento-calc'
 
 const NAVY = '#2d3561'
 
@@ -191,7 +191,7 @@ export default function ImprimirPagamento() {
             {colheitas.map(c => {
               const liquido = c.quantidadeTotal - c.descarte
               const sub = liquido * c.preco
-              const caixasMeeiro = c.parceiroId ? Math.floor(liquido * (c.percParceiro / 100)) : 0
+              const caixasMeeiro = c.parceiroId ? arredondarCaixas(liquido * (c.percParceiro / 100)) : 0
               const repasse = sub - caixasMeeiro * c.preco
               return (
                 <tr key={c.id}>
@@ -262,7 +262,7 @@ export default function ImprimirPagamento() {
                   // Bruto do produtor referente às mesmas colheitas desse meeiro (a fatia complementar)
                   const brutoProdutor = colheitas.reduce((s, c) => {
                     if (c.parceiroId !== p.id) return s
-                    const qtdMeeiro = Math.floor((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100))
+                    const qtdMeeiro = arredondarCaixas((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100))
                     return s + ((c.quantidadeTotal - c.descarte) - qtdMeeiro) * c.preco
                   }, 0)
                   const fatorProdutorRow = totalBruto > 0 ? brutoProdutor / totalBruto : 0
