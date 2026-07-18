@@ -113,6 +113,9 @@ export default function RelatorioCliente() {
         @page { margin: 8mm 10mm; size: A5; }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: Arial, sans-serif; background: #fff; color: #000; }
+        /* Mobile: recibo tem largura fixa; permite scroll horizontal na tela
+           (nunca na impressão) para não ser cortado no celular. */
+        @media screen and (max-width: 767px) { html, body { overflow-x: auto; } }
         @media print {
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .no-print { display: none !important; }
