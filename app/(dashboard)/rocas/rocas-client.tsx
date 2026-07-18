@@ -5935,13 +5935,15 @@ export default function RocasClient({
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "space-between",
+                          flexWrap: "wrap",
+                          gap: 12,
                           background: ORANGE + "0d",
                           borderRadius: 8,
                           padding: "10px 14px",
                           border: `1px solid ${ORANGE}30`,
                         }}
                       >
-                        <div>
+                        <div style={{ minWidth: 0 }}>
                           <div
                             style={{
                               fontSize: 13,
