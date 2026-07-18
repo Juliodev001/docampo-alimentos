@@ -440,7 +440,7 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
   return (
     <div>
       {/* ── Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 44, height: 44, borderRadius: 10, background: '#e0e7ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <FontAwesomeIcon icon={faCartShopping} style={{ fontSize: 20, color: '#4f46e5' }} />
@@ -450,7 +450,7 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
             <p style={{ fontSize: 13, color: '#6b7280', margin: '3px 0 0' }}>Gestão completa de vendas e compras, com visão financeira e operacional.</p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="header-actions" style={{ display: 'flex', gap: 8 }}>
           <Link href="/relatorios" style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 16px', background: 'white', fontSize: 13, color: NAVY, textDecoration: 'none', fontWeight: 500 }}>
             <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 13, color: '#6b7280' }} /> Relatórios
           </Link>

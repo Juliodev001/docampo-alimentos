@@ -59,11 +59,11 @@ function MetricCard({
       alignItems: 'flex-start',
       overflow: 'hidden',
     }}>
-      <div>
+      <div style={{ minWidth: 0 }}>
         <p style={{ fontSize: 12, color: '#6b7280', margin: 0, fontWeight: 400 }}>{label}</p>
-        <p style={{
+        <p className="kpi-val" style={{
           fontSize: 24, fontWeight: 700, color,
-          margin: '8px 0 0', lineHeight: 1.1,
+          margin: '8px 0 0', lineHeight: 1.1, wordBreak: 'break-word',
         }}>
           {formatCurrency(value)}
         </p>

@@ -136,7 +136,7 @@ export default function ValesClient({ vales: inicial, produtores, parceiros }: {
   const kpiCard = (label: string, value: string, color: string) => (
     <div style={{ flex: 1, backgroundColor: 'white', borderRadius: 14, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderLeft: `4px solid ${color}` }}>
       <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 6px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</p>
-      <p style={{ fontSize: 22, fontWeight: 700, color: NAVY, margin: 0 }}>{value}</p>
+      <p className="kpi-val" style={{ fontSize: 22, fontWeight: 700, color: NAVY, margin: 0, wordBreak: 'break-word' }}>{value}</p>
     </div>
   )
 
@@ -157,7 +157,7 @@ export default function ValesClient({ vales: inicial, produtores, parceiros }: {
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.3 }}
-        style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
+        className="kpi-grid-3" style={{ marginBottom: 20 }}>
         {kpiCard('Total em Aberto', fmtBRL(totalAberto), ORANGE)}
         {kpiCard('Vales Abertos', String(qtdAberto), BLUE)}
         {kpiCard('Total Descontado', fmtBRL(totalDescontado), GREEN)}

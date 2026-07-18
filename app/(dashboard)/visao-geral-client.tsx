@@ -111,7 +111,7 @@ function KpiCard({
           <FontAwesomeIcon icon={icon} style={{ fontSize: 14, color }} />
         </div>
       </div>
-      <p style={{ fontSize: 23, fontWeight: 700, color: NAVY, margin: 0, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <p className="kpi-val" style={{ fontSize: 23, fontWeight: 700, color: NAVY, margin: 0, lineHeight: 1.1, wordBreak: 'break-word' }}>
         {value}
       </p>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
