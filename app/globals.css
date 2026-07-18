@@ -727,10 +727,14 @@ html::-webkit-scrollbar-thumb:hover {
   html, body {
     overflow-x: clip;
   }
-  /* Todas as tabelas do dashboard scrollam horizontalmente */
-  .dashboard-main div:has(> table),
-  .dashboard-main div:has(> div > table),
-  .rocas-page div:has(> table) {
+  /* Todas as tabelas do dashboard scrollam horizontalmente, seja qual for o
+     aninhamento do wrapper. O seletor *:has(> table) casa o elemento-pai
+     DIRETO de qualquer tabela (não só <div>), então nenhuma tabela pode ser
+     cortada pelo overflow-x: clip do body — ela sempre vira scrollável. */
+  .dashboard-main *:has(> table),
+  .dashboard-main *:has(> div > table),
+  .rocas-page *:has(> table),
+  .rocas-page *:has(> div > table) {
     overflow-x: auto !important;
     overflow-y: visible !important;
     -webkit-overflow-scrolling: touch;
