@@ -5968,7 +5968,9 @@ export default function RocasClient({
                           style={{
                             display: "flex",
                             alignItems: "center",
-                            gap: 14,
+                            flexWrap: "wrap",
+                            gap: 12,
+                            minWidth: 0,
                           }}
                         >
                           <div style={{ textAlign: "right" }}>
