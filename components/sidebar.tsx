@@ -474,30 +474,31 @@ export default function Sidebar({
 
   return (
     <>
-      {/* Botão hamburger mobile */}
-      {isMobile && (
-        <button
-          onClick={() => setMobileOpen(o => !o)}
-          style={{
-            position: 'fixed', top: 14, left: 14, zIndex: 1100,
-            width: 38, height: 38, borderRadius: 8,
-            background: 'linear-gradient(135deg, #1a1f3c, #1e2447)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', color: 'white',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-          }}
-          aria-label="Abrir menu"
-        >
-          <FontAwesomeIcon icon={faBars} style={{ fontSize: 17 }} />
-        </button>
-      )}
+      {/* Botão hamburger — sempre no DOM; visibilidade por CSS (.sidebar-hamburger),
+          escondido no desktop. Evita depender do JS (isMobile) e o flash no mobile. */}
+      <button
+        className="sidebar-hamburger"
+        onClick={() => setMobileOpen(o => !o)}
+        style={{
+          position: 'fixed', top: 14, left: 14, zIndex: 1100,
+          width: 38, height: 38, borderRadius: 8,
+          background: 'linear-gradient(135deg, #1a1f3c, #1e2447)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', color: 'white',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+        }}
+        aria-label="Abrir menu"
+      >
+        <FontAwesomeIcon icon={faBars} style={{ fontSize: 17 }} />
+      </button>
 
       {/* Botão de collapse — desktop */}
       {!isMobile && (
         <AnimatePresence>
           <motion.button
             key="collapse-btn"
+            className="sidebar-collapse-btn"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             whileHover={{ scale: 1.15, borderColor: 'rgba(90,185,82,0.5)', color: '#5ab952' }}
@@ -539,7 +540,7 @@ export default function Sidebar({
       {/* Sidebar desktop (position: fixed, nunca sai do lugar) */}
       {!isMobile && (
         <motion.aside
-          className="sidebar-scroll"
+          className="sidebar-scroll sidebar-desktop"
           animate={{ width: collapsed ? 64 : 248 }}
           transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
           style={{

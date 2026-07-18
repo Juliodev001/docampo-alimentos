@@ -546,6 +546,19 @@ input:focus, select:focus, textarea:focus {
   background: rgba(255,255,255,0.22);
 }
 
+/* ── Visibilidade da sidebar controlada por CSS (evita flash no mobile) ──
+   O componente decide "é celular?" via JS (só após a hidratação). Para não
+   piscar o layout desktop no celular antes disso, a visibilidade é forçada
+   por media query: a sidebar desktop e o botão de recolher somem no mobile,
+   e o hambúrguer some no desktop — independentemente do estado do JS. */
+@media (max-width: 767px) {
+  .sidebar-desktop,
+  .sidebar-collapse-btn { display: none !important; }
+}
+@media (min-width: 768px) {
+  .sidebar-hamburger { display: none !important; }
+}
+
 /* ── Modal wrapper centralizado na área de conteúdo (direita do sidebar) ── */
 .modal-wrapper {
   position: fixed;
