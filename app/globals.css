@@ -678,7 +678,10 @@ input:focus, select:focus, textarea:focus {
 }
 @media (max-width: 767px) {
   .kpi-flex { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .kpi-val { font-size: 18px !important; }
+  /* Fonte escala com a tela para o valor em moeda caber numa linha só —
+     18px fixo ainda quebrava "R$ 10.818,00" no meio do número em cards
+     de 2 colunas com ícone ao lado. */
+  .kpi-val { font-size: clamp(13px, 4vw, 18px) !important; line-height: 1.2 !important; }
 }
 
 /* Scrollbar customizado para o body */

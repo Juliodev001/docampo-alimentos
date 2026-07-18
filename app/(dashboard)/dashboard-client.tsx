@@ -106,7 +106,7 @@ function Filters({
   }
 
   return (
-    <div style={{ display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+    <div style={{ display: 'flex', gap: 10, minWidth: 0, maxWidth: '100%', flexWrap: 'wrap', alignItems: 'flex-end' }}>
       <div style={box}>
         <div style={lbl}>
           <FontAwesomeIcon icon={faCalendar} style={{ fontSize: 11, color: '#9ca3af' }} /> De

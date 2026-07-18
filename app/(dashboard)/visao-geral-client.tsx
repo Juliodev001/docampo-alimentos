@@ -114,7 +114,7 @@ function KpiCard({
       <p className="kpi-val" style={{ fontSize: 23, fontWeight: 700, color: NAVY, margin: 0, lineHeight: 1.1, wordBreak: 'break-word' }}>
         {value}
       </p>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         {variacao !== undefined && <VariacaoBadge pct={variacao} invertido={color === PINK} />}
         {sub && <span style={{ fontSize: 12, color: '#9ca3af' }}>{sub}</span>}
       </div>
