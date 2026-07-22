@@ -263,26 +263,48 @@ function palavrasNaFaixa(linha: LinhaVisual | undefined, esq: number, dir: numbe
   })
 }
 
-/** Escolhe, entre os candidatos, o token que tem a cara do tipo esperado. */
-function escolherValor(palavras: OcrWord[], tipo: Rotulo['tipo']): string {
+/**
+ * Escolhe, entre os candidatos, o token que tem a cara do tipo esperado.
+ * `reconstruido` avisa que o valor precisou ser remontado (ver o caso da
+ * vírgula decimal em `moeda`) e portanto merece conferência.
+ */
+function escolherValor(
+  palavras: OcrWord[],
+  tipo: Rotulo['tipo']
+): { valor: string; reconstruido: boolean } {
   const textos = palavras.map((w) => w.text.trim()).filter(Boolean)
-  if (!textos.length) return ''
+  if (!textos.length) return { valor: '', reconstruido: false }
+  const limpo = (t: string) => t.replace(/[R$\s]/g, '')
 
   if (tipo === 'moeda') {
     // Primeiro valor monetário da célula. Com a célula indo do rótulo até o
     // rótulo seguinte, o valor certo é sempre o mais à esquerda: se um rótulo
     // vizinho não foi reconhecido, a célula engole a coluna da direita junto, e
     // é o segundo número — não o primeiro — que passa a sobrar.
-    const m = textos.filter((t) => MOEDA_RE.test(t.replace(/[R$\s]/g, '')))
-    return m.length ? m[0].replace(/[R$\s]/g, '') : ''
+    const m = textos.map(limpo).filter((t) => MOEDA_RE.test(t))
+    if (m.length) return { valor: m[0], reconstruido: false }
+
+    // Sem vírgula. Numa foto, a vírgula decimal é o primeiro caractere que o
+    // OCR perde: ela ocupa poucos pixels e fica na base da linha, onde a
+    // compressão e a sombra atacam. Foi o que aconteceu numa leitura real —
+    // "381,22" saiu "38122" e "9,78" saiu "978", e os dois eram descartados
+    // por não casarem com o formato monetario. Como a DANFE sempre imprime
+    // duas casas, remontar o valor pelos dois ultimos digitos recupera o
+    // numero; o campo fica marcado para conferencia, e a checagem aritmetica
+    // no fim (produtos - desconto = total) confirma ou denuncia o palpite.
+    const digitos = textos.map(limpo).filter((t) => /^\d{3,}$/.test(t))
+    if (digitos.length) {
+      const d = digitos[0]
+      const inteiro = d.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+      return { valor: `${inteiro},${d.slice(-2)}`, reconstruido: true }
+    }
+    return { valor: '', reconstruido: false }
   }
   if (tipo === 'data') {
-    const d = textos.find((t) => DATA_RE.test(t))
-    return d ?? ''
+    return { valor: textos.find((t) => DATA_RE.test(t)) ?? '', reconstruido: false }
   }
   if (tipo === 'hora') {
-    const h = textos.find((t) => HORA_RE.test(t))
-    return h ?? ''
+    return { valor: textos.find((t) => HORA_RE.test(t)) ?? '', reconstruido: false }
   }
   if (tipo === 'digitos') {
     // Documentos e inscrições vêm com pontuação ("119.888.076-70", "37472-000")
@@ -301,9 +323,9 @@ function escolherValor(palavras: OcrWord[], tipo: Rotulo['tipo']): string {
       if (/\d/.test(t)) pedacos.push(t)
       else if (pedacos.length) break // separador solto depois do número
     }
-    return soDigitos(pedacos.join(''))
+    return { valor: soDigitos(pedacos.join('')), reconstruido: false }
   }
-  return textos.join(' ')
+  return { valor: textos.join(' '), reconstruido: false }
 }
 
 /**
@@ -436,11 +458,17 @@ function extrairDuplicatas(linhas: LinhaVisual[]): CampoExtraido[] {
   for (let i = iFatura; i < Math.min(iFatura + 4, linhas.length); i++) {
     const texto = linhas[i].palavras.map((w) => w.text).join(' ')
     if (/CALCULO DO IMPOSTO/.test(norm(texto))) break
-    const re = /([\w-]*\d[\w-]*)\s+(\d{2}[/.]\d{2}[/.]\d{2,4})\s+(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})/g
+    // O valor aceita também dígitos sem vírgula ("38122"), porque numa foto a
+    // vírgula decimal costuma sumir — mesmo motivo detalhado em escolherValor.
+    const re = /([\w-]*\d[\w-]*)\s+(\d{2}[/.]\d{2}[/.]\d{2,4})\s+(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}|\d{3,})/g
     let m: RegExpExecArray | null
     while ((m = re.exec(texto)) !== null) {
+      const bruto = m[3]
+      const valor = /,/.test(bruto)
+        ? bruto
+        : `${bruto.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.')},${bruto.slice(-2)}`
       out.push({ campo: `Duplicata ${m[1]} — vencimento`, valor: m[2] })
-      out.push({ campo: `Duplicata ${m[1]} — valor`, valor: m[3] })
+      out.push({ campo: `Duplicata ${m[1]} — valor`, valor })
     }
   }
   return out
@@ -670,6 +698,8 @@ export function extrairDanfe(palavras: OcrWord[]): Danfe {
   // ── 2. Rótulos impressos, casados por coluna ────────────────────────────
   const indexadas = linhas.map(indexar)
   const yDest = yDoDestinatario(linhas)
+  /** Campos cujo valor teve a vírgula decimal remontada — pedem conferência. */
+  const remontados: string[] = []
 
   indexadas.forEach((li, idx) => {
     const achados = acharRotulos(li, idx)
@@ -681,21 +711,23 @@ export function extrairDanfe(palavras: OcrWord[]): Danfe {
       // a linha de rótulos é só rótulo, e qualquer coluna que não esteja no
       // nosso dicionário (CÓDIGO ANTT, MARCA…) seria confundida com o valor do
       // rótulo à esquerda dela.
-      let valor = escolherValor(palavrasNaFaixa(linhas[idx + 1], esq, dir), ach.rotulo.tipo)
+      let r = escolherValor(palavrasNaFaixa(linhas[idx + 1], esq, dir), ach.rotulo.tipo)
       // Célula alta — endereço que ocupa duas linhas, por exemplo.
-      if (!valor && ach.rotulo.tipo === 'texto') {
-        valor = escolherValor(palavrasNaFaixa(linhas[idx + 2], esq, dir), ach.rotulo.tipo)
+      if (!r.valor && ach.rotulo.tipo === 'texto') {
+        r = escolherValor(palavrasNaFaixa(linhas[idx + 2], esq, dir), ach.rotulo.tipo)
       }
       // Só então o resto da própria linha: fora da grade, no cabeçalho do
       // emitente, há campos escritos em texto corrido ("CEP: 37472-000").
-      if (!valor) {
+      if (!r.valor) {
         const mesmaLinha = li.linha.palavras.filter((w, wi) => {
           const posChar = li.mapa.indexOf(wi)
           return posChar >= ach.fimChar && (w.bbox.x0 + w.bbox.x1) / 2 <= dir
         })
-        valor = escolherValor(mesmaLinha, ach.rotulo.tipo)
+        r = escolherValor(mesmaLinha, ach.rotulo.tipo)
       }
+      const valor = r.valor
       if (!valor) return
+      if (r.reconstruido) remontados.push(ach.rotulo.campo)
 
       // Campos que aparecem nos dois blocos ganham sufixo pela posição na página.
       const repetivel = REPETIVEIS.has(ach.rotulo.campo)
@@ -748,6 +780,31 @@ export function extrairDanfe(palavras: OcrWord[]): Danfe {
   const seguro = valorDe('Valor do seguro') ?? 0
   const outras = valorDe('Outras despesas acessórias') ?? 0
   const ipi = valorDe('Valor total do IPI') ?? 0
+
+  // A vírgula decimal remontada é um palpite — mas um palpite que a própria
+  // nota confere: se produtos − desconto + encargos fecha no total, os três
+  // valores estão certos, porque um erro de casa decimal quebraria a conta.
+  const contaFecha =
+    total != null && produtos != null &&
+    Math.abs(produtos - desconto + frete + seguro + outras + ipi - total) <= 0.02
+  if (remontados.length) {
+    const lista = [...new Set(remontados)].join(', ')
+    avisos.push(
+      contaFecha
+        ? `A vírgula decimal não foi lida em ${lista} e foi remontada com duas casas — a soma da nota fecha, o que confirma os valores.`
+        : `A vírgula decimal não foi lida em ${lista} e foi remontada assumindo duas casas. Confira contra a nota.`
+    )
+  }
+
+  // Data e chave são leituras independentes do mesmo mês: divergir denuncia
+  // erro em uma delas (numa leitura real, "21/07/2026" saiu "21/07/2006").
+  const dataEmissao = campos.find((c) => c.campo === 'Data da emissão')?.valor ?? ''
+  const mData = dataEmissao.match(/^(\d{2})[/.](\d{2})[/.](\d{4})$/)
+  if (chave && mData && `${mData[3]}-${mData[2]}` !== chave.competencia) {
+    avisos.push(
+      `A data de emissão lida (${dataEmissao}) não bate com a competência da chave de acesso (${chave.competencia}).`
+    )
+  }
 
   if (total != null && produtos != null) {
     const esperado = produtos - desconto + frete + seguro + outras + ipi

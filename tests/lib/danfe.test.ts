@@ -171,6 +171,32 @@ describe('leitura da grade da DANFE', () => {
     expect(valor('CNPJ do emitente')).toBe('19.424.159/0003-23')
   })
 
+  it('remonta a vírgula decimal que o OCR comeu', () => {
+    // Numa foto, a vírgula é dos primeiros caracteres a se perder: "391,00"
+    // chega como "39100" e "381,22" como "38122". Sem remontar, os campos de
+    // valor ficavam vazios e o total da nota sumia da planilha.
+    const pagina: OcrWord[] = [
+      ...celula('DANFE CHAVE DE ACESSO', 0, 300, 0),
+      ...celula('3126 0719 4241 5900 0323 5500 2000 1906 9010 0530 2779', 0, 600, 30),
+      ...celula('VALOR TOTAL DOS PRODUTOS', 0, 200, 100),
+      ...celula('DESCONTO', 220, 380, 100),
+      ...celula('VALOR TOTAL DA NOTA', 400, 600, 100),
+      ...celula('39100', 150, 190, 130),
+      ...celula('978', 330, 370, 130),
+      ...celula('38122', 540, 590, 130),
+    ]
+    const d = extrairDanfe(pagina)
+    const valor = (campo: string) => d.campos.find((c) => c.campo === campo)?.valor
+
+    expect(valor('Valor total dos produtos')).toBe('391,00')
+    expect(valor('Desconto')).toBe('9,78')
+    expect(valor('Valor total da nota')).toBe('381,22')
+    expect(d.total).toBe(381.22)
+    // 391,00 − 9,78 = 381,22: a conta fecha, o que confirma a remontagem.
+    expect(d.avisos.some((a) => /a soma da nota fecha/.test(a))).toBe(true)
+    expect(d.avisos.some((a) => /não bate/.test(a))).toBe(false)
+  })
+
   it('avisa quando o total não bate com os produtos', () => {
     const d = extrairDanfe(paginaDeTotais())
     // 391,00 de produtos, sem desconto declarado, mas total de 381,22.
