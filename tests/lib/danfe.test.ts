@@ -213,6 +213,46 @@ describe('leitura da grade da DANFE', () => {
     expect(d.avisos.some((a) => /não bate/.test(a))).toBe(false)
   })
 
+  it('deduz o total dos produtos quando so aquele quadro nao foi lido', () => {
+    // Aconteceu numa leitura real: tudo saiu certo menos "VALOR TOTAL DOS
+    // PRODUTOS". Como a nota fecha em total = produtos − desconto + encargos,
+    // faltando um unico termo o valor e aritmetica, nao chute.
+    const pagina: OcrWord[] = [
+      ...celula('DANFE CHAVE DE ACESSO', 0, 300, 0),
+      ...celula('3126 0719 4241 5900 0323 5500 2000 1906 9010 0530 2779', 0, 600, 30),
+      ...celula('VALOR DO FRETE', 0, 150, 100),
+      ...celula('VALOR DO SEGURO', 170, 320, 100),
+      ...celula('DESCONTO', 340, 430, 100),
+      ...celula('OUTRAS DESPESAS ACESSORIAS', 450, 650, 100),
+      ...celula('VALOR TOTAL DO IPI', 670, 790, 100),
+      ...celula('VALOR TOTAL DA NOTA', 810, 950, 100),
+      ...celula('0,00', 100, 145, 130),
+      ...celula('0,00', 270, 315, 130),
+      ...celula('9,78', 380, 425, 130),
+      ...celula('0,00', 600, 645, 130),
+      ...celula('0,00', 740, 785, 130),
+      ...celula('381,22', 890, 945, 130),
+    ]
+    const d = extrairDanfe(pagina)
+    expect(d.campos.find((c) => c.campo === 'Valor total dos produtos')?.valor).toBe('391,00')
+    expect(d.avisos.some((a) => /deduzido/.test(a))).toBe(true)
+  })
+
+  it('nao deduz o total dos produtos se algum encargo tambem faltou', () => {
+    // Sem o desconto lido, tratar o encargo ausente como zero embutiria o
+    // desconto perdido no resultado sem nada denunciar. Melhor nao devolver.
+    const pagina: OcrWord[] = [
+      ...celula('DANFE CHAVE DE ACESSO', 0, 300, 0),
+      ...celula('3126 0719 4241 5900 0323 5500 2000 1906 9010 0530 2779', 0, 600, 30),
+      ...celula('VALOR DO FRETE', 0, 150, 100),
+      ...celula('VALOR TOTAL DA NOTA', 810, 950, 100),
+      ...celula('0,00', 100, 145, 130),
+      ...celula('381,22', 890, 945, 130),
+    ]
+    const d = extrairDanfe(pagina)
+    expect(d.campos.find((c) => c.campo === 'Valor total dos produtos')).toBeUndefined()
+  })
+
   it('avisa quando o total não bate com os produtos', () => {
     const d = extrairDanfe(paginaDeTotais())
     // 391,00 de produtos, sem desconto declarado, mas total de 381,22.

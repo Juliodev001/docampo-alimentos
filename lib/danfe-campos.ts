@@ -793,13 +793,45 @@ export function extrairDanfe(palavras: OcrWord[]): Danfe {
 
   // ── 4. Conferências cruzadas ────────────────────────────────────────────
   const valorDe = (campo: string) => moedaParaNumero(campos.find((c) => c.campo === campo)?.valor ?? '')
-  const total = valorDe('Valor total da nota')
-  const produtos = valorDe('Valor total dos produtos')
-  const desconto = valorDe('Desconto') ?? 0
-  const frete = valorDe('Valor do frete') ?? 0
-  const seguro = valorDe('Valor do seguro') ?? 0
-  const outras = valorDe('Outras despesas acessórias') ?? 0
-  const ipi = valorDe('Valor total do IPI') ?? 0
+  const brl = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  let total = valorDe('Valor total da nota')
+  let produtos = valorDe('Valor total dos produtos')
+  const descontoLido = valorDe('Desconto')
+  const freteLido = valorDe('Valor do frete')
+  const seguroLido = valorDe('Valor do seguro')
+  const outrasLido = valorDe('Outras despesas acessórias')
+  const ipiLido = valorDe('Valor total do IPI')
+
+  const desconto = descontoLido ?? 0
+  const frete = freteLido ?? 0
+  const seguro = seguroLido ?? 0
+  const outras = outrasLido ?? 0
+  const ipi = ipiLido ?? 0
+
+  /**
+   * Um quadro de valor que o OCR não alcançou pode ser DEDUZIDO, não chutado: a
+   * nota fecha em total = produtos − desconto + frete + seguro + outras + IPI.
+   * Sabendo todos os termos menos um, o que falta é aritmética exata.
+   *
+   * A dedução só vale com todos os encargos efetivamente LIDOS. Tratar um
+   * encargo ausente como zero é razoável para conferir uma soma, mas não para
+   * gerar um valor: um desconto que o OCR perdeu apareceria embutido no
+   * resultado sem que nada denunciasse.
+   */
+  const encargosLidos =
+    descontoLido != null && freteLido != null && seguroLido != null &&
+    outrasLido != null && ipiLido != null
+
+  if (encargosLidos && produtos == null && total != null) {
+    produtos = total + desconto - frete - seguro - outras - ipi
+    add('Valor total dos produtos', brl(produtos))
+    avisos.push(`O quadro "Valor total dos produtos" não foi lido; ${brl(produtos)} foi deduzido do total da nota e dos encargos.`)
+  } else if (encargosLidos && total == null && produtos != null) {
+    total = produtos - desconto + frete + seguro + outras + ipi
+    add('Valor total da nota', brl(total))
+    avisos.push(`O quadro "Valor total da nota" não foi lido; ${brl(total)} foi deduzido do total dos produtos e dos encargos.`)
+  }
 
   // A vírgula decimal remontada é um palpite — mas um palpite que a própria
   // nota confere: se produtos − desconto + encargos fecha no total, os três
