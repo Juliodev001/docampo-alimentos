@@ -171,6 +171,22 @@ describe('leitura da grade da DANFE', () => {
     expect(valor('CNPJ do emitente')).toBe('19.424.159/0003-23')
   })
 
+  it('tira o emitente da frase do canhoto quando "DANFE" nao e lido', () => {
+    // Leitura real: a palavra DANFE nao apareceu no texto do OCR, e a linha
+    // "DATA DE RECEBIMENTO" saiu "DATA DE RECEMIVENTO" — escapando da lista de
+    // dispensas e virando o emitente. A frase do canhoto delimita o nome dos
+    // dois lados e resolve os dois problemas de uma vez.
+    const pagina: OcrWord[] = [
+      ...celula('RECEBEMOS DE COOP REG DOS CAFEIC DO VALE DO RIO VERDE OS PRODUTOS CONSTANTES DA NOTA FISCAL', 0, 700, 0),
+      ...celula('DATA DE RECEMIVENTO Ino"', 0, 200, 30),
+      ...celula('CHAVE DE ACESSO', 0, 200, 60),
+      ...celula('3126 0719 4241 5900 0323 5500 2000 1906 9010 0530 2779', 0, 600, 90),
+    ]
+    const d = extrairDanfe(pagina)
+    expect(d.campos.find((c) => c.campo === 'Emitente')?.valor)
+      .toBe('COOP REG DOS CAFEIC DO VALE DO RIO VERDE')
+  })
+
   it('remonta a vírgula decimal que o OCR comeu', () => {
     // Numa foto, a vírgula é dos primeiros caracteres a se perder: "391,00"
     // chega como "39100" e "381,22" como "38122". Sem remontar, os campos de

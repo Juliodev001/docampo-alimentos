@@ -488,8 +488,11 @@ function extrairDuplicatas(linhas: LinhaVisual[]): CampoExtraido[] {
  *     DA NOTA FISCAL", "DATA DE RECEBIMENTO", "ASSINATURA DO RECEBEDOR"), que
  *     também é texto à esquerda — daí a lista de dispensas.
  */
+// "RECE[BM]" em vez de "RECEBIMENTO|RECEBEDOR|RECEBEMOS": o canhoto so tem
+// palavras dessa familia, e o OCR troca letra o tempo todo — numa leitura real
+// "RECEBIMENTO" saiu "RECEMIVENTO" e escapou da lista, virando o emitente.
 const BOILERPLATE_CABECALHO =
-  /DANFE|DOCUMENTO AUXILIAR|CHAVE DE ACESSO|CONSULTA|FOLHA|SERIE|RECEBEMOS|RECEBIMENTO|RECEBEDOR|ASSINATURA|IDENTIFICACAO|NOTA FISCAL|ENTRADA|SAIDA|PROTOCOLO|NATUREZA|DESTINATARIO|INSCRICAO|CNPJ/
+  /DANFE|DOCUMENTO AUXILIAR|CHAVE DE ACESSO|CONSULTA|FOLHA|SERIE|RECE[BM]|ASSINATURA|IDENTIFICACAO|NOTA FISCAL|ENTRADA|SAIDA|PROTOCOLO|NATUREZA|DESTINATARIO|INSCRICAO|CNPJ/
 
 type Emitente = { nome: string; endereco: string; municipio: string; uf: string }
 
@@ -505,13 +508,27 @@ function acharEmitente(linhas: LinhaVisual[], yDest: number): Emitente {
     (linhas[i]?.palavras ?? []).filter((w) => w.bbox.x0 < meio).map((w) => w.text).join(' ').trim()
 
   /**
-   * Âncora: a palavra "DANFE" fica no quadro central do cabeçalho, na MESMA
-   * faixa horizontal da razão social do emitente. Partir dela é bem mais
-   * seguro que varrer o topo da página procurando "a primeira linha que não
-   * parece boilerplate" — em cima do emitente esta o canhoto, cheio de texto
-   * ("DATA DE RECEBIMENTO", "ASSINATURA DO RECEBEDOR"), e basta o OCR errar uma
-   * letra para a linha escapar de qualquer lista de dispensas: foi assim que o
-   * emitente virou "DATA DE RECEMIVENTO" numa leitura real.
+   * Primeira tentativa: a frase do canhoto. Toda DANFE abre com "RECEBEMOS DE
+   * <RAZÃO SOCIAL> OS PRODUTOS CONSTANTES DA NOTA FISCAL", numa faixa larga e
+   * em corpo maior que o do cabeçalho — justamente o que sobrevive ao OCR de
+   * uma foto. E o nome vem delimitado dos dois lados por texto fixo, o que
+   * dispensa qualquer heurística de "esta linha parece um nome de empresa?".
+   */
+  let nomeCanhoto = ''
+  for (const l of linhas.slice(0, 6)) {
+    const m = norm(l.palavras.map((w) => w.text).join(' ')).match(
+      /RECEBEMOS DE\s+(.+?)\s+OS PRODUTOS/
+    )
+    if (m && m[1].length >= 6) { nomeCanhoto = m[1].trim(); break }
+  }
+
+  /**
+   * Segunda tentativa: a palavra "DANFE" fica no quadro central do cabeçalho,
+   * na MESMA faixa horizontal da razão social. Partir dela é mais seguro que
+   * varrer o topo da página procurando "a primeira linha que não parece
+   * boilerplate" — em cima do emitente está o canhoto, cheio de texto, e basta
+   * o OCR errar uma letra para a linha escapar de qualquer lista de dispensas:
+   * foi assim que o emitente virou "DATA DE RECEMIVENTO" numa leitura real.
    */
   let inicio = linhas.findIndex((l) =>
     /D[A4]NF[E3]/.test(norm(l.palavras.map((w) => w.text).join(' ')))
@@ -523,11 +540,14 @@ function acharEmitente(linhas: LinhaVisual[], yDest: number): Emitente {
       const t = norm(esquerdaDe(i))
       return t.length >= 8 && !BOILERPLATE_CABECALHO.test(t) && !/^[\d\s.,/:-]+$/.test(t) && !!l
     })
-    if (inicio < 0) return vazio
   }
 
-  const nome = esquerdaDe(inicio)
+  // O nome do canhoto ganha do achado pela âncora: vem de texto maior e
+  // delimitado, enquanto a âncora depende de a metade esquerda daquela linha
+  // conter só a razão social.
+  const nome = nomeCanhoto || (inicio >= 0 ? esquerdaDe(inicio) : '')
   if (!nome || nome.length < 4) return vazio
+  if (inicio < 0) return { nome, endereco: '', municipio: '', uf: '' }
 
   // Endereço e cidade vêm nas linhas logo abaixo, também sem rótulo. Só
   // aceitamos o que tem forma de logradouro e de "Cidade/UF", e nunca abaixo da
