@@ -213,6 +213,54 @@ describe('leitura da grade da DANFE', () => {
     expect(d.avisos.some((a) => /não bate/.test(a))).toBe(false)
   })
 
+  it('corrige o ano da data pelo ano embutido na chave de acesso', () => {
+    // Leitura real: o vencimento da duplicata saiu "21/07/2006" — o OCR trocou
+    // o 2 por 0. Nenhuma data da DANFE e anterior a emissao, e a chave (que
+    // fecha o digito verificador) diz que a competencia e 2026-07.
+    const pagina: OcrWord[] = [
+      ...celula('DANFE CHAVE DE ACESSO', 0, 300, 0),
+      ...celula('3126 0719 4241 5900 0323 5500 2000 1906 9010 0530 2779', 0, 600, 30),
+      ...celula('DATA DA EMISSAO', 0, 150, 100),
+      ...celula('21/07/2006', 0, 100, 130),
+      ...celula('FATURA', 0, 80, 180),
+      ...celula('2-190690-1 21/07/2006 381,22', 0, 300, 210),
+    ]
+    const d = extrairDanfe(pagina)
+    const valor = (campo: string) => d.campos.find((c) => c.campo === campo)?.valor
+
+    expect(valor('Data da emissão')).toBe('21/07/2026')
+    expect(valor('Duplicata 2-190690-1 — vencimento')).toBe('21/07/2026')
+    expect(d.avisos.some((a) => /Ano corrigido pela chave/.test(a))).toBe(true)
+  })
+
+  it('escolhe o ano seguinte quando ele esta mais perto do lido', () => {
+    // Nota de 2026 com duplicata vencendo em 2027: "2007" esta a um digito de
+    // 2027 e a dois de 2026, entao o alvo certo e 2027 — corrigir sempre para o
+    // ano da chave inventaria um vencimento no passado.
+    const pagina: OcrWord[] = [
+      ...celula('DANFE CHAVE DE ACESSO', 0, 300, 0),
+      ...celula('3126 0719 4241 5900 0323 5500 2000 1906 9010 0530 2779', 0, 600, 30),
+      ...celula('FATURA', 0, 80, 100),
+      ...celula('2-190690-1 15/01/2007 381,22', 0, 300, 130),
+    ]
+    const d = extrairDanfe(pagina)
+    expect(d.campos.find((c) => c.campo === 'Duplicata 2-190690-1 — vencimento')?.valor)
+      .toBe('15/01/2027')
+  })
+
+  it('nao mexe em data com ano posterior ao da chave', () => {
+    const pagina: OcrWord[] = [
+      ...celula('DANFE CHAVE DE ACESSO', 0, 300, 0),
+      ...celula('3126 0719 4241 5900 0323 5500 2000 1906 9010 0530 2779', 0, 600, 30),
+      ...celula('FATURA', 0, 80, 100),
+      ...celula('2-190690-1 15/03/2027 381,22', 0, 300, 130),
+    ]
+    const d = extrairDanfe(pagina)
+    expect(d.campos.find((c) => c.campo === 'Duplicata 2-190690-1 — vencimento')?.valor)
+      .toBe('15/03/2027')
+    expect(d.avisos.some((a) => /Ano corrigido/.test(a))).toBe(false)
+  })
+
   it('separa emitente de destinatario mesmo sem ler a faixa DESTINATARIO', () => {
     // A faixa "DESTINATÁRIO/REMETENTE" e impressa em corpo minusculo e as vezes
     // nao e lida. Sem fronteira, TUDO virava emitente — e o endereco do

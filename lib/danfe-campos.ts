@@ -806,6 +806,42 @@ export function extrairDanfe(palavras: OcrWord[]): Danfe {
   add('Informações complementares', extrairInfoComplementares(linhas))
 
   // ── 4. Conferências cruzadas ────────────────────────────────────────────
+
+  /**
+   * Ano de data lido errado. Nenhuma data impressa numa DANFE é anterior à
+   * emissão — vencimento de duplicata vem depois, entrada/saída é na mesma
+   * data ou depois. Então ano menor que o da chave de acesso é erro de leitura,
+   * e a chave, que fecha o dígito verificador, diz qual é o certo.
+   *
+   * Entre o ano da chave e o seguinte (nota emitida em dezembro pode ter
+   * duplicata vencendo em janeiro), escolhe o que difere do lido em MENOS
+   * posições: "2006" está a um dígito de 2026 e a dois de 2027, então vira
+   * 2026; "2007" está a um de 2027, então vira 2027.
+   */
+  const corrigirAno = (valor: string): string | null => {
+    if (!chave) return null
+    const m = valor.match(/^(\d{2})([/.])(\d{2})\2(\d{4})$/)
+    if (!m) return null
+    const anoChave = Number(chave.competencia.slice(0, 4))
+    if (!Number.isFinite(anoChave) || Number(m[4]) >= anoChave) return null
+    const distancia = (a: number) =>
+      String(a).split('').filter((c, i) => c !== m[4][i]).length
+    const alvo = distancia(anoChave) <= distancia(anoChave + 1) ? anoChave : anoChave + 1
+    return `${m[1]}${m[2]}${m[3]}${m[2]}${alvo}`
+  }
+
+  const datasCorrigidas: string[] = []
+  for (const c of campos) {
+    const corrigido = corrigirAno(c.valor)
+    if (corrigido) {
+      datasCorrigidas.push(`${c.campo} (${c.valor} → ${corrigido})`)
+      c.valor = corrigido
+    }
+  }
+  if (datasCorrigidas.length) {
+    avisos.push(`Ano corrigido pela chave de acesso em ${datasCorrigidas.join(', ')}.`)
+  }
+
   const valorDe = (campo: string) => moedaParaNumero(campos.find((c) => c.campo === campo)?.valor ?? '')
   const brl = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
