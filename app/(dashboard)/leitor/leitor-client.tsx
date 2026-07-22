@@ -33,28 +33,13 @@ function fmtBRL(n: number | null) {
   return n == null ? '—' : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-/** Reduz a foto para caber no banco e acelerar o OCR (máx. 1500px, JPEG). */
-function reduzirImagem(file: File): Promise<string> {
+/** Carrega o arquivo escolhido como Image, sem redimensionar nada ainda. */
+function carregarImagem(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
       const img = new Image()
-      img.onload = () => {
-        const MAX = 1500
-        let { width, height } = img
-        if (width > MAX || height > MAX) {
-          const r = Math.min(MAX / width, MAX / height)
-          width = Math.round(width * r)
-          height = Math.round(height * r)
-        }
-        const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return reject(new Error('canvas'))
-        ctx.drawImage(img, 0, 0, width, height)
-        resolve(canvas.toDataURL('image/jpeg', 0.72))
-      }
+      img.onload = () => resolve(img)
       img.onerror = reject
       img.src = reader.result as string
     }
@@ -62,6 +47,47 @@ function reduzirImagem(file: File): Promise<string> {
     reader.readAsDataURL(file)
   })
 }
+
+/** Redesenha a imagem com o maior lado limitado a `max`. */
+function redimensionar(img: HTMLImageElement, max: number): HTMLCanvasElement {
+  let { width, height } = img
+  const maior = Math.max(width, height)
+  if (maior !== max) {
+    const r = max / maior
+    width = Math.round(width * r)
+    height = Math.round(height * r)
+  }
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(img, 0, 0, width, height)
+  }
+  return canvas
+}
+
+/** Versão da foto que vai para o banco: leve, só para exibir e anexar. */
+const MAX_ARMAZENAMENTO = 1500
+
+/**
+ * Resolução em que o OCR realmente roda.
+ *
+ * A foto guardada é reduzida para caber no banco, mas o OCR NÃO pode usar essa
+ * versão. Numa DANFE os rótulos são impressos em corpo 4; numa foto de A4 com
+ * 1500px de altura eles ficam com 5 ou 6 pixels — o Tesseract precisa de umas
+ * 20 para acertar, e abaixo disso "VALOR DO FRETE" sai como "varoR DO TEUS".
+ * 3000px no maior lado equivale a ~260 DPI numa folha A4, que é a faixa em que
+ * o Tesseract foi treinado.
+ *
+ * Quando a foto original já é grande (celular moderno tira 3000-4000px), aqui
+ * ela só é ajustada; quando é pequena, o aumento por interpolação ainda ajuda,
+ * porque dá ao reconhecedor traços mais grossos para trabalhar — não cria
+ * detalhe que não existe, mas evita que o texto caia abaixo do tamanho mínimo.
+ */
+const MAX_OCR = 3000
 
 /**
  * Prepara uma versão só para o OCR: escala de cinza + mais contraste + upscale
@@ -77,44 +103,26 @@ function reduzirImagem(file: File): Promise<string> {
  * colorido sólido; piorou a leitura das células normais, então foi revertido
  * em favor do segundo passe por região.)
  */
-function prepararParaOcr(dataUrl: string): Promise<{ cinza: string; colorida: HTMLCanvasElement }> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => {
-      const MIN = 1600
-      let { width, height } = img
-      if (Math.max(width, height) < MIN) {
-        const r = MIN / Math.max(width, height)
-        width = Math.round(width * r)
-        height = Math.round(height * r)
-      }
-      const colorida = document.createElement('canvas')
-      colorida.width = width
-      colorida.height = height
-      const ctxColor = colorida.getContext('2d')
-      if (!ctxColor) return reject(new Error('canvas'))
-      ctxColor.drawImage(img, 0, 0, width, height)
+function prepararParaOcr(img: HTMLImageElement): { cinza: string; colorida: HTMLCanvasElement } {
+  const colorida = redimensionar(img, MAX_OCR)
+  const { width, height } = colorida
 
-      const canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return reject(new Error('canvas'))
-      ctx.drawImage(colorida, 0, 0)
-      const imgData = ctx.getImageData(0, 0, width, height)
-      const d = imgData.data
-      const CONTRAST = 1.35
-      for (let i = 0; i < d.length; i += 4) {
-        const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]
-        const contrastado = Math.min(255, Math.max(0, (gray - 128) * CONTRAST + 128))
-        d[i] = d[i + 1] = d[i + 2] = contrastado
-      }
-      ctx.putImageData(imgData, 0, 0)
-      resolve({ cinza: canvas.toDataURL('image/png'), colorida })
-    }
-    img.onerror = reject
-    img.src = dataUrl
-  })
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('canvas')
+  ctx.drawImage(colorida, 0, 0)
+  const imgData = ctx.getImageData(0, 0, width, height)
+  const d = imgData.data
+  const CONTRAST = 1.35
+  for (let i = 0; i < d.length; i += 4) {
+    const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]
+    const contrastado = Math.min(255, Math.max(0, (gray - 128) * CONTRAST + 128))
+    d[i] = d[i + 1] = d[i + 2] = contrastado
+  }
+  ctx.putImageData(imgData, 0, 0)
+  return { cinza: canvas.toDataURL('image/png'), colorida }
 }
 
 export default function LeitorClient({ documentosIniciais }: { documentosIniciais: DocLista[] }) {
@@ -135,13 +143,16 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
   // chave de acesso conferida e os avisos de conferência.
   const [danfe, setDanfe] = useState<Danfe | null>(null)
   const [origem, setOrigem] = useState<'foto' | 'pdf' | 'xml'>('foto')
+  // Guardadas para permitir reinterpretar a MESMA leitura como DANFE sem
+  // precisar fotografar de novo — o OCR é a parte cara, o parser não.
+  const [palavras, setPalavras] = useState<OcrWord[]>([])
 
   // ---- Detalhe ----
   const [detalhe, setDetalhe] = useState<DocDetalhe | null>(null)
 
   const resetCaptura = useCallback(() => {
     setImagem(null); setTexto(''); setCampos([]); setNome(''); setFase('idle')
-    setProgresso(0); setErro(null); setDanfe(null); setOrigem('foto')
+    setProgresso(0); setErro(null); setDanfe(null); setOrigem('foto'); setPalavras([])
     if (fileRef.current) fileRef.current.value = ''
     if (camRef.current) camRef.current.value = ''
   }, [])
@@ -152,11 +163,12 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
    * extração por colunas (lib/danfe-campos.ts) devolve campos muito melhores que
    * o parser genérico de "rótulo: valor".
    */
-  const montarRevisao = useCallback((palavras: OcrWord[], rotuloOrigem: string) => {
+  const montarRevisao = useCallback((palavras: OcrWord[], rotuloOrigem: string, forcarDanfe = false) => {
     const txt = reconstruirLinhas(palavras)
     setTexto(txt)
+    setPalavras(palavras)
 
-    if (pareceDanfe(txt)) {
+    if (forcarDanfe || pareceDanfe(txt)) {
       const d = extrairDanfe(palavras)
       setDanfe(d)
       setCampos(d.campos)
@@ -219,10 +231,14 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
       if (ehPdf) { setOrigem('pdf'); await lerPdf(file); return }
 
       setOrigem('foto')
-      const dataUrl = await reduzirImagem(file)
-      setImagem(dataUrl)
+      // A foto é carregada UMA vez e serve a dois propósitos com resoluções
+      // diferentes: a versão leve que fica anexada ao documento e a versão
+      // grande em que o OCR roda. Reduzir antes de reconhecer era o que fazia
+      // os rótulos miúdos da DANFE sumirem.
+      const original = await carregarImagem(file)
+      setImagem(redimensionar(original, MAX_ARMAZENAMENTO).toDataURL('image/jpeg', 0.72))
 
-      const { cinza: ocrInput, colorida } = await prepararParaOcr(dataUrl)
+      const { cinza: ocrInput, colorida } = prepararParaOcr(original)
 
       const { default: Tesseract } = await import('tesseract.js')
       // Motor, núcleo WASM e idioma são servidos pelo PRÓPRIO site (public/tesseract),
@@ -543,6 +559,22 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
                     onChange={(e) => setNome(e.target.value)}
                     placeholder="Ex.: Nota Sítio São João — 12/07"
                   />
+
+                  {/* Escape para quando a leitura não reconhecer a nota. O OCR
+                      já rodou; reinterpretar as mesmas palavras é instantâneo,
+                      então não custa nada oferecer o botão. */}
+                  {!danfe && palavras.length > 0 && (
+                    <div style={{ background: '#F0F2F5', borderRadius: 8, padding: 10, marginBottom: 12, fontSize: 13, color: '#65676B' }}>
+                      Não reconheci como nota fiscal — a planilha abaixo veio da leitura genérica.
+                      <button
+                        className="btn-secondary"
+                        style={{ marginLeft: 8, padding: '4px 10px', fontSize: 12 }}
+                        onClick={() => montarRevisao(palavras, 'Documento', true)}
+                      >
+                        <FontAwesomeIcon icon={faShieldHalved} /> Ler como nota fiscal
+                      </button>
+                    </div>
+                  )}
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <span className="meta-section-header" style={{ margin: 0 }}>Planilha extraída</span>

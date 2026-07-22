@@ -557,18 +557,49 @@ function dicasDaPagina(texto: string): DicasChave {
   return dicas
 }
 
-/** A página tem cara de DANFE? */
+/**
+ * A página tem cara de DANFE?
+ *
+ * O teste precisa aguentar OCR ruim. Numa foto de A4 com resolução apertada os
+ * rótulos em corpo 4 saem destroçados — "VALOR DO FRETE" vira "varoR DO TEUS" —
+ * e exigir palavras-chave inteiras faz a detecção falhar justamente na hora em
+ * que a extração especializada seria mais útil. Por isso: muitos sinais fracos
+ * somando, em vez de poucos sinais fortes, e regex tolerante a letra trocada.
+ *
+ * O sinal mais robusto de todos é a própria chave de acesso. Dígito o OCR lê
+ * bem melhor que letra miúda, e 44 números seguidos numa linha não acontecem
+ * por acaso em outro tipo de documento — vale mesmo quando o verificador não
+ * fecha, porque aqui a pergunta é "que documento é este", não "qual é a chave".
+ */
 export function pareceDanfe(texto: string): boolean {
   const t = norm(texto)
   let pontos = 0
-  if (/DANFE/.test(t)) pontos += 2
-  if (/DOCUMENTO AUXILIAR/.test(t)) pontos += 2
-  if (/CHAVE DE ACESSO/.test(t)) pontos += 2
-  if (/NATUREZA D[AO] OPERACAO/.test(t)) pontos++
-  if (/VALOR TOTAL DA NOTA/.test(t)) pontos++
-  if (/DESTINATARIO/.test(t)) pontos++
-  if (/PROTOCOLO DE AUTORIZACAO/.test(t)) pontos++
+
+  // Chave de acesso: 40+ dígitos numa linha só (com ou sem os espaços dos
+  // grupos de 4, e tolerando o OCR ter comido ou inventado alguns).
+  const temSequenciaLonga = (texto ?? '')
+    .split(/\r?\n/)
+    .some((linha) => soDigitos(linha).length >= 40)
+  if (temSequenciaLonga) pontos += 3
   if (acharChave(texto)) pontos += 3
+
+  // Cabeçalho. As variações cobrem as trocas mais comuns do OCR em maiúsculas.
+  if (/D[A4]NF[E3]/.test(t)) pontos += 2
+  if (/DOCUMENT\w* AUXILI\w*/.test(t)) pontos += 2
+  if (/CH[A4]VE\s*D[E3]\s*[A4]C[E3]SS/.test(t)) pontos += 2
+  if (/NOTA FISCAL ELETRONICA|NF-?E\b/.test(t)) pontos += 2
+
+  // Quadros que só existem em nota fiscal.
+  if (/N[A4]TUR[E3]Z[A4]/.test(t)) pontos++
+  if (/D[E3]STIN[A4]T[A4]RIO|REMETENTE/.test(t)) pontos++
+  if (/PROTOCOLO/.test(t)) pontos++
+  if (/C[A4]LCULO DO IMPOSTO/.test(t)) pontos++
+  if (/TR[A4]NSPORT[A4]DOR/.test(t)) pontos++
+  if (/DUPLIC[A4]T[A4]|F[A4]TUR[A4]/.test(t)) pontos++
+  if (/V[A4]LOR TOT[A4]L/.test(t)) pontos++
+  if (/\bNCM\b|\bCFOP\b|\bICMS\b/.test(t)) pontos++
+  if (/INSCRIC[A4]O ESTADU[A4]L/.test(t)) pontos++
+
   return pontos >= 4
 }
 
