@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { binarizarAdaptativo, fundoDesigual, type ImagemRGBA } from '@/lib/ocr-binarizar'
+import { nivelarIluminacao, fundoDesigual, type ImagemRGBA } from '@/lib/ocr-binarizar'
 
 /** Cria uma imagem RGBA com um gerador de tom de cinza por pixel. */
 function imagem(width: number, height: number, tom: (x: number, y: number) => number): ImagemRGBA {
@@ -36,38 +36,56 @@ describe('detecção de fundo desigual', () => {
   })
 })
 
-describe('binarização adaptativa', () => {
-  it('separa texto do papel mesmo com o fundo escurecendo ao longo da página', () => {
-    // O ponto do teste: no canto escuro o PAPEL (120) é mais escuro que a
-    // TINTA do canto claro (170). Nenhum limiar global acerta os dois — é
-    // exatamente o caso que fazia blocos inteiros da DANFE sumirem.
-    const LARG = 240
-    const fundoEm = (x: number) => 250 - Math.round((x / (LARG - 1)) * 130)
-    const ehTinta = (x: number, y: number) => y % 10 < 3 && x % 6 < 3
-    const img = imagem(LARG, 120, (x, y) => (ehTinta(x, y) ? fundoEm(x) - 80 : fundoEm(x)))
+describe('nivelamento de iluminação', () => {
+  const LARG = 240
+  const fundoEm = (x: number) => 250 - Math.round((x / (LARG - 1)) * 130)
+  const ehTinta = (x: number, y: number) => y % 10 < 3 && x % 6 < 3
+  const paginaComSombra = () =>
+    imagem(LARG, 120, (x, y) => (ehTinta(x, y) ? fundoEm(x) - 80 : fundoEm(x)))
 
-    binarizarAdaptativo(img)
+  it('desfaz a inversão que a sombra cria entre tinta e papel', () => {
+    // O ponto: ANTES do nivelamento, a tinta do canto claro (163) é mais CLARA
+    // que o papel do canto escuro (136). Nenhum limiar global separa os dois, e
+    // e por isso que blocos inteiros da DANFE sumiam. Depois do nivelamento, o
+    // papel mais escuro da pagina tem de ficar acima da tinta mais clara.
+    const antes = paginaComSombra()
+    expect(tomEm(antes, 12, 1)).toBeGreaterThan(tomEm(antes, 210, 6)) // inversão
 
-    // Amostras de tinta e de papel dos dois extremos da página.
-    for (const x of [12, 210]) {
-      expect(tomEm(img, x, 1)).toBe(0)    // dentro de uma faixa de tinta
-      expect(tomEm(img, x, 6)).toBe(255)  // entre as faixas: papel
-    }
+    const img = paginaComSombra()
+    nivelarIluminacao(img)
+
+    const papeis = [tomEm(img, 12, 6), tomEm(img, 210, 6)]
+    const tintas = [tomEm(img, 12, 1), tomEm(img, 210, 1)]
+    expect(Math.min(...papeis)).toBeGreaterThan(Math.max(...tintas))
   })
 
-  it('deixa a saída estritamente preto e branco, com alfa opaco', () => {
-    const img = imagem(60, 60, (x, y) => (x + y) % 200)
-    binarizarAdaptativo(img)
+  it('deixa o papel com o mesmo tom nos dois extremos da página', () => {
+    const img = paginaComSombra()
+    nivelarIluminacao(img)
+    // Antes, o papel ia de 243 a 136 — 107 de diferença ao longo da página.
+    const diferenca = Math.abs(tomEm(img, 12, 6) - tomEm(img, 210, 6))
+    expect(diferenca).toBeLessThan(25)
+  })
+
+  it('preserva a escala de cinza, sem binarizar', () => {
+    // Decidir preto ou branco pixel a pixel destruiu os dígitos de corpo 4 numa
+    // leitura real; o limiar tem de ficar com o Tesseract, que olha a forma do
+    // glifo. Aqui garantimos que a saída ainda tem meios-tons.
+    const img = paginaComSombra()
+    nivelarIluminacao(img)
+    let intermediarios = 0
     for (let i = 0; i < img.data.length; i += 4) {
-      expect(img.data[i] === 0 || img.data[i] === 255).toBe(true)
-      expect(img.data[i + 1]).toBe(img.data[i])
-      expect(img.data[i + 2]).toBe(img.data[i])
+      const v = img.data[i]
+      expect(img.data[i + 1]).toBe(v)
+      expect(img.data[i + 2]).toBe(v)
       expect(img.data[i + 3]).toBe(255)
+      if (v > 0 && v < 255) intermediarios++
     }
+    expect(intermediarios).toBeGreaterThan(0)
   })
 
   it('não estoura nem trava em imagem de um pixel de lado', () => {
     const img = imagem(1, 1, () => 128)
-    expect(() => binarizarAdaptativo(img)).not.toThrow()
+    expect(() => nivelarIluminacao(img)).not.toThrow()
   })
 })

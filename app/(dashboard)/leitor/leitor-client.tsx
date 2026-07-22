@@ -9,7 +9,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import { extrairCampos, parseMoneyToNumber, reconstruirLinhas, type CampoExtraido, type OcrWord } from '@/lib/ocr-parse'
 import { detectarRegioesColoridas, normalizarRegiaoColorida, dentroDeAlgumaRegiao, faixasDeTexto } from '@/lib/ocr-regioes'
-import { binarizarAdaptativo, fundoDesigual } from '@/lib/ocr-binarizar'
+import { fundoDesigual, nivelarIluminacao } from '@/lib/ocr-binarizar'
 import { extrairDanfe, pareceDanfe, type Danfe } from '@/lib/danfe-campos'
 import { extrairDanfeDoXml, pareceXmlNfe } from '@/lib/danfe-xml'
 import { extrairPalavrasDoPdf } from '@/lib/pdf-texto'
@@ -126,7 +126,7 @@ function prepararParaOcr(img: HTMLImageElement): {
   // local, ali, realça a textura do fundo e piora a leitura das células.
   const adaptativo = fundoDesigual(imgData)
   if (adaptativo) {
-    binarizarAdaptativo(imgData)
+    nivelarIluminacao(imgData)
   } else {
     const d = imgData.data
     const CONTRAST = 1.35
@@ -258,7 +258,7 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
       setImagem(redimensionar(original, MAX_ARMAZENAMENTO).toDataURL('image/jpeg', 0.72))
 
       const { cinza: ocrInput, colorida, adaptativo } = prepararParaOcr(original)
-      setModoImagem(adaptativo ? 'limiar local (foto)' : 'contraste global (tela)')
+      setModoImagem(adaptativo ? 'iluminacao nivelada (foto)' : 'contraste global (tela)')
 
       const { default: Tesseract } = await import('tesseract.js')
       // Motor, núcleo WASM e idioma são servidos pelo PRÓPRIO site (public/tesseract),

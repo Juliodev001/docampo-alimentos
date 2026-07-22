@@ -9,16 +9,16 @@
  * Numa DANFE fotografada, o efeito foi o bloco "CÁLCULO DO IMPOSTO" inteiro
  * desaparecer do texto reconhecido.
  *
- * A saída é o método de Bradley–Roth: cada pixel é comparado com a MÉDIA da
- * sua vizinhança, não com a página. Onde há sombra, a vizinhança também está
- * escura, e o contraste local entre letra e papel se preserva. A média de
- * qualquer janela sai em tempo constante via imagem integral, então o custo é
- * duas passadas sobre os pixels — irrelevante perto do próprio OCR.
+ * A saída é dividir cada pixel pelo tom local do papel: onde há sombra, a
+ * vizinhança também está escura, e a razão devolve o mesmo cinza que a região
+ * iluminada teria. A média de qualquer janela sai em tempo constante via
+ * imagem integral, então o custo é duas passadas sobre os pixels — irrelevante
+ * perto do próprio OCR.
  *
  * Aplicar isso sempre seria um retrocesso: em captura de tela de planilha o
- * método realça a textura do fundo e piora a leitura das células (já testado
- * e revertido uma vez neste projeto). Por isso `fundoDesigual` decide, medindo
- * se o "branco" da imagem varia de uma região para outra.
+ * tratamento local realça a textura do fundo e piora a leitura das células (já
+ * testado e revertido uma vez neste projeto). Por isso `fundoDesigual` decide,
+ * medindo se o "branco" da imagem varia de uma região para outra.
  */
 
 export type ImagemRGBA = { data: Uint8ClampedArray; width: number; height: number }
@@ -64,15 +64,23 @@ export function fundoDesigual(img: ImagemRGBA, limiar = 38): boolean {
 }
 
 /**
- * Binariza a imagem in place pelo método de Bradley–Roth.
+ * Nivela a iluminação da imagem in place: divide cada pixel pelo tom local do
+ * papel, achatando a sombra e deixando a página com um branco uniforme.
  *
- * `janelaDiv` define o tamanho da vizinhança como uma fração da largura: 1/8 é
- * o valor do artigo original e cobre bem um bloco de texto sem atravessar a
- * página. `t` é a tolerância — quanto o pixel precisa ser mais escuro que a
- * média local, em porcentagem, para virar tinta. Valores altos demais comem
- * texto fino; baixos demais deixam o ruído do papel passar.
+ * A tentação aqui é binarizar direto — decidir preto ou branco por comparação
+ * com a média local (Bradley–Roth). Testado numa DANFE fotografada, isso achou
+ * MAIS texto (48 linhas contra 35) e ao mesmo tempo destruiu os digitos: os
+ * valores monetarios sumiram e a razao social virou ruido. Faz sentido, porque
+ * a letra da nota tem corpo 4 e traço de um pixel; decidir cada pixel
+ * isoladamente engrossa uns e apaga outros, e o que sobra nao e mais um numero.
+ *
+ * Nivelar preserva a escala de cinza e entrega ao Tesseract uma pagina sem
+ * sombra, para ele aplicar o proprio limiar — que e feito para texto e leva em
+ * conta a forma do glifo, nao so o brilho do pixel. A janela grande (1/8 da
+ * largura) faz a media se aproximar do tom do PAPEL, ja que o texto e minoria
+ * de pixels numa area desse tamanho.
  */
-export function binarizarAdaptativo(img: ImagemRGBA, janelaDiv = 8, t = 12): void {
+export function nivelarIluminacao(img: ImagemRGBA, janelaDiv = 8): void {
   const { width: w, height: h, data: d } = img
   const total = w * h
 
@@ -89,7 +97,6 @@ export function binarizarAdaptativo(img: ImagemRGBA, janelaDiv = 8, t = 12): voi
 
   const s = Math.max(2, Math.floor(w / janelaDiv))
   const meio = s >> 1
-  const fator = (100 - t) / 100
 
   for (let y = 0; y < h; y++) {
     const y0 = Math.max(0, y - meio)
@@ -104,11 +111,13 @@ export function binarizarAdaptativo(img: ImagemRGBA, janelaDiv = 8, t = 12): voi
       const a = y0 > 0 && x0 > 0 ? integral[(y0 - 1) * w + (x0 - 1)] : 0
       const b = y0 > 0 ? integral[(y0 - 1) * w + x1] : 0
       const c = x0 > 0 ? integral[y1 * w + (x0 - 1)] : 0
-      const soma = integral[y1 * w + x1] - b - c + a
+      const media = (integral[y1 * w + x1] - b - c + a) / conta
 
+      // Razão entre o pixel e o papel ao redor dele. Onde havia sombra, a
+      // média também está escura, então a razão devolve o mesmo cinza que a
+      // região iluminada teria — a letra continua letra, o papel vira branco.
       const i = (y * w + x) * 4
-      const escuro = luz(d, i) * conta < soma * fator
-      const v = escuro ? 0 : 255
+      const v = Math.min(255, Math.round((luz(d, i) / Math.max(media, 1)) * 235))
       d[i] = d[i + 1] = d[i + 2] = v
       d[i + 3] = 255
     }
