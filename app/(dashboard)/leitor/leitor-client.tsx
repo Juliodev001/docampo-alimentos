@@ -5,9 +5,13 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faCamera, faImage, faTrashCan, faDownload, faPlus, faXmark,
   faSpinner, faTableList, faCheck, faFileLines, faMagnifyingGlass,
+  faFileArrowUp, faFileCode, faFilePdf, faTriangleExclamation, faShieldHalved,
 } from '@fortawesome/free-solid-svg-icons'
 import { extrairCampos, parseMoneyToNumber, reconstruirLinhas, type CampoExtraido, type OcrWord } from '@/lib/ocr-parse'
 import { detectarRegioesColoridas, normalizarRegiaoColorida, dentroDeAlgumaRegiao, faixasDeTexto } from '@/lib/ocr-regioes'
+import { extrairDanfe, pareceDanfe, type Danfe } from '@/lib/danfe-campos'
+import { extrairDanfeDoXml, pareceXmlNfe } from '@/lib/danfe-xml'
+import { extrairPalavrasDoPdf } from '@/lib/pdf-texto'
 
 const GREEN = '#5ab952'
 const NAVY = '#2d3561'
@@ -116,6 +120,7 @@ function prepararParaOcr(dataUrl: string): Promise<{ cinza: string; colorida: HT
 export default function LeitorClient({ documentosIniciais }: { documentosIniciais: DocLista[] }) {
   const [docs, setDocs] = useState<DocLista[]>(documentosIniciais)
   const fileRef = useRef<HTMLInputElement>(null)
+  const camRef = useRef<HTMLInputElement>(null)
 
   // ---- Fluxo de captura ----
   const [imagem, setImagem] = useState<string | null>(null)
@@ -126,15 +131,75 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
   const [progresso, setProgresso] = useState(0)
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
+  // Preenchido só quando o documento é reconhecido como DANFE/NF-e; guarda a
+  // chave de acesso conferida e os avisos de conferência.
+  const [danfe, setDanfe] = useState<Danfe | null>(null)
+  const [origem, setOrigem] = useState<'foto' | 'pdf' | 'xml'>('foto')
 
   // ---- Detalhe ----
   const [detalhe, setDetalhe] = useState<DocDetalhe | null>(null)
 
   const resetCaptura = useCallback(() => {
     setImagem(null); setTexto(''); setCampos([]); setNome(''); setFase('idle')
-    setProgresso(0); setErro(null)
+    setProgresso(0); setErro(null); setDanfe(null); setOrigem('foto')
     if (fileRef.current) fileRef.current.value = ''
+    if (camRef.current) camRef.current.value = ''
   }, [])
+
+  /**
+   * Ponto único de chegada das três origens (foto, PDF, XML): recebe as palavras
+   * já posicionadas na página e decide se o documento é uma DANFE — quando é, a
+   * extração por colunas (lib/danfe-campos.ts) devolve campos muito melhores que
+   * o parser genérico de "rótulo: valor".
+   */
+  const montarRevisao = useCallback((palavras: OcrWord[], rotuloOrigem: string) => {
+    const txt = reconstruirLinhas(palavras)
+    setTexto(txt)
+
+    if (pareceDanfe(txt)) {
+      const d = extrairDanfe(palavras)
+      setDanfe(d)
+      setCampos(d.campos)
+      const num = d.chave ? `NF ${d.chave.numero}` : 'Nota fiscal'
+      const emit = d.campos.find((c) => c.campo === 'Emitente')?.valor
+      setNome(emit ? `${num} — ${emit}` : `${num} — ${new Date().toLocaleDateString('pt-BR')}`)
+    } else {
+      setDanfe(null)
+      const { campos: extraidos } = extrairCampos(txt)
+      setCampos(extraidos)
+      setNome(`${rotuloOrigem} ${new Date().toLocaleDateString('pt-BR')}`)
+    }
+    setFase('revisao')
+  }, [])
+
+  /** XML da NF-e: leitura exata, sem OCR — o caminho mais confiável de todos. */
+  const lerXml = useCallback(async (file: File) => {
+    const conteudo = await file.text()
+    if (!pareceXmlNfe(conteudo)) {
+      throw new Error('Esse XML não parece ser de uma NF-e. Envie o arquivo da nota (que contém a tag infNFe).')
+    }
+    const d = extrairDanfeDoXml(conteudo)
+    if (!d) throw new Error('Não consegui interpretar esse XML de NF-e.')
+    setDanfe(d)
+    setCampos(d.campos)
+    setTexto(conteudo.slice(0, 20000))
+    const emit = d.campos.find((c) => c.campo === 'Emitente')?.valor
+    setNome(`NF ${d.chave?.numero ?? ''} — ${emit ?? 'XML'}`.replace(/\s+—\s+$/, '').trim())
+    setFase('revisao')
+  }, [])
+
+  /** PDF de texto (o que os emissores geram): extrai as palavras com posição. */
+  const lerPdf = useCallback(async (file: File) => {
+    const { palavras, motivo } = await extrairPalavrasDoPdf(await file.arrayBuffer())
+    if (motivo === 'cifrado') {
+      throw new Error('Esse PDF está protegido por senha — não dá para ler o texto. Tente o XML da nota ou uma foto.')
+    }
+    if (motivo === 'invalido') throw new Error('Esse arquivo não é um PDF válido.')
+    if (motivo === 'sem-texto') {
+      throw new Error('Esse PDF não tem texto — parece ser uma imagem escaneada. Envie a foto direto pelo botão Fotografar, que aí o app usa o OCR.')
+    }
+    montarRevisao(palavras, 'PDF')
+  }, [montarRevisao])
 
   const onPickFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -142,7 +207,18 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
     setErro(null)
     setFase('lendo')
     setProgresso(0)
+    setDanfe(null)
+    setImagem(null)
+
+    const nomeArq = file.name.toLowerCase()
+    const ehXml = nomeArq.endsWith('.xml') || file.type.includes('xml')
+    const ehPdf = nomeArq.endsWith('.pdf') || file.type === 'application/pdf'
+
     try {
+      if (ehXml) { setOrigem('xml'); await lerXml(file); return }
+      if (ehPdf) { setOrigem('pdf'); await lerPdf(file); return }
+
+      setOrigem('foto')
       const dataUrl = await reduzirImagem(file)
       setImagem(dataUrl)
 
@@ -242,29 +318,46 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
       }
 
       await worker.terminate()
-      // Reconstrói as linhas pela posição real das palavras na imagem — mais
-      // confiável que a segmentação de linha do Tesseract em tabelas com
-      // células coloridas/com borda (célula por célula perde o contexto da linha).
-      const txt = reconstruirLinhas(palavras) || data.text || ''
-      setTexto(txt)
-      const { campos: extraidos } = extrairCampos(txt)
-      setCampos(extraidos)
-      // sugere um nome padrão com a data de hoje
-      setNome(`Documento ${new Date().toLocaleDateString('pt-BR')}`)
-      setFase('revisao')
+      // As linhas são reconstruídas pela posição real das palavras na imagem —
+      // mais confiável que a segmentação do Tesseract em tabelas com células
+      // coloridas/com borda, e é o que permite ler a grade da DANFE por coluna.
+      if (palavras.length) {
+        montarRevisao(palavras, 'Documento')
+      } else {
+        // O Tesseract não devolveu palavras posicionadas: resta o texto corrido.
+        const txt = data.text || ''
+        setTexto(txt)
+        setDanfe(null)
+        setCampos(extrairCampos(txt).campos)
+        setNome(`Documento ${new Date().toLocaleDateString('pt-BR')}`)
+        setFase('revisao')
+      }
     } catch (err) {
       console.error(err)
-      setErro('Não consegui ler a imagem. Tente uma foto mais nítida e bem enquadrada.')
+      setErro(
+        (ehXml || ehPdf) && err instanceof Error && err.message
+          ? err.message
+          : 'Não consegui ler a imagem. Tente uma foto mais nítida e bem enquadrada.'
+      )
       setFase('idle')
     }
-  }, [])
+  }, [lerXml, lerPdf, montarRevisao])
 
   const setCampo = (i: number, patch: Partial<CampoExtraido>) =>
     setCampos((cs) => cs.map((c, idx) => (idx === i ? { ...c, ...patch } : c)))
   const removerCampo = (i: number) => setCampos((cs) => cs.filter((_, idx) => idx !== i))
   const adicionarCampo = () => setCampos((cs) => [...cs, { campo: '', valor: '' }])
 
+  /**
+   * Numa DANFE o total não é palpite: é o campo "Valor total da nota". Só fora
+   * dela vale o chute do maior valor da planilha — e mesmo aqui a leitura sai
+   * dos campos EDITADOS, para o total acompanhar as correções do usuário.
+   */
   const totalDetectado = (() => {
+    if (danfe) {
+      const t = parseMoneyToNumber(campos.find((c) => c.campo === 'Valor total da nota')?.valor ?? '')
+      if (t != null) return t
+    }
     const nums = campos
       .map((c) => parseMoneyToNumber(c.valor))
       .filter((n): n is number => n != null)
@@ -311,11 +404,21 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
 
   return (
     <div>
+      {/* Dois inputs: um abre a câmera direto (capture), o outro o gerenciador
+          de arquivos — no celular, um input com capture não deixa escolher um
+          PDF ou XML já salvo no aparelho. */}
       <input
-        ref={fileRef}
+        ref={camRef}
         type="file"
         accept="image/*"
         capture="environment"
+        onChange={onPickFile}
+        style={{ display: 'none' }}
+      />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*,application/pdf,.pdf,text/xml,application/xml,.xml"
         onChange={onPickFile}
         style={{ display: 'none' }}
       />
@@ -325,12 +428,16 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
         <div>
           <h1 className="page-title">Leitor de Documentos</h1>
           <p className="page-subtitle">
-            Fotografe uma nota, recibo ou romaneio pelo celular — o app lê os valores e monta uma planilha.
+            Fotografe uma nota fiscal, recibo ou romaneio — ou envie o XML/PDF da NF-e.
+            O app lê os campos e monta uma planilha com a foto anexada.
           </p>
         </div>
-        <div className="header-actions" style={{ display: 'flex', gap: 8 }}>
-          <button className="btn-primary" onClick={() => fileRef.current?.click()} disabled={fase === 'lendo'}>
-            <FontAwesomeIcon icon={faCamera} /> Fotografar / Enviar
+        <div className="header-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn-primary" onClick={() => camRef.current?.click()} disabled={fase === 'lendo'}>
+            <FontAwesomeIcon icon={faCamera} /> Fotografar
+          </button>
+          <button className="btn-secondary" onClick={() => fileRef.current?.click()} disabled={fase === 'lendo'}>
+            <FontAwesomeIcon icon={faFileArrowUp} /> Enviar arquivo
           </button>
         </div>
       </div>
@@ -348,6 +455,48 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
           </div>
 
           <div className="meta-card-body">
+            {/* Faixa da NF-e: só aparece quando o documento foi reconhecido como
+                DANFE. Verde = a chave fechou o dígito verificador, então número,
+                série e emitente saíram dela e estão conferidos. Âmbar = a chave
+                não fechou; os campos batem com os impressos, mas pedem olhada. */}
+            {fase === 'revisao' && danfe?.chave && (
+              <div style={{
+                background: danfe.conferencia === 'dv' ? '#F0F7EF' : '#FFF8E6',
+                border: `1px solid ${danfe.conferencia === 'dv' ? GREEN : '#E8B800'}`,
+                borderRadius: 8, padding: 12, marginBottom: 16,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: NAVY, fontWeight: 700, fontSize: 14, flexWrap: 'wrap' }}>
+                  <FontAwesomeIcon
+                    icon={danfe.conferencia === 'dv' ? faShieldHalved : faTriangleExclamation}
+                    style={{ color: danfe.conferencia === 'dv' ? GREEN : '#E8B800' }}
+                  />
+                  {danfe.chave.modeloNome} nº {danfe.chave.numero} · série {Number(danfe.chave.serie)} · {danfe.chave.uf}
+                  {origem === 'xml' && <span style={{ fontWeight: 600, color: GREEN }}>· lido do XML (exato)</span>}
+                  {origem === 'pdf' && <span style={{ fontWeight: 600, color: GREEN }}>· lido do PDF</span>}
+                </div>
+                <div style={{ fontSize: 12, color: '#65676B', marginTop: 6, fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                  {danfe.chave.chave.replace(/(\d{4})(?=\d)/g, '$1 ').trim()}
+                </div>
+                <div style={{ fontSize: 12, color: '#65676B', marginTop: 4 }}>
+                  {danfe.conferencia === 'dv'
+                    ? 'Chave conferida pelo dígito verificador — emitente, número, série e competência vieram dela.'
+                    : 'Chave não fechou o dígito verificador, mas número, série e CNPJ conferem com os impressos na página. Confira a chave antes de usar.'}
+                </div>
+              </div>
+            )}
+
+            {/* Conferências que não fecharam — o usuário decide o que fazer. */}
+            {fase === 'revisao' && !!danfe?.avisos.length && (
+              <div style={{ background: '#FFF8E6', border: '1px solid #E8B800', borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#8A6D00', fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
+                  <FontAwesomeIcon icon={faTriangleExclamation} /> Confira estes pontos
+                </div>
+                <ul style={{ margin: 0, paddingLeft: 20, color: '#65676B', fontSize: 13, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {danfe.avisos.map((a, i) => <li key={i}>{a}</li>)}
+                </ul>
+              </div>
+            )}
+
             <div className="grid-2-lg" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
               {/* Foto */}
               <div>
@@ -355,8 +504,14 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={imagem} alt="documento" style={{ width: '100%', borderRadius: 8, border: '1px solid #E4E6EB' }} />
                 ) : (
-                  <div style={{ height: 200, borderRadius: 8, background: '#F0F2F5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8A8D91' }}>
-                    <FontAwesomeIcon icon={faImage} size="2x" />
+                  <div style={{ minHeight: 200, borderRadius: 8, background: '#F0F2F5', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', justifyContent: 'center', color: '#8A8D91', padding: 20, textAlign: 'center' }}>
+                    <FontAwesomeIcon icon={origem === 'xml' ? faFileCode : origem === 'pdf' ? faFilePdf : faImage} size="2x" />
+                    {fase === 'revisao' && origem !== 'foto' && (
+                      <span style={{ fontSize: 13 }}>
+                        Documento lido do arquivo {origem === 'xml' ? 'XML' : 'PDF'} — sem foto anexada.
+                        Se quiser guardar a nota em papel junto, fotografe pelo botão <strong>Fotografar</strong>.
+                      </span>
+                    )}
                   </div>
                 )}
 
@@ -479,6 +634,14 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
                       <a className="btn-secondary" style={{ padding: '5px 10px', marginRight: 6 }} href={`/api/documentos/${d.id}/export`}>
                         <FontAwesomeIcon icon={faDownload} /> CSV
                       </a>
+                      <a
+                        className="btn-secondary"
+                        style={{ padding: '5px 10px', marginRight: 6 }}
+                        href={`/api/documentos/${d.id}/export?formato=html`}
+                        title="Planilha com a foto do documento anexada, num arquivo só"
+                      >
+                        <FontAwesomeIcon icon={faImage} /> Com foto
+                      </a>
                       <button className="btn-secondary" style={{ padding: '5px 10px', color: PINK }} onClick={() => excluir(d.id)}>
                         <FontAwesomeIcon icon={faTrashCan} />
                       </button>
@@ -523,9 +686,12 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
                   </table>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                <a className="btn-primary" href={`/api/documentos/${detalhe.id}/export`}>
-                  <FontAwesomeIcon icon={faDownload} /> Baixar planilha (CSV)
+              <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+                <a className="btn-primary" href={`/api/documentos/${detalhe.id}/export?formato=html`}>
+                  <FontAwesomeIcon icon={faImage} /> Baixar com a foto
+                </a>
+                <a className="btn-secondary" href={`/api/documentos/${detalhe.id}/export`}>
+                  <FontAwesomeIcon icon={faDownload} /> Só a planilha (CSV)
                 </a>
                 <button className="btn-secondary" style={{ color: PINK }} onClick={() => excluir(detalhe.id)}>
                   <FontAwesomeIcon icon={faTrashCan} /> Excluir

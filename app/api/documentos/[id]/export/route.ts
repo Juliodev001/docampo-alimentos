@@ -1,34 +1,14 @@
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 import { NextResponse } from 'next/server'
-
-type CampoExtraido = { campo: string; valor: string }
+import { csvCell, paginaHtml, slugify, type CampoExtraido } from '@/lib/documento-export'
 
 /**
- * Escapa um campo para CSV. O separador é ";" (padrão pt-BR/Excel), mas os
- * valores em real têm VÍRGULA decimal ("192,00") — sem aspas, o LibreOffice
- * acaba usando a vírgula como separador e quebra a linha em várias colunas.
- * Por isso citamos qualquer célula com vírgula, ponto-e-vírgula, aspas ou quebra.
+ * GET /api/documentos/:id/export — baixa a planilha do documento.
+ * `?formato=html` traz a FOTO anexada junto da planilha, num arquivo só;
+ * sem o parâmetro, sai o CSV (dados puros, para abrir no Excel).
  */
-function csvCell(v: string): string {
-  const s = String(v ?? '')
-  return /[",;\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
-
-/** Slug de arquivo sem acentos nem caracteres especiais. */
-function slugify(nome: string): string {
-  return (
-    nome
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '') // remove marcas de acento
-      .replace(/[^a-zA-Z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .toLowerCase() || 'documento'
-  )
-}
-
-/** GET /api/documentos/:id/export — baixa a planilha (CSV) do documento. */
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
   if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -37,6 +17,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!doc) return NextResponse.json({ error: 'Documento não encontrado' }, { status: 404 })
 
   const campos = (Array.isArray(doc.campos) ? doc.campos : []) as unknown as CampoExtraido[]
+  const formato = new URL(req.url).searchParams.get('formato')
+
+  if (formato === 'html') {
+    return new NextResponse(paginaHtml({ ...doc, campos }), {
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${slugify(doc.nome)}.html"`,
+        // O arquivo carrega a imagem embutida e nada mais; a CSP fecha a porta
+        // para qualquer script caso um dia entre conteúdo inesperado nos campos.
+        'Content-Security-Policy': "default-src 'none'; img-src data:; style-src 'unsafe-inline'",
+      },
+    })
+  }
 
   const linhas = [['Campo', 'Valor'], ...campos.map((c) => [c.campo, c.valor])]
   // BOM (﻿) faz o Excel abrir em UTF-8 e mostrar os acentos corretamente.

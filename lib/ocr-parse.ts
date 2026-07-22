@@ -74,23 +74,29 @@ export function formatBRNumber(n: number): string {
   return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+/** Uma linha visual da página: as palavras que dividem a mesma faixa horizontal. */
+export type LinhaVisual = { yCentro: number; palavras: OcrWord[] }
+
 /**
- * Reconstrói linhas de texto a partir das palavras com bounding box do Tesseract,
- * agrupando por proximidade vertical (linha visual), em vez de confiar na
- * segmentação de linha do próprio Tesseract. Tabelas com células de fundo
- * colorido/borda (ex.: screenshot de planilha) costumam ser lidas célula por
- * célula pelo Tesseract, perdendo o contexto da linha (produto separado do
- * valor); reagrupar pela posição real na imagem recupera essa linha.
+ * Agrupa as palavras (com bounding box) em linhas visuais, por proximidade
+ * vertical, em vez de confiar na segmentação de linha do próprio Tesseract.
+ * Tabelas com células de fundo colorido/borda (ex.: screenshot de planilha, ou
+ * a grade de uma DANFE) costumam ser lidas célula por célula pelo Tesseract,
+ * perdendo o contexto da linha (produto separado do valor); reagrupar pela
+ * posição real na imagem recupera essa linha.
+ *
+ * Devolve as linhas ordenadas de cima para baixo, com as palavras de cada uma
+ * ordenadas da esquerda para a direita — quem precisa de coluna (ver
+ * lib/danfe-campos.ts) usa os bbox; quem só quer texto usa reconstruirLinhas.
  */
-export function reconstruirLinhas(words: OcrWord[]): string {
-  if (!words.length) return ''
+export function agruparLinhas(words: OcrWord[]): LinhaVisual[] {
+  if (!words.length) return []
 
   const alturas = words.map((w) => w.bbox.y1 - w.bbox.y0).sort((a, b) => a - b)
   const alturaMediana = alturas[Math.floor(alturas.length / 2)] || 20
   const tolerancia = alturaMediana * 0.6
 
-  type Linha = { yCentro: number; palavras: OcrWord[] }
-  const linhas: Linha[] = []
+  const linhas: LinhaVisual[] = []
 
   for (const w of [...words].sort((a, b) => a.bbox.y0 - b.bbox.y0)) {
     const yCentro = (w.bbox.y0 + w.bbox.y1) / 2
@@ -103,9 +109,15 @@ export function reconstruirLinhas(words: OcrWord[]): string {
     }
   }
 
+  linhas.sort((a, b) => a.yCentro - b.yCentro)
+  for (const l of linhas) l.palavras.sort((a, b) => a.bbox.x0 - b.bbox.x0)
   return linhas
-    .sort((a, b) => a.yCentro - b.yCentro)
-    .map((l) => l.palavras.sort((a, b) => a.bbox.x0 - b.bbox.x0).map((w) => w.text).join(' '))
+}
+
+/** Texto da página com as linhas reconstruídas pela posição real das palavras. */
+export function reconstruirLinhas(words: OcrWord[]): string {
+  return agruparLinhas(words)
+    .map((l) => l.palavras.map((w) => w.text).join(' '))
     .join('\n')
 }
 
