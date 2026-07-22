@@ -468,7 +468,7 @@ type Emitente = { nome: string; endereco: string; municipio: string; uf: string 
 const INICIO_LOGRADOURO =
   /^(RUA|R\.|AVENIDA|AV\.?|ALAMEDA|AL\.|PRACA|PC\.|RODOVIA|ROD\.|ESTRADA|ESTR\.|TRAVESSA|TRAV\.|SITIO|FAZENDA|LARGO)\b/
 
-function acharEmitente(linhas: LinhaVisual[]): Emitente {
+function acharEmitente(linhas: LinhaVisual[], yDest: number): Emitente {
   const vazio: Emitente = { nome: '', endereco: '', municipio: '', uf: '' }
   const larguraPagina = Math.max(...linhas.flatMap((l) => l.palavras.map((w) => w.bbox.x1)), 1)
   const meio = larguraPagina * 0.5
@@ -476,29 +476,45 @@ function acharEmitente(linhas: LinhaVisual[]): Emitente {
   const esquerdaDe = (i: number) =>
     (linhas[i]?.palavras ?? []).filter((w) => w.bbox.x0 < meio).map((w) => w.text).join(' ').trim()
 
-  const limite = Math.min(linhas.length, 14)
-  for (let i = 0; i < limite; i++) {
-    const bruto = esquerdaDe(i)
-    const t = norm(bruto)
-    if (t.length < 8) continue
-    if (BOILERPLATE_CABECALHO.test(t)) continue
-    if (/^[\d\s.,/:-]+$/.test(t)) continue // só números (chave, protocolo, CEP)
+  /**
+   * Âncora: a palavra "DANFE" fica no quadro central do cabeçalho, na MESMA
+   * faixa horizontal da razão social do emitente. Partir dela é bem mais
+   * seguro que varrer o topo da página procurando "a primeira linha que não
+   * parece boilerplate" — em cima do emitente esta o canhoto, cheio de texto
+   * ("DATA DE RECEBIMENTO", "ASSINATURA DO RECEBEDOR"), e basta o OCR errar uma
+   * letra para a linha escapar de qualquer lista de dispensas: foi assim que o
+   * emitente virou "DATA DE RECEMIVENTO" numa leitura real.
+   */
+  let inicio = linhas.findIndex((l) =>
+    /D[A4]NF[E3]/.test(norm(l.palavras.map((w) => w.text).join(' ')))
+  )
 
-    // Achado o nome, o endereço e a cidade vêm nas linhas logo abaixo, também
-    // sem rótulo. Olhamos poucas linhas adiante e só aceitamos o que tem forma
-    // de logradouro e de "Cidade/UF" — o resto do bloco (CEP, fone, site) fica
-    // de fora, e é lido pelos rótulos próprios quando existem.
-    const out: Emitente = { nome: bruto, endereco: '', municipio: '', uf: '' }
-    for (let k = i + 1; k < Math.min(i + 5, linhas.length); k++) {
-      const linha = esquerdaDe(k)
-      if (!linha) continue
-      if (!out.endereco && INICIO_LOGRADOURO.test(norm(linha))) { out.endereco = linha; continue }
-      const cidadeUf = linha.match(/^(.+?)\s*\/\s*([A-Z]{2})$/)
-      if (!out.municipio && cidadeUf) { out.municipio = cidadeUf[1].trim(); out.uf = cidadeUf[2] }
-    }
-    return out
+  if (inicio < 0) {
+    // Sem a âncora, cai na varredura do topo — melhor que não devolver nada.
+    inicio = linhas.findIndex((l, i) => {
+      const t = norm(esquerdaDe(i))
+      return t.length >= 8 && !BOILERPLATE_CABECALHO.test(t) && !/^[\d\s.,/:-]+$/.test(t) && !!l
+    })
+    if (inicio < 0) return vazio
   }
-  return vazio
+
+  const nome = esquerdaDe(inicio)
+  if (!nome || nome.length < 4) return vazio
+
+  // Endereço e cidade vêm nas linhas logo abaixo, também sem rótulo. Só
+  // aceitamos o que tem forma de logradouro e de "Cidade/UF", e nunca abaixo da
+  // faixa do destinatário — sem esse limite, o endereço do destinatário acaba
+  // registrado como sendo do emitente.
+  const out: Emitente = { nome, endereco: '', municipio: '', uf: '' }
+  for (let k = inicio + 1; k < Math.min(inicio + 5, linhas.length); k++) {
+    if (linhas[k].yCentro >= yDest) break
+    const linha = esquerdaDe(k)
+    if (!linha) continue
+    if (!out.endereco && INICIO_LOGRADOURO.test(norm(linha))) { out.endereco = linha; continue }
+    const cidadeUf = linha.match(/^(.+?)\s*\/\s*([A-Z]{2})$/)
+    if (!out.municipio && cidadeUf) { out.municipio = cidadeUf[1].trim(); out.uf = cidadeUf[2] }
+  }
+  return out
 }
 
 /**
@@ -689,7 +705,7 @@ export function extrairDanfe(palavras: OcrWord[]): Danfe {
   })
 
   // ── 3. Emitente, duplicatas e itens ─────────────────────────────────────
-  const emitente = acharEmitente(linhas)
+  const emitente = acharEmitente(linhas, yDest)
   if (emitente.nome) {
     // `unshift` para o emitente encabeçar a planilha, junto do nome da nota.
     campos.unshift({ campo: 'Emitente', valor: emitente.nome })

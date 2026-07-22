@@ -610,6 +610,30 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
 
                   {erro && <p style={{ color: PINK, fontSize: 13, marginTop: 10 }}>{erro}</p>}
 
+                  {/* Quando um campo sai errado, a pergunta é sempre a mesma: o
+                      OCR leu mal ou o parser interpretou mal? Sem ver o texto
+                      cru não dá para saber, e ficar adivinhando custa uma
+                      viagem inteira de foto + leitura a cada tentativa. */}
+                  {!!texto && (
+                    <details style={{ marginTop: 14 }}>
+                      <summary style={{ cursor: 'pointer', fontSize: 13, color: '#65676B', fontWeight: 600 }}>
+                        Ver o texto lido pelo OCR ({texto.split('\n').length} linhas)
+                      </summary>
+                      <pre style={{
+                        marginTop: 8, maxHeight: 240, overflow: 'auto', background: '#F0F2F5',
+                        borderRadius: 8, padding: 10, fontSize: 11, lineHeight: 1.5,
+                        whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: '#1C1E21',
+                      }}>{texto}</pre>
+                      <button
+                        className="btn-secondary"
+                        style={{ marginTop: 6, padding: '4px 10px', fontSize: 12 }}
+                        onClick={() => navigator.clipboard?.writeText(texto)}
+                      >
+                        <FontAwesomeIcon icon={faFileLines} /> Copiar texto
+                      </button>
+                    </details>
+                  )}
+
                   <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
                     <button className="btn-primary" onClick={salvar} disabled={salvando}>
                       <FontAwesomeIcon icon={salvando ? faSpinner : faCheck} spin={salvando} /> Salvar planilha
