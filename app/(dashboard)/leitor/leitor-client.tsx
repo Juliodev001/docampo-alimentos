@@ -9,6 +9,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import { extrairCampos, parseMoneyToNumber, reconstruirLinhas, type CampoExtraido, type OcrWord } from '@/lib/ocr-parse'
 import { detectarRegioesColoridas, normalizarRegiaoColorida, dentroDeAlgumaRegiao, faixasDeTexto } from '@/lib/ocr-regioes'
+import { binarizarAdaptativo, fundoDesigual } from '@/lib/ocr-binarizar'
 import { extrairDanfe, pareceDanfe, type Danfe } from '@/lib/danfe-campos'
 import { extrairDanfeDoXml, pareceXmlNfe } from '@/lib/danfe-xml'
 import { extrairPalavrasDoPdf } from '@/lib/pdf-texto'
@@ -103,7 +104,11 @@ const MAX_OCR = 3000
  * colorido sólido; piorou a leitura das células normais, então foi revertido
  * em favor do segundo passe por região.)
  */
-function prepararParaOcr(img: HTMLImageElement): { cinza: string; colorida: HTMLCanvasElement } {
+function prepararParaOcr(img: HTMLImageElement): {
+  cinza: string
+  colorida: HTMLCanvasElement
+  adaptativo: boolean
+} {
   const colorida = redimensionar(img, MAX_OCR)
   const { width, height } = colorida
 
@@ -114,15 +119,26 @@ function prepararParaOcr(img: HTMLImageElement): { cinza: string; colorida: HTML
   if (!ctx) throw new Error('canvas')
   ctx.drawImage(colorida, 0, 0)
   const imgData = ctx.getImageData(0, 0, width, height)
-  const d = imgData.data
-  const CONTRAST = 1.35
-  for (let i = 0; i < d.length; i += 4) {
-    const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]
-    const contrastado = Math.min(255, Math.max(0, (gray - 128) * CONTRAST + 128))
-    d[i] = d[i + 1] = d[i + 2] = contrastado
+
+  // Duas estratégias, escolhidas pela imagem e não por chute: papel fotografado
+  // tem iluminação desigual e precisa de limiar local; captura de tela tem
+  // fundo uniforme e vai melhor com o realce global de contraste — o limiar
+  // local, ali, realça a textura do fundo e piora a leitura das células.
+  const adaptativo = fundoDesigual(imgData)
+  if (adaptativo) {
+    binarizarAdaptativo(imgData)
+  } else {
+    const d = imgData.data
+    const CONTRAST = 1.35
+    for (let i = 0; i < d.length; i += 4) {
+      const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]
+      const contrastado = Math.min(255, Math.max(0, (gray - 128) * CONTRAST + 128))
+      d[i] = d[i + 1] = d[i + 2] = contrastado
+    }
   }
+
   ctx.putImageData(imgData, 0, 0)
-  return { cinza: canvas.toDataURL('image/png'), colorida }
+  return { cinza: canvas.toDataURL('image/png'), colorida, adaptativo }
 }
 
 export default function LeitorClient({ documentosIniciais }: { documentosIniciais: DocLista[] }) {
@@ -146,13 +162,16 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
   // Guardadas para permitir reinterpretar a MESMA leitura como DANFE sem
   // precisar fotografar de novo — o OCR é a parte cara, o parser não.
   const [palavras, setPalavras] = useState<OcrWord[]>([])
+  /** Qual preparo de imagem o OCR usou — aparece no painel de diagnóstico. */
+  const [modoImagem, setModoImagem] = useState('')
 
   // ---- Detalhe ----
   const [detalhe, setDetalhe] = useState<DocDetalhe | null>(null)
 
   const resetCaptura = useCallback(() => {
     setImagem(null); setTexto(''); setCampos([]); setNome(''); setFase('idle')
-    setProgresso(0); setErro(null); setDanfe(null); setOrigem('foto'); setPalavras([])
+    setProgresso(0); setErro(null); setDanfe(null); setOrigem('foto')
+    setPalavras([]); setModoImagem('')
     if (fileRef.current) fileRef.current.value = ''
     if (camRef.current) camRef.current.value = ''
   }, [])
@@ -238,7 +257,8 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
       const original = await carregarImagem(file)
       setImagem(redimensionar(original, MAX_ARMAZENAMENTO).toDataURL('image/jpeg', 0.72))
 
-      const { cinza: ocrInput, colorida } = prepararParaOcr(original)
+      const { cinza: ocrInput, colorida, adaptativo } = prepararParaOcr(original)
+      setModoImagem(adaptativo ? 'limiar local (foto)' : 'contraste global (tela)')
 
       const { default: Tesseract } = await import('tesseract.js')
       // Motor, núcleo WASM e idioma são servidos pelo PRÓPRIO site (public/tesseract),
@@ -617,7 +637,8 @@ export default function LeitorClient({ documentosIniciais }: { documentosIniciai
                   {!!texto && (
                     <details style={{ marginTop: 14 }}>
                       <summary style={{ cursor: 'pointer', fontSize: 13, color: '#65676B', fontWeight: 600 }}>
-                        Ver o texto lido pelo OCR ({texto.split('\n').length} linhas)
+                        Ver o texto lido pelo OCR ({texto.split('\n').length} linhas
+                        {modoImagem ? `, ${modoImagem}` : ''})
                       </summary>
                       <pre style={{
                         marginTop: 8, maxHeight: 240, overflow: 'auto', background: '#F0F2F5',
