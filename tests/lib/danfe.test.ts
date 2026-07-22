@@ -213,6 +213,28 @@ describe('leitura da grade da DANFE', () => {
     expect(d.avisos.some((a) => /não bate/.test(a))).toBe(false)
   })
 
+  it('separa emitente de destinatario mesmo sem ler a faixa DESTINATARIO', () => {
+    // A faixa "DESTINATÁRIO/REMETENTE" e impressa em corpo minusculo e as vezes
+    // nao e lida. Sem fronteira, TUDO virava emitente — e o endereco do
+    // destinatario aparecia como "Endereco (emitente)" numa leitura real.
+    const pagina: OcrWord[] = [
+      ...celula('DANFE CHAVE DE ACESSO', 0, 300, 0),
+      ...celula('3126 0719 4241 5900 0323 5500 2000 1906 9010 0530 2779', 0, 600, 30),
+      // Primeira linha do bloco do destinatario, sem a faixa que o nomeia.
+      ...celula('NOME / RAZAO SOCIAL', 0, 200, 100),
+      ...celula('DATA DA EMISSAO', 600, 750, 100),
+      ...celula('6169 - MARCOS HENRIQUE TAVEIRA', 0, 250, 130),
+      ...celula('21/07/2026', 610, 700, 130),
+      ...celula('ENDERECO', 0, 100, 160),
+      ...celula('SITIO AGROPECUARIA NOVA CONQUISTA, 1', 0, 300, 190),
+    ]
+    const d = extrairDanfe(pagina)
+    const valor = (campo: string) => d.campos.find((c) => c.campo === campo)?.valor
+
+    expect(valor('Endereço (destinatário)')).toBe('SITIO AGROPECUARIA NOVA CONQUISTA, 1')
+    expect(valor('Endereço (emitente)')).toBeUndefined()
+  })
+
   it('deduz o total dos produtos quando so aquele quadro nao foi lido', () => {
     // Aconteceu numa leitura real: tudo saiu certo menos "VALOR TOTAL DOS
     // PRODUTOS". Como a nota fecha em total = produtos − desconto + encargos,

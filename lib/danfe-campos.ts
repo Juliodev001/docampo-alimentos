@@ -335,8 +335,22 @@ function escolherValor(
  * as duas, e é ela que decide qual sufixo cada campo repetido recebe.
  */
 function yDoDestinatario(linhas: LinhaVisual[]): number {
-  const i = linhas.findIndex((l) => /DESTINATARIO ?\/? ?(REMETENTE)?/.test(norm(l.palavras.map((w) => w.text).join(' '))))
-  return i >= 0 ? linhas[i].yCentro : Infinity
+  const textos = linhas.map((l) => norm(l.palavras.map((w) => w.text).join(' ')))
+
+  const i = textos.findIndex((t) => /DESTINATARIO ?\/? ?(REMETENTE)?/.test(t))
+  if (i >= 0) return linhas[i].yCentro
+
+  /**
+   * A faixa "DESTINATÁRIO/REMETENTE" é impressa em corpo minúsculo e às vezes
+   * não é lida. Sem ela a fronteira ficava no infinito e TUDO virava emitente —
+   * numa leitura real, o endereço do destinatário foi registrado como sendo do
+   * emitente. Os rótulos da primeira linha do bloco servem de substituto: são
+   * maiores, e nenhum deles existe acima dessa faixa.
+   */
+  const alternativa = textos.findIndex((t) =>
+    /NOME ?\/ ?RAZAO SOCIAL|CNPJ ?\/ ?CPF|DATA D[AE] EMISSAO/.test(t)
+  )
+  return alternativa >= 0 ? linhas[alternativa].yCentro : Infinity
 }
 
 /**
