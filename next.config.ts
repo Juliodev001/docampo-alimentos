@@ -31,6 +31,13 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  // Em desenvolvimento o Next só atende requisições vindas do host com que foi
+  // iniciado (localhost); qualquer outra origem é barrada nos assets de dev.
+  // Sem isto, abrir o app pelo IP da rede — que é como se testa a câmera no
+  // celular — carrega a página mas quebra o HMR e os chunks de /_next.
+  // Vale só em `next dev`; o build de produção ignora esta lista.
+  // O IP vem do DHCP: se a rede mudar, atualize aqui (ipconfig / hostname -I).
+  allowedDevOrigins: ['192.168.18.74'],
   async headers() {
     return [{ source: '/(.*)', headers: SECURITY_HEADERS }]
   },
