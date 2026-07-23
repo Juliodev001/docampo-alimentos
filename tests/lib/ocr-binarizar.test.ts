@@ -73,14 +73,18 @@ describe('nivelamento de iluminação', () => {
     // glifo. Aqui garantimos que a saída ainda tem meios-tons.
     const img = paginaComSombra()
     nivelarIluminacao(img)
+    // Uma asserção por pixel deixaria o teste em dezenas de milhares de
+    // verificações; agregamos e conferimos o resumo.
     let intermediarios = 0
+    let foraDaEscalaDeCinza = 0
     for (let i = 0; i < img.data.length; i += 4) {
       const v = img.data[i]
-      expect(img.data[i + 1]).toBe(v)
-      expect(img.data[i + 2]).toBe(v)
-      expect(img.data[i + 3]).toBe(255)
+      if (img.data[i + 1] !== v || img.data[i + 2] !== v || img.data[i + 3] !== 255) {
+        foraDaEscalaDeCinza++
+      }
       if (v > 0 && v < 255) intermediarios++
     }
+    expect(foraDaEscalaDeCinza).toBe(0)
     expect(intermediarios).toBeGreaterThan(0)
   })
 

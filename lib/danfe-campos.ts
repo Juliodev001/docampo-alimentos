@@ -528,12 +528,23 @@ function acharEmitente(linhas: LinhaVisual[], yDest: number): Emitente {
    * uma foto. E o nome vem delimitado dos dois lados por texto fixo, o que
    * dispensa qualquer heurística de "esta linha parece um nome de empresa?".
    */
+  /**
+   * Razão social não contém as palavras do formulário. Quando o OCR embaralha a
+   * linha de onde o nome sai, o resultado vem salpicado delas — numa leitura
+   * real o emitente virou "DE COOP NES DOS DO VALE DO RIO OS OA NOTA". Rejeitar
+   * é melhor que exibir: um candidato descartado deixa a próxima estratégia
+   * tentar, um candidato ruim aceito vira o título do documento.
+   */
+  const plausivel = (n: string) =>
+    n.length >= 6 &&
+    !/NOTA|FISCAL|PRODUTOS|CONSTANTES|INDICADA|RECEB|DOCUMENTO|AUXILIAR|ACESSO|SERIE|FOLHA/.test(norm(n))
+
   let nomeCanhoto = ''
   for (const l of linhas.slice(0, 6)) {
     const m = norm(l.palavras.map((w) => w.text).join(' ')).match(
       /RECEBEMOS DE\s+(.+?)\s+OS PRODUTOS/
     )
-    if (m && m[1].length >= 6) { nomeCanhoto = m[1].trim(); break }
+    if (m && plausivel(m[1])) { nomeCanhoto = m[1].trim(); break }
   }
 
   /**
@@ -556,10 +567,14 @@ function acharEmitente(linhas: LinhaVisual[], yDest: number): Emitente {
     })
   }
 
-  // O nome do canhoto ganha do achado pela âncora: vem de texto maior e
-  // delimitado, enquanto a âncora depende de a metade esquerda daquela linha
-  // conter só a razão social.
-  const nome = nomeCanhoto || (inicio >= 0 ? esquerdaDe(inicio) : '')
+  /**
+   * A âncora ganha do canhoto. O nome no cabeçalho é impresso em corpo bem
+   * maior que a frase "RECEBEMOS DE…" do canhoto, e portanto sobrevive melhor
+   * ao OCR; o canhoto entra quando a âncora não aparece ou devolve algo que não
+   * parece razão social.
+   */
+  const nomeAncora = inicio >= 0 ? esquerdaDe(inicio) : ''
+  const nome = plausivel(nomeAncora) ? nomeAncora : nomeCanhoto
   if (!nome || nome.length < 4) return vazio
   if (inicio < 0) return { nome, endereco: '', municipio: '', uf: '' }
 
