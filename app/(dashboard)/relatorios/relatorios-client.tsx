@@ -373,15 +373,14 @@ export default function RelatoriosClient() {
               }}
             />
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, x: "-50%", y: 30 }}
+              animate={{ opacity: 1, x: "-50%", y: 0 }}
+              exit={{ opacity: 0, x: "-50%", y: 30 }}
               transition={{ type: "spring", stiffness: 320, damping: 28 }}
               style={{
                 position: "fixed",
                 top: 40,
                 left: "50%",
-                transform: "translateX(-50%)",
                 backgroundColor: "white",
                 borderRadius: 18,
                 padding: 0,
