@@ -898,6 +898,29 @@ export function extrairDanfe(palavras: OcrWord[]): Danfe {
     avisos.push(`O quadro "Valor total da nota" não foi lido; ${brl(total)} foi deduzido do total dos produtos e dos encargos.`)
   }
 
+  /**
+   * Cupom fiscal (NFC-e, modelo 65) e recibos não têm a grade da DANFE nem o
+   * rótulo "VALOR TOTAL DA NOTA" — imprimem "VALOR TOTAL R$", "VALOR A PAGAR"
+   * ou "VALOR PAGO", que o dicionário de rótulos (feito para o modelo 55) não
+   * reconhece. Sem esse rótulo, o total saía nulo e o valor da nota sumia da
+   * planilha. Como num cupom o total é SEMPRE o maior valor monetário da
+   * página, adotá-lo é um palpite seguro — registrado como tal, editável e com
+   * aviso. Só vale quando o total não veio do rótulo nem foi deduzido acima.
+   */
+  if (total == null) {
+    const money = (textoPagina.match(/\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}/g) ?? [])
+      .map((m) => moedaParaNumero(m))
+      .filter((n): n is number => n != null)
+    if (money.length) {
+      total = Math.max(...money)
+      add('Valor total da nota', brl(total))
+      avisos.push(
+        `O rótulo "Valor total da nota" não foi encontrado (documento sem a grade da DANFE — ex.: cupom/NFC-e). ` +
+        `Adotei o maior valor monetário da página, ${brl(total)}; confira com o documento.`
+      )
+    }
+  }
+
   // A vírgula decimal remontada é um palpite — mas um palpite que a própria
   // nota confere: se produtos − desconto + encargos fecha no total, os três
   // valores estão certos, porque um erro de casa decimal quebraria a conta.
