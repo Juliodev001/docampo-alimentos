@@ -230,10 +230,10 @@ export default function ImprimirFechamentoMeeiro() {
             <div style={{ fontWeight: 700 }}>
               Abatim. emprést. ({fmtN(valesDeduzidos)}) refere-se {valesDescontados.length === 1 ? 'ao vale' : `aos ${valesDescontados.length} vales`}:
             </div>
-            {/* A observação do vale é anotação interna e não vai para o recibo */}
+            {/* O descritivo de cada linha é a observação escrita no vale */}
             {valesDescontados.map(v => (
               <div key={v.id} style={{ paddingLeft: 10 }}>
-                • Empréstimo em {fmtDate(v.data)} — {fmtN(v.valor)}
+                • {fmtDate(v.data)} — {v.observacao?.trim() || 'Empréstimo'} — {fmtN(v.valor)}
               </div>
             ))}
           </div>

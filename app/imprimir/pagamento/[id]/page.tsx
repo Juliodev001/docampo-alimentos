@@ -240,10 +240,10 @@ export default function ImprimirPagamento() {
             <div style={{ fontWeight: 700 }}>
               Abatim. emprést. ({fmtN(abatimEmprestimo)}) refere-se {vales.length === 1 ? 'ao vale' : `aos ${vales.length} vales`}:
             </div>
-            {/* A observação do vale é anotação interna e não vai para o recibo */}
+            {/* O descritivo de cada linha é a observação escrita no vale */}
             {vales.map(v => (
               <div key={v.id} style={{ paddingLeft: 10 }}>
-                • Empréstimo em {fmtDate(v.data)} — {fmtN(Number(v.valor))}
+                • {fmtDate(v.data)} — {v.observacao?.trim() || 'Empréstimo'} — {fmtN(Number(v.valor))}
               </div>
             ))}
           </div>
