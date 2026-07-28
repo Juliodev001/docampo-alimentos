@@ -38,12 +38,10 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
         if (fech?.status === 'PAGO') {
           throw new Error('Esse vale já foi descontado em um fechamento pago e não pode ser descartado.')
         }
-        if (fech) {
-          await tx.fechamentoPagamento.update({
-            where: { id: fech.id },
-            data: { valesDinheiro: { decrement: vale.valor } },
-          })
-        }
+        // Nada a devolver no fechamento: o abatimento do vale vem do vínculo
+        // (Vale.fechamentoId), não do campo `valesDinheiro`. Descontar daqui
+        // também tiraria o valor duas vezes — o antigo `decrement` só fazia
+        // sentido quando o vale era somado em `valesDinheiro` ao fechar.
       }
       return tx.vale.update({
         where: { id },
