@@ -236,8 +236,14 @@ function buildRelatorioProdutor(
   const donoBruto = totalBruto - totalMeeirosBruto;
   const fatorProdutor = totalBruto > 0 ? donoBruto / totalBruto : 0;
   const descEmb = deducoes.bandejaEmbalagem * fatorProdutor;
+  // `valesDinheiro` são os vales lançados como custo do período — entram no
+  // rateio. Os vales vinculados ao fechamento vêm em `abatimEmprestimo`, que é
+  // descontado à parte; são coisas diferentes e nunca o mesmo valor.
   const outrasDeducoes =
-    (deducoes.combustivel + deducoes.creditos + deducoes.debitosAnteriores) *
+    (deducoes.combustivel +
+      deducoes.valesDinheiro +
+      deducoes.creditos +
+      deducoes.debitosAnteriores) *
     fatorProdutor;
   const valorRecebido = donoBruto - descEmb - outrasDeducoes - abatimEmprestimo;
 
@@ -5795,14 +5801,6 @@ export default function RocasClient({
             setSavingFech(true);
             setFechError("");
             try {
-              const valesAvulsosTotal = valesState
-                .filter(
-                  (v) =>
-                    v.produtorId === fechForm.produtorId &&
-                    v.status === "ABERTO" &&
-                    fechValesSelecionados.includes(v.id),
-                )
-                .reduce((s, v) => s + v.valor, 0);
               const res = await fetch("/api/fechamento", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -5814,9 +5812,10 @@ export default function RocasClient({
                   datasAdicionais: fechDatasAdicionais,
                   combustivel: fechDebitarBandeja ? Number(fechForm.combustivel) || 0 : 0,
                   bandejaEmbalagem: fechDebitarBandeja ? Number(fechForm.bandejaEmbalagem) || 0 : 0,
-                  valesDinheiro: fechDebitarBandeja
-                    ? (Number(fechForm.valesDinheiro) || 0) + valesAvulsosTotal
-                    : 0,
+                  // Os vales marcados vão só em `valeIds`: viram abatimento
+                  // pessoal do produtor (100% dele, sem rateio). Somá-los aqui
+                  // também faria o mesmo valor ser descontado duas vezes.
+                  valesDinheiro: fechDebitarBandeja ? Number(fechForm.valesDinheiro) || 0 : 0,
                   creditos: fechDebitarBandeja ? Number(fechForm.creditos) || 0 : 0,
                   debitosAnteriores: fechDebitarBandeja ? Number(fechForm.debitosAnteriores) || 0 : 0,
                   valeIds: fechValesSelecionados,
