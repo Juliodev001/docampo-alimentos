@@ -201,27 +201,6 @@ export default function ImprimirFechamentoMeeiro() {
           </table>
         )}
 
-        {valesDescontados.length > 0 && (
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
-            <thead>
-              <tr>
-                <th style={hd}>Vale — Data</th>
-                <th style={hd}>Observação</th>
-                <th style={{ ...hd, textAlign: 'right' as const }}>Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {valesDescontados.map(v => (
-                <tr key={v.id}>
-                  <td style={cell}>{fmtDate(v.data)}</td>
-                  <td style={cell}>{v.observacao ?? '—'}</td>
-                  <td style={{ ...cell, textAlign: 'right' as const }}>{fmtN(v.valor)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 6 }}>
           <thead>
             <tr>
@@ -244,6 +223,35 @@ export default function ImprimirFechamentoMeeiro() {
             </tr>
           </tbody>
         </table>
+
+        {/* Detalha de onde vem o total da coluna "Abatim. emprést." */}
+        {valesDescontados.length > 0 && (
+          <div style={{ fontSize: 10, color: '#555', margin: '0 0 8px' }}>
+            <div style={{ fontWeight: 700 }}>
+              Abatim. emprést. ({fmtN(valesDeduzidos)}) refere-se {valesDescontados.length === 1 ? 'ao vale' : `aos ${valesDescontados.length} vales`}:
+            </div>
+            {valesDescontados.map(v => (
+              <div key={v.id} style={{ paddingLeft: 10 }}>
+                • {fmtDate(v.data)} — {v.observacao?.trim() || 'sem descrição'} — {fmtN(v.valor)}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Adiantamentos que o parceiro já recebeu e saem deste fechamento */}
+        {pagosAbsorvidos > 0 && (
+          <div style={{ fontSize: 10, color: '#555', margin: '0 0 8px' }}>
+            <div style={{ fontWeight: 700 }}>
+              Pagamentos já recebidos e descontados deste fechamento ({fmtN(pagosAbsorvidos)}):
+            </div>
+            {(pagamentos ?? []).map(p => (
+              <div key={p.id} style={{ paddingLeft: 10 }}>
+                • {fmtDate(p.dataPag)} — {p.formaPag.replace(/_/g, ' ')}
+                {p.observacao?.trim() ? ` — ${p.observacao.trim()}` : ''} — {fmtN(p.valor)}
+              </div>
+            ))}
+          </div>
+        )}
 
         {outrasDeducoes > 0 && (
           <p style={{ fontSize: 10, color: '#555', margin: '0 0 8px' }}>

@@ -15,7 +15,7 @@ type Colheita = {
   parceiroId: string | null; percParceiro: number; bandeja: number
   roca: { nome: string } | null
 }
-type ValeLinked = { valor: number }
+type ValeLinked = { id: string; valor: number; data: string; observacao: string | null }
 type Fechamento = {
   produtor: Produtor
   dataInicio: string; dataFim: string; dataPagamento: string
@@ -233,6 +233,20 @@ export default function ImprimirPagamento() {
             </tr>
           </tbody>
         </table>
+
+        {/* Detalha de onde vem o total da coluna "Abatim. emprést." */}
+        {vales.length > 0 && (
+          <div style={{ fontSize: 10, color: '#555', margin: '0 0 10px' }}>
+            <div style={{ fontWeight: 700 }}>
+              Abatim. emprést. ({fmtN(abatimEmprestimo)}) refere-se {vales.length === 1 ? 'ao vale' : `aos ${vales.length} vales`}:
+            </div>
+            {vales.map(v => (
+              <div key={v.id} style={{ paddingLeft: 10 }}>
+                • {fmtDate(v.data)} — {v.observacao?.trim() || 'sem descrição'} — {fmtN(Number(v.valor))}
+              </div>
+            ))}
+          </div>
+        )}
 
         {outrasDeducoes > 0 && (
           <p style={{ fontSize: 10, color: '#555', margin: '0 0 10px' }}>
