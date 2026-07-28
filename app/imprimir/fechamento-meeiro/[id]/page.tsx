@@ -232,7 +232,8 @@ export default function ImprimirFechamentoMeeiro() {
             </div>
             {valesDescontados.map(v => (
               <div key={v.id} style={{ paddingLeft: 10 }}>
-                • {fmtDate(v.data)} — {v.observacao?.trim() || 'sem descrição'} — {fmtN(v.valor)}
+                • Empréstimo em {fmtDate(v.data)} — {fmtN(v.valor)}
+                {v.observacao?.trim() ? ` — anotação do vale: "${v.observacao.trim()}"` : ''}
               </div>
             ))}
           </div>
