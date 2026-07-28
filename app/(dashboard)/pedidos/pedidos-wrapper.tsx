@@ -8,7 +8,13 @@ const NAVY = '#2d3561'
 
 type Tab = 'pdv' | 'pedidos'
 
-type Produto = { id: string; nome: string; precoVenda: number; precoPromocional: number; precoPdv: number; unidade: string; categoria: string | null; ativo: boolean; estoque: number; estoqueVinculadoId: string | null }
+/** Média ponderada pela quantidade do que já foi vendido, por janela de tempo */
+type PrecoMedio = { dia: number; semana: number; mes: number; ano: number; tudo: number }
+type Produto = {
+  id: string; nome: string; precoVenda: number; precoPromocional: number; precoPdv: number
+  unidade: string; categoria: string | null; ativo: boolean; estoque: number; estoqueVinculadoId: string | null
+  precoMedio: PrecoMedio
+}
 type Cliente = { id: string; nome: string }
 type Fornecedor = { id: string; nome: string }
 type ProdutoSimples = { id: string; nome: string; unidade: string }

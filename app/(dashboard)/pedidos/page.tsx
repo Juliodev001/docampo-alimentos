@@ -25,6 +25,50 @@ export default async function PedidosPage() {
     }),
   ])
 
+  // Preço médio praticado por produto, em cada janela de tempo do filtro do PDV.
+  // É média ponderada pela quantidade (soma dos valores ÷ soma das caixas), sobre
+  // os itens já vendidos (VENDA e PDV, fora os cancelados). O ItemPedido guarda
+  // só o nome do produto, não o id, então o cruzamento é pelo nome normalizado.
+  const chaveProduto = (nome: string) => nome.trim().toUpperCase()
+
+  const inicioDeHoje = new Date()
+  inicioDeHoje.setHours(0, 0, 0, 0)
+  const desde = (dias: number) => new Date(inicioDeHoje.getTime() - dias * 86400000)
+  const JANELAS = [
+    { periodo: 'dia'    as const, inicio: inicioDeHoje },
+    { periodo: 'semana' as const, inicio: desde(7) },
+    { periodo: 'mes'    as const, inicio: desde(30) },
+    { periodo: 'ano'    as const, inicio: desde(365) },
+    { periodo: 'tudo'   as const, inicio: null },
+  ]
+
+  type Acumulado = { quantidade: number; valor: number }
+  const acumuladoPorJanela = new Map<string, Map<string, Acumulado>>()
+  for (const janela of JANELAS) acumuladoPorJanela.set(janela.periodo, new Map())
+
+  for (const pedido of pedidos) {
+    if (pedido.tipo !== 'VENDA' && pedido.tipo !== 'PDV') continue
+    if (pedido.status === 'CANCELADO') continue
+    for (const item of pedido.itens) {
+      if (item.quantidade <= 0) continue
+      const chave = chaveProduto(item.produto)
+      const valor = Number(item.valorUnit) * item.quantidade
+      for (const janela of JANELAS) {
+        if (janela.inicio && pedido.data < janela.inicio) continue
+        const mapa = acumuladoPorJanela.get(janela.periodo)!
+        const acc = mapa.get(chave) ?? { quantidade: 0, valor: 0 }
+        acc.quantidade += item.quantidade
+        acc.valor += valor
+        mapa.set(chave, acc)
+      }
+    }
+  }
+
+  const mediaDe = (periodo: string, nome: string) => {
+    const acc = acumuladoPorJanela.get(periodo)?.get(chaveProduto(nome))
+    return acc && acc.quantidade > 0 ? acc.valor / acc.quantidade : 0
+  }
+
   const mapEndereco = (e: { cep: string | null; logradouro: string | null; numero: string | null; complemento: string | null; bairro: string | null; cidade: string | null; estado: string | null; referencia: string | null } | undefined) =>
     e ? {
       cep: e.cep, logradouro: e.logradouro, numero: e.numero, complemento: e.complemento,
@@ -63,6 +107,13 @@ export default async function PedidosPage() {
         estoque: p.estoqueVinculado
           ? p.estoqueVinculado.entradas.reduce((s, e) => s + e.quantidade, 0)
           : p.entradas.reduce((s, e) => s + e.quantidade, 0),
+        precoMedio: {
+          dia:    mediaDe('dia',    p.nome),
+          semana: mediaDe('semana', p.nome),
+          mes:    mediaDe('mes',    p.nome),
+          ano:    mediaDe('ano',    p.nome),
+          tudo:   mediaDe('tudo',   p.nome),
+        },
       }))}
     />
   )

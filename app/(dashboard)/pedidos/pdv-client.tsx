@@ -1,11 +1,12 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faMagnifyingGlass, faShoppingCart,
   faXmark, faCheckCircle, faMoneyBill, faCreditCard, faQrcode,
   faHandshake, faReceipt, faBoxOpen, faPencil,
-  faClockRotateLeft, faPrint, faFileLines,
+  faClockRotateLeft, faPrint, faFileLines, faTag,
 } from '@fortawesome/free-solid-svg-icons'
 import { useToast } from '@/components/toast'
 import { formatCurrency } from '@/lib/utils'
@@ -15,6 +16,11 @@ const GREEN  = '#5ab952'
 const PINK   = '#e8255a'
 const ORANGE = '#e87320'
 const BLUE   = '#3b82f6'
+
+type Periodo = 'dia' | 'semana' | 'mes' | 'ano' | 'tudo'
+
+/** Média ponderada pela quantidade do que já foi vendido, por janela de tempo */
+type PrecoMedio = Record<Periodo, number>
 
 type Produto = {
   id: string
@@ -27,7 +33,16 @@ type Produto = {
   ativo: boolean
   estoque: number
   estoqueVinculadoId: string | null
+  precoMedio: PrecoMedio
 }
+
+const PERIODOS: { key: Periodo; label: string; descricao: string }[] = [
+  { key: 'dia',    label: 'Hoje',    descricao: 'vendas de hoje' },
+  { key: 'semana', label: 'Semana',  descricao: 'últimos 7 dias' },
+  { key: 'mes',    label: 'Mês',     descricao: 'últimos 30 dias' },
+  { key: 'ano',    label: 'Ano',     descricao: 'últimos 365 dias' },
+  { key: 'tudo',   label: 'Tudo',    descricao: 'todo o histórico' },
+]
 
 type Cliente = { id: string; nome: string }
 
@@ -73,6 +88,7 @@ const inp: React.CSSProperties = {
 
 export default function PdvClient({ produtos, clientes, pedidos }: { produtos: Produto[]; clientes: Cliente[]; pedidos: PedidoPendente[] }) {
   const toast = useToast()
+  const router = useRouter()
 
   const [q, setQ] = useState('')
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
@@ -107,6 +123,10 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
   const [editingNomeId, setEditingNomeId] = useState<string | null>(null)
   const [editingNomeVal, setEditingNomeVal] = useState('')
 
+  /* painel de preço médio */
+  const [periodo, setPeriodo] = useState<Periodo>('semana')
+  const [precoBusca, setPrecoBusca] = useState('')
+
   /* produto avulso */
   const [showAvulso, setShowAvulso] = useState(false)
   const [avulsoNome, setAvulsoNome] = useState('')
@@ -119,6 +139,12 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
   useEffect(() => {
     searchRef.current?.focus()
   }, [])
+
+  // Depois de uma venda o server component recalcula estoque e preço médio;
+  // quando os dados novos chegam, substituem a baixa otimista feita na tela.
+  useEffect(() => {
+    setProdutosLocal(produtos)
+  }, [produtos])
 
   function saveCartPrice(itemId: string) {
     const novo = parseFloat(editingPriceVal)
@@ -142,6 +168,11 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
     const matchCat = !activeCategory || p.categoria === activeCategory
     return matchQ && matchCat
   })
+
+  const produtosPreco = produtosLocal.filter(p =>
+    p.ativo && (!precoBusca || p.nome.toLowerCase().includes(precoBusca.toLowerCase()))
+  )
+  const periodoAtual = PERIODOS.find(p => p.key === periodo)!
 
   const subtotal = cart.reduce((s, it) => s + it.total, 0)
   const discount = parseFloat(globalDiscount) || 0
@@ -291,6 +322,8 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
       setDataCobranca('')
       setPaymentMethod('DINHEIRO')
       setPedidoData(new Date().toISOString().slice(0, 10))
+      // Recalcula o preço médio do painel com a venda que acabou de entrar
+      router.refresh()
     } catch (e: unknown) {
       toast.error('Erro ao finalizar', e instanceof Error ? e.message : 'Tente novamente')
     } finally {
@@ -349,8 +382,11 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
         )}
       </div>
 
-      {/* ═══════ CARRINHO (ocupa o resto) ═══════ */}
-      <div className="pdv-carrinho" style={{ flex: 1, minHeight: 0 }}>
+      {/* ═══════ CARRINHO + PREÇO MÉDIO (ocupam o resto) ═══════ */}
+      <div className="pdv-corpo">
+
+      {/* sem `flex: 1` aqui: dentro do flex row isso anularia a largura fixa da classe */}
+      <div className="pdv-carrinho" style={{ minHeight: 0 }}>
 
         {/* Cabeçalho do carrinho */}
         <div style={{ padding: '16px 16px 10px', borderBottom: '1px solid #f3f4f6', background: 'white' }}>
@@ -565,6 +601,112 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
           </button>
         </div>
       </div>
+
+      {/* ═══════ PREÇO MÉDIO POR PRODUTO ═══════ */}
+      <div className="pdv-precos">
+
+        <div style={{ padding: '16px 18px 12px', borderBottom: '1px solid #f3f4f6' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 8, background: `${GREEN}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <FontAwesomeIcon icon={faTag} style={{ fontSize: 14, color: GREEN }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, lineHeight: 1.2 }}>Preço médio por produto</div>
+                <div style={{ fontSize: 11, color: '#9ca3af' }}>Média das vendas — {periodoAtual.descricao}</div>
+              </div>
+            </div>
+            <div style={{ position: 'relative', width: 200, maxWidth: '100%' }}>
+              <FontAwesomeIcon
+                icon={faMagnifyingGlass}
+                style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 12, pointerEvents: 'none' }}
+              />
+              <input
+                value={precoBusca}
+                onChange={e => setPrecoBusca(e.target.value)}
+                placeholder="Filtrar produto..."
+                style={{ ...inp, fontSize: 12, padding: '7px 10px 7px 30px' }}
+              />
+            </div>
+          </div>
+
+          {/* Filtro de período */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+            {PERIODOS.map(p => (
+              <button
+                key={p.key}
+                onClick={() => setPeriodo(p.key)}
+                style={{
+                  padding: '5px 14px', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: 12, fontWeight: periodo === p.key ? 700 : 500,
+                  border: `1.5px solid ${periodo === p.key ? NAVY : '#e5e7eb'}`,
+                  background: periodo === p.key ? NAVY : 'white',
+                  color: periodo === p.key ? 'white' : '#6b7280',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Cards */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 14, scrollbarWidth: 'thin' }}>
+          {produtosPreco.length === 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0', color: '#d1d5db' }}>
+              <FontAwesomeIcon icon={faBoxOpen} style={{ fontSize: 32, marginBottom: 8 }} />
+              <p style={{ margin: 0, fontSize: 13, color: '#9ca3af' }}>
+                {precoBusca ? 'Nenhum produto encontrado' : 'Nenhum produto cadastrado'}
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12 }}>
+              {produtosPreco.map(p => {
+                const media = p.precoMedio[periodo]
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => addToCart(p)}
+                    title={`Adicionar ${p.nome} ao carrinho`}
+                    style={{
+                      textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+                      background: 'white', border: '1px solid #eef0f4', borderRadius: 12,
+                      padding: '13px 14px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                      display: 'flex', flexDirection: 'column', gap: 8, transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={e => {
+                      const el = e.currentTarget as HTMLButtonElement
+                      el.style.borderColor = GREEN
+                      el.style.boxShadow = `0 4px 14px ${GREEN}25`
+                    }}
+                    onMouseLeave={e => {
+                      const el = e.currentTarget as HTMLButtonElement
+                      el.style.borderColor = '#eef0f4'
+                      el.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)'
+                    }}
+                  >
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: NAVY, lineHeight: 1.3, minHeight: 30 }}>
+                      {p.nome.toUpperCase()}
+                    </span>
+                    {media > 0 ? (
+                      <span style={{ fontSize: 21, fontWeight: 800, color: GREEN, lineHeight: 1 }}>
+                        {formatCurrency(media)}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 12, color: '#c4c8d0', lineHeight: 1.6 }}>
+                        Sem vendas no período
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      </div>{/* fim pdv-corpo */}
 
       {/* ═══════ MODAL PRODUTO AVULSO ═══════ */}
       {showAvulso && (

@@ -663,10 +663,23 @@ input:focus, select:focus, textarea:focus {
 .pdv-layout { display: flex; height: calc(100vh - 140px); min-height: 540px; overflow: hidden; }
 .pdv-produtos { flex: 1 1 0; display: flex; flex-direction: column; border-right: 1px solid #f3f4f6; overflow: hidden; }
 .pdv-carrinho { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; background: #fafafa; }
+/* Carrinho à esquerda, painel de preço médio ocupando o espaço restante */
+.pdv-corpo { display: flex; align-items: stretch; flex: 1; min-height: 0; }
+.pdv-precos {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-left: 1px solid #f3f4f6;
+}
 @media (max-width: 767px) {
   .pdv-layout { flex-direction: column; height: auto; min-height: 0; overflow: visible; }
   .pdv-produtos { flex: none; width: 100%; height: 60vh; border-right: none; border-bottom: 1px solid #f3f4f6; }
   .pdv-carrinho { width: 100%; flex: 1; }
+  /* No celular o painel desce para baixo do carrinho, em largura cheia */
+  .pdv-corpo { flex-direction: column; }
+  .pdv-precos { border-left: none; border-top: 1px solid #f3f4f6; }
 }
 
 /* KPI cards — 4 colunas desktop, 2 no mobile */
