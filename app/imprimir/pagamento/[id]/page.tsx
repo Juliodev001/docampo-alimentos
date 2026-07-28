@@ -243,7 +243,7 @@ export default function ImprimirPagamento() {
             {/* O descritivo de cada linha é a observação escrita no vale */}
             {vales.map(v => (
               <div key={v.id} style={{ paddingLeft: 10 }}>
-                • {fmtDate(v.data)} — {v.observacao?.trim() || 'Empréstimo'} — {fmtN(Number(v.valor))}
+                • {fmtDate(v.data)} — {v.observacao?.trim() ? `${v.observacao.trim()} — ` : ''}{fmtN(Number(v.valor))}
               </div>
             ))}
           </div>

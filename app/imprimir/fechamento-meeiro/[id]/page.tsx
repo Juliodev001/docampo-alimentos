@@ -233,7 +233,7 @@ export default function ImprimirFechamentoMeeiro() {
             {/* O descritivo de cada linha é a observação escrita no vale */}
             {valesDescontados.map(v => (
               <div key={v.id} style={{ paddingLeft: 10 }}>
-                • {fmtDate(v.data)} — {v.observacao?.trim() || 'Empréstimo'} — {fmtN(v.valor)}
+                • {fmtDate(v.data)} — {v.observacao?.trim() ? `${v.observacao.trim()} — ` : ''}{fmtN(v.valor)}
               </div>
             ))}
           </div>
