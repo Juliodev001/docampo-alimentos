@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faArrowTrendUp, faArrowTrendDown, faCaretUp, faCaretDown,
@@ -128,17 +128,43 @@ export default function VisaoGeralClient() {
   const [data, setData] = useState<Resumo>(EMPTY)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const p = new URLSearchParams({ periodo, ref: ref.toISOString() })
-    fetch(`/api/dashboard/resumo?${p}`)
+  const carregar = useCallback(() => {
+    // Manda o DIA de calendário (fuso local = Brasil), não o instante em UTC.
+    // Assim a venda da noite conta no dia certo — ver lib/utils hojeISO e o
+    // corte por data UTC em /api/dashboard/resumo.
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const refYMD = `${ref.getFullYear()}-${pad(ref.getMonth() + 1)}-${pad(ref.getDate())}`
+    const p = new URLSearchParams({ periodo, ref: refYMD })
+    return fetch(`/api/dashboard/resumo?${p}`)
       .then(r => r.json())
       .then(d => setData(d))
-      .finally(() => setLoading(false))
+      .catch(() => { /* falha de rede: mantém os últimos números na tela */ })
   }, [periodo, ref])
 
-  function selecionarPeriodo(p: Periodo) { setLoading(true); setPeriodo(p) }
-  function navegar(dir: 1 | -1) { setLoading(true); setRef(r => shiftRef(periodo, r, dir)) }
-  function irParaHoje() { setLoading(true); setRef(new Date()) }
+  // Carga ao abrir e ao trocar período/data — com o spinner.
+  useEffect(() => {
+    setLoading(true)
+    carregar().finally(() => setLoading(false))
+  }, [carregar])
+
+  // Mantém os números vivos: recarrega em silêncio (sem spinner) ao voltar para
+  // a aba/janela e a cada 30s enquanto o dashboard fica aberto. Uma venda feita
+  // no PDV aparece assim que a pessoa volta ao dashboard, sem precisar dar F5.
+  useEffect(() => {
+    const atualizar = () => { if (document.visibilityState === 'visible') carregar() }
+    const intervalo = setInterval(atualizar, 30_000)
+    window.addEventListener('focus', atualizar)
+    document.addEventListener('visibilitychange', atualizar)
+    return () => {
+      clearInterval(intervalo)
+      window.removeEventListener('focus', atualizar)
+      document.removeEventListener('visibilitychange', atualizar)
+    }
+  }, [carregar])
+
+  function selecionarPeriodo(p: Periodo) { setPeriodo(p) }
+  function navegar(dir: 1 | -1) { setRef(r => shiftRef(periodo, r, dir)) }
+  function irParaHoje() { setRef(new Date()) }
 
   const { atual, comparacao } = data
   const margem = atual.totalVendas > 0 ? (atual.lucro / atual.totalVendas) * 100 : 0

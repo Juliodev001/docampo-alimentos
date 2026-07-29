@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faBuilding, faFileLines, faCircleCheck, faCalendar, faChartBar, faFilter, faMagnifyingGlass, faArrowRight, faPlus, faPencil, faTrash, faXmark, faCheck } from '@fortawesome/free-solid-svg-icons'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, hojeISO } from '@/lib/utils'
 
 const GREEN  = '#5ab952'
 const NAVY   = '#2d3561'
@@ -158,7 +158,7 @@ export default function ComprasClient({ centrosCusto }: { centrosCusto: CentroCu
   const [editNome,     setEditNome]     = useState('')
 
   /* ── form state ── */
-  const hoje = new Date().toISOString().slice(0, 10)
+  const hoje = hojeISO()
   const [fDescricao,    setFDescricao]    = useState('')
   const [fTipo,         setFTipo]         = useState('')
   const [fRoca,         setFRoca]         = useState('')

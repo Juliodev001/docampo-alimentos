@@ -9,7 +9,7 @@ import {
   faClockRotateLeft, faPrint, faFileLines, faTag,
 } from '@fortawesome/free-solid-svg-icons'
 import { useToast } from '@/components/toast'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, hojeISO } from '@/lib/utils'
 
 const NAVY   = '#2d3561'
 const GREEN  = '#5ab952'
@@ -105,7 +105,7 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
   const [clienteError, setClienteError] = useState(false)
   const [cashReceived, setCashReceived] = useState('')
   const [dataCobranca, setDataCobranca] = useState('')
-  const [pedidoData, setPedidoData] = useState(() => new Date().toISOString().slice(0, 10))
+  const [pedidoData, setPedidoData] = useState(() => hojeISO())
   const [submitting, setSubmitting] = useState(false)
   const [lastPedidoId, setLastPedidoId] = useState<string | null>(null)
   const [showHistorico, setShowHistorico] = useState(false)
@@ -321,7 +321,7 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
       setCashReceived('')
       setDataCobranca('')
       setPaymentMethod('DINHEIRO')
-      setPedidoData(new Date().toISOString().slice(0, 10))
+      setPedidoData(hojeISO())
       // Recalcula o preço médio do painel com a venda que acabou de entrar
       router.refresh()
     } catch (e: unknown) {

@@ -4,14 +4,31 @@ import { getSession } from '@/lib/session'
 
 type Periodo = 'dia' | 'semana' | 'mes' | 'ano'
 
-function startOfDay(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()) }
-function endOfDay(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999) }
+// O "dia" do negócio é o dia de CALENDÁRIO escolhido (o cliente resolve no fuso
+// do Brasil e manda AAAA-MM-DD). Aqui tudo é ancorado em UTC — não no fuso do
+// servidor (o VPS roda em UTC) — para o corte não escorregar. Cada registro é
+// agrupado pela sua data UTC, que é exatamente o dia gravado: compra e colheita
+// à meia-noite UTC, venda PDV ao meio-dia UTC, ambos caindo no mesmo dia.
+function startOfDay(d: Date) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())) }
+function endOfDay(d: Date) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59, 999)) }
 
 function mondayOf(d: Date) {
   const x = startOfDay(d)
-  const diff = (x.getDay() + 6) % 7 // 0 = segunda
-  x.setDate(x.getDate() - diff)
+  const diff = (x.getUTCDay() + 6) % 7 // 0 = segunda
+  x.setUTCDate(x.getUTCDate() - diff)
   return x
+}
+
+// Interpreta o parâmetro `ref` (AAAA-MM-DD) como uma data de calendário, fixada
+// ao meio-dia UTC — longe das bordas do dia, para não haver arredondamento.
+function refParaData(refParam: string | null): Date {
+  const ymd = (refParam ?? '').slice(0, 10)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    const d = new Date(`${ymd}T12:00:00.000Z`)
+    if (!isNaN(d.getTime())) return d
+  }
+  const now = new Date()
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12))
 }
 
 function getRange(periodo: Periodo, ref: Date) {
@@ -21,25 +38,25 @@ function getRange(periodo: Periodo, ref: Date) {
   if (periodo === 'semana') {
     const inicio = mondayOf(ref)
     const fim = new Date(inicio)
-    fim.setDate(fim.getDate() + 6)
+    fim.setUTCDate(fim.getUTCDate() + 6)
     return { inicio, fim: endOfDay(fim) }
   }
   if (periodo === 'mes') {
-    const inicio = new Date(ref.getFullYear(), ref.getMonth(), 1)
-    const fim = new Date(ref.getFullYear(), ref.getMonth() + 1, 0, 23, 59, 59, 999)
+    const inicio = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), 1))
+    const fim = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() + 1, 0, 23, 59, 59, 999))
     return { inicio, fim }
   }
-  const inicio = new Date(ref.getFullYear(), 0, 1)
-  const fim = new Date(ref.getFullYear(), 11, 31, 23, 59, 59, 999)
+  const inicio = new Date(Date.UTC(ref.getUTCFullYear(), 0, 1))
+  const fim = new Date(Date.UTC(ref.getUTCFullYear(), 11, 31, 23, 59, 59, 999))
   return { inicio, fim }
 }
 
 function getPeriodoAnterior(periodo: Periodo, ref: Date) {
   const anterior = new Date(ref)
-  if (periodo === 'dia') anterior.setDate(anterior.getDate() - 1)
-  else if (periodo === 'semana') anterior.setDate(anterior.getDate() - 7)
-  else if (periodo === 'mes') anterior.setMonth(anterior.getMonth() - 1)
-  else anterior.setFullYear(anterior.getFullYear() - 1)
+  if (periodo === 'dia') anterior.setUTCDate(anterior.getUTCDate() - 1)
+  else if (periodo === 'semana') anterior.setUTCDate(anterior.getUTCDate() - 7)
+  else if (periodo === 'mes') anterior.setUTCMonth(anterior.getUTCMonth() - 1)
+  else anterior.setUTCFullYear(anterior.getUTCFullYear() - 1)
   return anterior
 }
 
@@ -48,7 +65,7 @@ const LABELS_MES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set
 
 function bucketInfo(periodo: Periodo, range: { inicio: Date; fim: Date }) {
   if (periodo === 'dia') {
-    return { n: 24, label: (i: number) => `${String(i).padStart(2, '0')}h`, index: (d: Date) => d.getHours() }
+    return { n: 24, label: (i: number) => `${String(i).padStart(2, '0')}h`, index: (d: Date) => d.getUTCHours() }
   }
   if (periodo === 'semana') {
     return {
@@ -58,10 +75,10 @@ function bucketInfo(periodo: Periodo, range: { inicio: Date; fim: Date }) {
     }
   }
   if (periodo === 'mes') {
-    const dias = new Date(range.fim.getFullYear(), range.fim.getMonth() + 1, 0).getDate()
-    return { n: dias, label: (i: number) => `${i + 1}`, index: (d: Date) => d.getDate() - 1 }
+    const dias = new Date(Date.UTC(range.fim.getUTCFullYear(), range.fim.getUTCMonth() + 1, 0)).getUTCDate()
+    return { n: dias, label: (i: number) => `${i + 1}`, index: (d: Date) => d.getUTCDate() - 1 }
   }
-  return { n: 12, label: (i: number) => LABELS_MES[i], index: (d: Date) => d.getMonth() }
+  return { n: 12, label: (i: number) => LABELS_MES[i], index: (d: Date) => d.getUTCMonth() }
 }
 
 async function somarPeriodo(periodo: Periodo, range: { inicio: Date; fim: Date }, rocaId: string | null) {
@@ -169,7 +186,7 @@ export async function GET(req: NextRequest) {
   const periodo = (req.nextUrl.searchParams.get('periodo') ?? 'mes') as Periodo
   const refParam = req.nextUrl.searchParams.get('ref')
   const rocaId = req.nextUrl.searchParams.get('rocaId') || null
-  const ref = refParam ? new Date(refParam) : new Date()
+  const ref = refParaData(refParam)
 
   const range = getRange(periodo, ref)
   const rangeAnterior = getRange(periodo, getPeriodoAnterior(periodo, ref))
