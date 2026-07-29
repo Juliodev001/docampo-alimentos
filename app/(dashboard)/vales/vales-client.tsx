@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faHandHoldingDollar, faPlus, faXmark, faTrash, faMagnifyingGlass, faBan } from '@fortawesome/free-solid-svg-icons'
+import { faHandHoldingDollar, faPlus, faXmark, faTrash, faMagnifyingGlass, faBan, faPencil } from '@fortawesome/free-solid-svg-icons'
 import { useToast } from '@/components/toast'
 
 const NAVY   = '#2d3561'
@@ -42,6 +42,8 @@ export default function ValesClient({ vales: inicial, produtores, parceiros }: {
   const [filtroStatus, setFiltroStatus] = useState<'TODOS' | 'ABERTO' | 'DESCONTADO' | 'CANCELADO'>('TODOS')
 
   const [modal, setModal] = useState(false)
+  // id do vale em edição; null = modal está criando um novo.
+  const [editing, setEditing] = useState<string | null>(null)
   const [tipo, setTipo] = useState<'PRODUTOR' | 'MEEIRO'>('PRODUTOR')
   const [beneficiarioId, setBeneficiarioId] = useState('')
   const [valor, setValor] = useState('')
@@ -69,8 +71,19 @@ export default function ValesClient({ vales: inicial, produtores, parceiros }: {
   const totalDescontado = vales.filter(v => v.status === 'DESCONTADO').reduce((s, v) => s + v.valor, 0)
 
   function openCreate() {
+    setEditing(null)
     setTipo('PRODUTOR'); setBeneficiarioId(''); setValor(''); setData(new Date().toISOString().slice(0, 10))
     setObservacao(''); setError(''); setModal(true)
+  }
+
+  function openEdit(v: Vale) {
+    setEditing(v.id)
+    setTipo(v.parceiro ? 'MEEIRO' : 'PRODUTOR')
+    setBeneficiarioId(v.parceiro?.id ?? v.produtor?.id ?? '')
+    setValor(String(v.valor))
+    setData(v.data.slice(0, 10))
+    setObservacao(v.observacao ?? '')
+    setError(''); setModal(true)
   }
 
   async function handleSave() {
@@ -85,20 +98,21 @@ export default function ValesClient({ vales: inicial, produtores, parceiros }: {
         data,
         observacao: observacao.trim() || null,
       }
-      const res = await fetch('/api/vales', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      const res = await fetch(editing ? `/api/vales/${editing}` : '/api/vales', {
+        method: editing ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       })
       if (!res.ok) throw new Error((await res.json()).error || 'Erro ao salvar')
-      const novo = await res.json()
+      const salvo = await res.json()
       const produtor = tipo === 'PRODUTOR' ? produtores.find(p => p.id === beneficiarioId) ?? null : null
       const parceiro = tipo === 'MEEIRO' ? parceiros.find(p => p.id === beneficiarioId) ?? null : null
-      setVales(prev => [{
-        id: novo.id, valor: Number(novo.valor), data: novo.data, observacao: novo.observacao,
-        status: novo.status, createdAt: novo.createdAt,
+      const linha: Vale = {
+        id: salvo.id, valor: Number(salvo.valor), data: salvo.data, observacao: salvo.observacao,
+        status: salvo.status, createdAt: salvo.createdAt,
         produtor: produtor ? { id: produtor.id, nome: produtor.nome, codigo: produtor.codigo } : null,
         parceiro: parceiro ? { id: parceiro.id, nome: parceiro.nome, codigo: parceiro.codigo, produtorNome: parceiro.produtorNome } : null,
-      }, ...prev])
-      toast.success('Vale registrado')
+      }
+      setVales(prev => editing ? prev.map(v => v.id === editing ? linha : v) : [linha, ...prev])
+      toast.success(editing ? 'Vale atualizado' : 'Vale registrado')
       setModal(false)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Erro inesperado')
@@ -229,6 +243,12 @@ export default function ValesClient({ vales: inicial, produtores, parceiros }: {
                   <td style={{ padding: '14px 16px', fontSize: 13, color: '#6b7280' }}>{v.observacao ?? <span style={{ color: '#d1d5db' }}>—</span>}</td>
                   <td style={{ padding: '14px 16px' }}>
                     <div style={{ display: 'flex', gap: 4 }}>
+                      {v.status === 'ABERTO' && (
+                        <button onClick={() => openEdit(v)} title="Editar"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, color: BLUE }}>
+                          <FontAwesomeIcon icon={faPencil} style={{ fontSize: 14 }} />
+                        </button>
+                      )}
                       {(v.status === 'ABERTO' || v.status === 'DESCONTADO') && (
                         <button onClick={() => setConfirmDiscard(v.id)} title="Descartar (não cobrar)"
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, color: '#6b7280' }}>
@@ -263,7 +283,7 @@ export default function ValesClient({ vales: inicial, produtores, parceiros }: {
                 transition={{ type: 'spring', stiffness: 350, damping: 28 }}
                 style={{ backgroundColor: 'white', borderRadius: 16, width: '100%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #f3f4f6' }}>
-                  <h2 style={{ fontSize: 16, fontWeight: 700, color: NAVY, margin: 0 }}>Novo Vale</h2>
+                  <h2 style={{ fontSize: 16, fontWeight: 700, color: NAVY, margin: 0 }}>{editing ? 'Editar Vale' : 'Novo Vale'}</h2>
                   <button onClick={() => setModal(false)}
                     style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: '#6b7280', display: 'flex' }}>
                     <FontAwesomeIcon icon={faXmark} style={{ fontSize: 15 }} />
@@ -311,7 +331,7 @@ export default function ValesClient({ vales: inicial, produtores, parceiros }: {
                   <motion.button onClick={handleSave} disabled={loading}
                     whileHover={!loading ? { scale: 1.01 } : {}} whileTap={!loading ? { scale: 0.99 } : {}}
                     style={{ width: '100%', padding: '13px', backgroundColor: ORANGE, color: 'white', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1, fontFamily: 'inherit' }}>
-                    {loading ? 'Salvando...' : 'Registrar Vale'}
+                    {loading ? 'Salvando...' : editing ? 'Salvar Alterações' : 'Registrar Vale'}
                   </motion.button>
                 </div>
               </motion.div>
