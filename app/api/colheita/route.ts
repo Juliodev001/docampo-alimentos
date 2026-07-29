@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 import { memCache } from '@/lib/mem-cache'
 import { s } from '@/lib/serialize'
+import { sincronizarEstoqueDaColheita } from '@/lib/estoque-colheita'
 
 export async function GET(req: NextRequest) {
   const session = await getSession()
@@ -87,6 +88,16 @@ export async function POST(req: NextRequest) {
         responsavel: { select: { id: true, name: true, role: true } },
       },
     })
+    // A caixa colhida entra no estoque na hora: é ela que o PDV vende.
+    await sincronizarEstoqueDaColheita({
+      id:              colheita.id,
+      produtoId:       colheita.produtoId,
+      quantidadeTotal: colheita.quantidadeTotal,
+      descarte:        colheita.descarte,
+      preco:           Number(colheita.preco),
+      data:            colheita.data,
+    })
+
     revalidateTag('lavoura', 'max')
     memCache.invalidate('colheita')
     return NextResponse.json(s(colheita), { status: 201 })

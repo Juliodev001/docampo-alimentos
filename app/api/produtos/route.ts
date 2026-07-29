@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     unidade, categoria, fornecedorId, localizacao,
     estoqueAtual, estoqueMinimo, estoqueMaximo,
     ncm, cest, cfop, peso, altura, largura, dataValidade,
-    observacao, ativo,
+    observacao, ativo, estoqueVinculadoId,
   } = await req.json()
 
   if (!nome?.trim()) return NextResponse.json({ error: 'Nome obrigatório' }, { status: 400 })
@@ -65,10 +65,20 @@ export async function POST(req: NextRequest) {
       dataValidade: dataValidade ? new Date(dataValidade) : null,
       observacao: observacao?.trim() || null,
       ativo: ativo ?? true,
+      // O formulário manda o vínculo tanto ao criar quanto ao editar, mas aqui
+      // ele não era lido: o produto nascia com estoque próprio e só passava a
+      // compartilhar o do mestre se alguém abrisse a edição e salvasse de novo.
+      // Era o que fazia produtos do mesmo item (MORANGO, MORANGO NOVO…)
+      // aparecerem no PDV cada um com uma quantidade.
+      estoqueVinculadoId: estoqueVinculadoId || null,
     },
   })
 
-  if (estoqueAtual && Number(estoqueAtual) > 0) {
+  // Produto com estoque vinculado não tem saldo próprio: o PDV mostra o do
+  // mestre e a venda é deduzida do mestre. Gravar a entrada inicial aqui
+  // criaria um saldo que ninguém consome e que ainda entraria no balanço da
+  // tela de Estoque.
+  if (!estoqueVinculadoId && estoqueAtual && Number(estoqueAtual) > 0) {
     await prisma.entradaEstoque.create({
       data: {
         produtoId: produto.id,

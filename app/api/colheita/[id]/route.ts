@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 import { s } from '@/lib/serialize'
+import { sincronizarEstoqueDaColheita, removerEstoqueDaColheita } from '@/lib/estoque-colheita'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
@@ -17,6 +18,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
   try {
+    // Primeiro a entrada de estoque: apagar a colheita e deixar a caixa no
+    // saldo faria o PDV vender o que não existe.
+    await removerEstoqueDaColheita(id)
     await prisma.colheitaDiaria.delete({ where: { id } })
     return NextResponse.json({ ok: true })
   } catch (e) {
@@ -49,6 +53,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         observacao:         body.observacao ?? undefined,
       },
     })
+
+    // Refaz a entrada de estoque com os valores que ficaram gravados — a
+    // edição pode ter trocado produto, data ou quantidade.
+    await sincronizarEstoqueDaColheita({
+      id:              updated.id,
+      produtoId:       updated.produtoId,
+      quantidadeTotal: updated.quantidadeTotal,
+      descarte:        updated.descarte,
+      preco:           Number(updated.preco),
+      data:            updated.data,
+    })
+
     return NextResponse.json(s(updated))
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

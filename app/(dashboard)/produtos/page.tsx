@@ -5,7 +5,10 @@ export default async function ProdutosPage() {
   const [rawProdutos] = await Promise.all([
     prisma.produto.findMany({
       orderBy: { nome: 'asc' },
-      include: { entradas: { select: { quantidade: true } } },
+      include: {
+        entradas: { select: { quantidade: true } },
+        estoqueVinculado: { include: { entradas: { select: { quantidade: true } } } },
+      },
     }),
   ])
 
@@ -34,7 +37,13 @@ export default async function ProdutosPage() {
     observacao:           p.observacao,
     ativo:                p.ativo,
     createdAt:            p.createdAt.toISOString(),
-    estoque:              p.entradas.reduce((s, e) => s + e.quantidade, 0),
+    // Mesma regra do PDV: quem tem estoque vinculado mostra o saldo do produto
+    // mestre — é dele que a venda é deduzida. Sem isso, a lista dizia 0 (ou um
+    // resíduo antigo) enquanto o PDV mostrava o saldo real, e as duas telas se
+    // contradiziam para o mesmo produto.
+    estoque:              p.estoqueVinculado
+                            ? p.estoqueVinculado.entradas.reduce((s, e) => s + e.quantidade, 0)
+                            : p.entradas.reduce((s, e) => s + e.quantidade, 0),
     estoqueVinculadoId:   p.estoqueVinculadoId ?? null,
   }))
 
