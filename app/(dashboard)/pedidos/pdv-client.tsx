@@ -37,7 +37,7 @@ type Produto = {
 }
 
 const PERIODOS: { key: Periodo; label: string; descricao: string }[] = [
-  { key: 'dia',    label: 'Hoje',    descricao: 'vendas de hoje' },
+  { key: 'dia',    label: 'Hoje',    descricao: 'compras de hoje' },
   { key: 'semana', label: 'Semana',  descricao: 'últimos 7 dias' },
   { key: 'mes',    label: 'Mês',     descricao: 'últimos 30 dias' },
   { key: 'ano',    label: 'Ano',     descricao: 'últimos 365 dias' },
@@ -612,8 +612,8 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
                 <FontAwesomeIcon icon={faTag} style={{ fontSize: 14, color: GREEN }} />
               </div>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, lineHeight: 1.2 }}>Preço médio por produto</div>
-                <div style={{ fontSize: 11, color: '#9ca3af' }}>Média das vendas — {periodoAtual.descricao}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, lineHeight: 1.2 }}>Estoque e custo por produto</div>
+                <div style={{ fontSize: 11, color: '#9ca3af' }}>Custo médio da compra — {periodoAtual.descricao}</div>
               </div>
             </div>
             <div style={{ position: 'relative', width: 200, maxWidth: '100%' }}>
@@ -689,13 +689,18 @@ export default function PdvClient({ produtos, clientes, pedidos }: { produtos: P
                     <span style={{ fontSize: 11.5, fontWeight: 700, color: NAVY, lineHeight: 1.3, minHeight: 30 }}>
                       {p.nome.toUpperCase()}
                     </span>
+                    {/* Estoque em destaque: é o que o operador precisa saber
+                        antes de vender. O valor abaixo é o custo médio da caixa. */}
+                    <span style={{ fontSize: 21, fontWeight: 800, color: p.estoque > 0 ? NAVY : '#c4c8d0', lineHeight: 1 }}>
+                      {p.estoque > 0 ? `${p.estoque.toLocaleString('pt-BR')} ${p.unidade.toLowerCase()}` : 'Sem estoque'}
+                    </span>
                     {media > 0 ? (
-                      <span style={{ fontSize: 21, fontWeight: 800, color: GREEN, lineHeight: 1 }}>
-                        {formatCurrency(media)}
+                      <span style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.4 }}>
+                        Custo médio <strong style={{ color: GREEN, fontSize: 13 }}>{formatCurrency(media)}</strong>
                       </span>
                     ) : (
-                      <span style={{ fontSize: 12, color: '#c4c8d0', lineHeight: 1.6 }}>
-                        Sem vendas no período
+                      <span style={{ fontSize: 12, color: '#c4c8d0', lineHeight: 1.4 }}>
+                        Sem compras no período
                       </span>
                     )}
                   </button>

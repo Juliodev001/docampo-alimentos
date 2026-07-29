@@ -754,6 +754,21 @@ export default function RocasClient({
       })
       .catch(() => {});
   }, []);
+
+  /**
+   * Põe o estoque em dia sozinho, sem depender do botão: lançamento feito antes
+   * de a colheita passar a alimentar o estoque entra aqui. O endpoint só cria o
+   * que falta, então rodar de novo não duplica — e quando não há pendência ele
+   * não escreve nada. Roda uma vez por visita à tela, em silêncio.
+   */
+  useEffect(() => {
+    fetch("/api/estoque/sync-lancamentos", { method: "POST" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.sincronizados > 0) router.refresh();
+      })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [savingLanc, setSavingLanc] = useState(false);
   const [lancError, setLancError] = useState("");
   type LancItem = {

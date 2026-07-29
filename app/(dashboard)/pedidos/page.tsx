@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma'
 import PedidosWrapper from './pedidos-wrapper'
 
 export default async function PedidosPage() {
-  const [pedidos, clientes, fornecedores, produtos, rawProdutosPdv] = await Promise.all([
+  const [pedidos, clientes, fornecedores, produtos, rawProdutosPdv, colheitas] = await Promise.all([
     prisma.pedido.findMany({
       include: {
         cliente: { include: { enderecos: true } },
@@ -23,14 +23,16 @@ export default async function PedidosPage() {
         estoqueVinculado: { include: { entradas: { select: { quantidade: true } } } },
       },
     }),
+    prisma.colheitaDiaria.findMany({
+      select: { produtoId: true, quantidadeTotal: true, descarte: true, preco: true, data: true },
+    }),
   ])
 
-  // Preço médio praticado por produto, em cada janela de tempo do filtro do PDV.
-  // É média ponderada pela quantidade (soma dos valores ÷ soma das caixas), sobre
-  // os itens já vendidos (VENDA e PDV, fora os cancelados). O ItemPedido guarda
-  // só o nome do produto, não o id, então o cruzamento é pelo nome normalizado.
-  const chaveProduto = (nome: string) => nome.trim().toUpperCase()
-
+  // Preço médio de COMPRA por produto, em cada janela de tempo do filtro do PDV.
+  // É o que se pagou ao produtor/meeiro pela caixa — média ponderada pela
+  // quantidade líquida (total − descarte), a mesma conta do card "Preço médio cx
+  // morango" do Dashboard. Serve para o operador do PDV enxergar o custo na hora
+  // de vender; antes aqui vinha a média das VENDAS, que já é o preço na tela.
   const inicioDeHoje = new Date()
   inicioDeHoje.setHours(0, 0, 0, 0)
   const desde = (dias: number) => new Date(inicioDeHoje.getTime() - dias * 86400000)
@@ -46,26 +48,24 @@ export default async function PedidosPage() {
   const acumuladoPorJanela = new Map<string, Map<string, Acumulado>>()
   for (const janela of JANELAS) acumuladoPorJanela.set(janela.periodo, new Map())
 
-  for (const pedido of pedidos) {
-    if (pedido.tipo !== 'VENDA' && pedido.tipo !== 'PDV') continue
-    if (pedido.status === 'CANCELADO') continue
-    for (const item of pedido.itens) {
-      if (item.quantidade <= 0) continue
-      const chave = chaveProduto(item.produto)
-      const valor = Number(item.valorUnit) * item.quantidade
-      for (const janela of JANELAS) {
-        if (janela.inicio && pedido.data < janela.inicio) continue
-        const mapa = acumuladoPorJanela.get(janela.periodo)!
-        const acc = mapa.get(chave) ?? { quantidade: 0, valor: 0 }
-        acc.quantidade += item.quantidade
-        acc.valor += valor
-        mapa.set(chave, acc)
-      }
+  // Cruza por produtoId — a colheita aponta o produto direto, sem depender do
+  // nome digitado.
+  for (const c of colheitas) {
+    const liquido = c.quantidadeTotal - c.descarte
+    if (liquido <= 0) continue
+    const valor = Number(c.preco) * liquido
+    for (const janela of JANELAS) {
+      if (janela.inicio && c.data < janela.inicio) continue
+      const mapa = acumuladoPorJanela.get(janela.periodo)!
+      const acc = mapa.get(c.produtoId) ?? { quantidade: 0, valor: 0 }
+      acc.quantidade += liquido
+      acc.valor += valor
+      mapa.set(c.produtoId, acc)
     }
   }
 
-  const mediaDe = (periodo: string, nome: string) => {
-    const acc = acumuladoPorJanela.get(periodo)?.get(chaveProduto(nome))
+  const mediaDe = (periodo: string, produtoId: string) => {
+    const acc = acumuladoPorJanela.get(periodo)?.get(produtoId)
     return acc && acc.quantidade > 0 ? acc.valor / acc.quantidade : 0
   }
 
@@ -108,11 +108,11 @@ export default async function PedidosPage() {
           ? p.estoqueVinculado.entradas.reduce((s, e) => s + e.quantidade, 0)
           : p.entradas.reduce((s, e) => s + e.quantidade, 0),
         precoMedio: {
-          dia:    mediaDe('dia',    p.nome),
-          semana: mediaDe('semana', p.nome),
-          mes:    mediaDe('mes',    p.nome),
-          ano:    mediaDe('ano',    p.nome),
-          tudo:   mediaDe('tudo',   p.nome),
+          dia:    mediaDe('dia',    p.id),
+          semana: mediaDe('semana', p.id),
+          mes:    mediaDe('mes',    p.id),
+          ano:    mediaDe('ano',    p.id),
+          tudo:   mediaDe('tudo',   p.id),
         },
       }))}
     />
