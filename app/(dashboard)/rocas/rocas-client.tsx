@@ -1725,20 +1725,11 @@ export default function RocasClient({
         }
       }
       setColheitas((prev) => [...novos, ...prev]);
-      // Entrada de estoque: uma por produto (não por meeiro)
-      for (const item of lancItems) {
-        await fetch("/api/estoque", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            produtoId: item.produtoId,
-            quantidade: item.quantidade,
-            valorUnit: item.preco,
-            data: lancForm.data,
-            observacao: `Lançamento roça — ${item.produtoNome}`,
-          }),
-        });
-      }
+      // A entrada de estoque NÃO é lançada aqui: quem cuida disso é a própria
+      // API da colheita (ver lib/estoque-colheita), que faz o mesmo ao editar e
+      // ao excluir. Lançar também daqui contava a mesma caixa duas vezes — era
+      // o que dobrava o estoque. Além disso, a API desconta o descarte e
+      // respeita o estoque vinculado, o que este laço não fazia.
       const bandejaTotalLanc = lancItems.reduce(
         (s, i) => s + (i.bandeja || 0) * i.quantidade,
         0,

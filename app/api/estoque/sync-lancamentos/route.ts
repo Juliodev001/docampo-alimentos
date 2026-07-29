@@ -31,10 +31,17 @@ export async function POST() {
     },
   })
 
-  // Fora o agregado do formato antigo: ele e as entradas por colheita contam o
-  // mesmo volume duas vezes.
-  const { count: agregadosRemovidos } = await prisma.entradaEstoque.deleteMany({
-    where: { observacao: { startsWith: 'Sync lançamentos roça' } },
+  // Fora os dois formatos antigos de lançar a colheita no estoque — o agregado
+  // por produto ("Sync lançamentos roça") e a entrada que a própria tela de
+  // Lançamentos criava ("Lançamento roça — <produto>"). Qualquer um deles ao
+  // lado das entradas por colheita conta o mesmo volume duas vezes.
+  const { count: duplicadasRemovidas } = await prisma.entradaEstoque.deleteMany({
+    where: {
+      OR: [
+        { observacao: { startsWith: 'Sync lançamentos roça' } },
+        { observacao: { startsWith: 'Lançamento roça' } },
+      ],
+    },
   })
 
   const jaNoEstoque = new Set(
@@ -67,5 +74,5 @@ export async function POST() {
   // Isso punha o preço PAGO ao produtor como preço de VENDA — vender no custo.
   // Preço é decisão de quem vende, não efeito colateral de sincronizar estoque.
 
-  return NextResponse.json({ sincronizados: novas.length, agregadosRemovidos })
+  return NextResponse.json({ sincronizados: novas.length, duplicadasRemovidas })
 }
