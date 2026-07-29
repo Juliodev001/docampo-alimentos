@@ -29,6 +29,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { useToast } from "@/components/toast";
 import { arredondarCaixas } from "@/lib/fechamento-calc";
+import { hojeISO } from "@/lib/utils";
 
 const GREEN = "#5ab952";
 const NAVY = "#2d3561";
@@ -335,7 +336,7 @@ const emptyForm = {
   observacao: "",
 };
 const emptyRegistro = {
-  data: new Date().toISOString().split("T")[0],
+  data: hojeISO(),
   tipo: "PLANTIO",
   descricao: "",
   custo: "",
@@ -373,7 +374,7 @@ const emptyProdutoForm = {
 };
 const emptyLancForm = {
   produtorId: "",
-  data: new Date().toISOString().split("T")[0],
+  data: hojeISO(),
   rocaId: "",
   meeiroIds: [] as string[],
   produtoId: "",
@@ -4254,7 +4255,9 @@ export default function RocasClient({
                 const d = await r.json();
                 toast.success(
                   "Estoque sincronizado",
-                  `${d.sincronizados} produto(s) atualizados`,
+                  d.sincronizados > 0
+                    ? `${d.sincronizados} lançamento(s) entraram no estoque`
+                    : "Nenhum lançamento pendente — o estoque já estava em dia",
                 );
               }}
               style={{
