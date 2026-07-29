@@ -44,6 +44,9 @@ export default function ValesClient({ vales: inicial, produtores, parceiros }: {
   const [modal, setModal] = useState(false)
   // id do vale em edição; null = modal está criando um novo.
   const [editing, setEditing] = useState<string | null>(null)
+  // Vale já descontado está preso ao fechamento de alguém: o valor pode ser
+  // corrigido (o acerto é ajustado junto), mas trocar de beneficiário, não.
+  const [editBeneficiarioTravado, setEditBeneficiarioTravado] = useState(false)
   const [tipo, setTipo] = useState<'PRODUTOR' | 'MEEIRO'>('PRODUTOR')
   const [beneficiarioId, setBeneficiarioId] = useState('')
   const [valor, setValor] = useState('')
@@ -71,13 +74,14 @@ export default function ValesClient({ vales: inicial, produtores, parceiros }: {
   const totalDescontado = vales.filter(v => v.status === 'DESCONTADO').reduce((s, v) => s + v.valor, 0)
 
   function openCreate() {
-    setEditing(null)
+    setEditing(null); setEditBeneficiarioTravado(false)
     setTipo('PRODUTOR'); setBeneficiarioId(''); setValor(''); setData(new Date().toISOString().slice(0, 10))
     setObservacao(''); setError(''); setModal(true)
   }
 
   function openEdit(v: Vale) {
     setEditing(v.id)
+    setEditBeneficiarioTravado(v.status === 'DESCONTADO')
     setTipo(v.parceiro ? 'MEEIRO' : 'PRODUTOR')
     setBeneficiarioId(v.parceiro?.id ?? v.produtor?.id ?? '')
     setValor(String(v.valor))
@@ -243,12 +247,10 @@ export default function ValesClient({ vales: inicial, produtores, parceiros }: {
                   <td style={{ padding: '14px 16px', fontSize: 13, color: '#6b7280' }}>{v.observacao ?? <span style={{ color: '#d1d5db' }}>—</span>}</td>
                   <td style={{ padding: '14px 16px' }}>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      {v.status === 'ABERTO' && (
-                        <button onClick={() => openEdit(v)} title="Editar"
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, color: BLUE }}>
-                          <FontAwesomeIcon icon={faPencil} style={{ fontSize: 14 }} />
-                        </button>
-                      )}
+                      <button onClick={() => openEdit(v)} title="Editar"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, color: BLUE }}>
+                        <FontAwesomeIcon icon={faPencil} style={{ fontSize: 14 }} />
+                      </button>
                       {(v.status === 'ABERTO' || v.status === 'DESCONTADO') && (
                         <button onClick={() => setConfirmDiscard(v.id)} title="Descartar (não cobrar)"
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, color: '#6b7280' }}>
@@ -295,23 +297,33 @@ export default function ValesClient({ vales: inicial, produtores, parceiros }: {
                     <div className="grid-2" style={{ gap: 10, marginBottom: 10 }}>
                       {([{ val: 'PRODUTOR' as const, label: 'Produtor' }, { val: 'MEEIRO' as const, label: 'Meeiro' }]).map(opt => (
                         <button key={opt.val} type="button"
+                          disabled={editBeneficiarioTravado}
                           onClick={() => { setTipo(opt.val); setBeneficiarioId('') }}
                           style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 14px',
                             border: `2px solid ${tipo === opt.val ? BLUE : '#e5e7eb'}`, borderRadius: 10,
-                            background: tipo === opt.val ? '#eff6ff' : 'white', cursor: 'pointer', fontFamily: 'inherit',
-                            fontWeight: 600, fontSize: 13, color: tipo === opt.val ? BLUE : '#374151',
+                            background: editBeneficiarioTravado ? '#f9fafb' : tipo === opt.val ? '#eff6ff' : 'white',
+                            cursor: editBeneficiarioTravado ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                            fontWeight: 600, fontSize: 13,
+                            color: editBeneficiarioTravado ? '#9ca3af' : tipo === opt.val ? BLUE : '#374151',
                           }}>
                           {opt.label}
                         </button>
                       ))}
                     </div>
-                    <select value={beneficiarioId} onChange={e => setBeneficiarioId(e.target.value)} style={inp}>
+                    <select value={beneficiarioId} onChange={e => setBeneficiarioId(e.target.value)}
+                      disabled={editBeneficiarioTravado}
+                      style={{ ...inp, background: editBeneficiarioTravado ? '#f9fafb' : 'white', color: editBeneficiarioTravado ? '#9ca3af' : NAVY }}>
                       <option value="">Selecione...</option>
                       {tipo === 'PRODUTOR'
                         ? produtores.map(p => <option key={p.id} value={p.id}>{p.codigo ? `${p.codigo} — ` : ''}{p.nome}</option>)
                         : parceiros.map(p => <option key={p.id} value={p.id}>{p.nome} ({p.produtorNome})</option>)}
                     </select>
+                    {editBeneficiarioTravado && (
+                      <p style={{ fontSize: 11, color: '#9ca3af', margin: '5px 0 0' }}>
+                        Vale já descontado: o valor pode ser corrigido (o fechamento é ajustado junto), mas o beneficiário não muda.
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label style={lbl}>Valor (R$)</label>
