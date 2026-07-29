@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
+import { sincronizarEstoqueDoPedido, removerEstoqueDoPedido } from '@/lib/estoque-pedido'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
@@ -49,6 +50,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         include: { cliente: true, transportadora: true, itens: true },
       })
     })
+    // Os itens mudaram: refaz as baixas com o que ficou gravado. Sem isto,
+    // trocar 10 caixas por 5 mantinha a baixa das 10.
+    await sincronizarEstoqueDoPedido({
+      numero: pedido.numero,
+      tipo:   pedido.tipo,
+      status: pedido.status,
+      data:   pedido.data,
+      itens:  pedido.itens.map(it => ({
+        produto:    it.produto,
+        quantidade: it.quantidade,
+        valorUnit:  String(it.valorUnit),
+      })),
+    })
     return NextResponse.json(pedido)
   }
 
@@ -57,6 +71,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     data: { status: body.status, observacao: body.observacao },
     include: { cliente: true, transportadora: true, itens: true },
   })
+  // Mudança de status: cancelar devolve a mercadoria ao estoque (a baixa é
+  // apagada) e reabrir volta a descontar.
+  if (body.status !== undefined) {
+    await sincronizarEstoqueDoPedido({
+      numero: pedido.numero,
+      tipo:   pedido.tipo,
+      status: pedido.status,
+      data:   pedido.data,
+      itens:  pedido.itens.map(it => ({
+        produto:    it.produto,
+        quantidade: it.quantidade,
+        valorUnit:  String(it.valorUnit),
+      })),
+    })
+  }
   return NextResponse.json(pedido)
 }
 
@@ -64,6 +93,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const session = await getSession()
   if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
+  // Antes de apagar: a baixa precisa sair junto, senão fica descontando uma
+  // venda que não existe mais. O número tem que ser lido agora — depois do
+  // delete não há mais como saber qual era.
+  const pedido = await prisma.pedido.findUnique({ where: { id }, select: { numero: true } })
+  if (pedido) await removerEstoqueDoPedido(pedido.numero)
   await prisma.pedido.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }

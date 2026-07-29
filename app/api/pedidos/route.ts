@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 import { s } from '@/lib/serialize'
+import { sincronizarEstoqueDoPedido } from '@/lib/estoque-pedido'
 
 export async function GET() {
   const session = await getSession()
@@ -75,24 +76,20 @@ export async function POST(req: NextRequest) {
     include: { cliente: true, fornecedor: true, transportadora: true, itens: true },
   })
 
-  // Deduz estoque para vendas PDV (usa estoque vinculado se houver)
-  if (tipo === 'PDV') {
-    for (const it of itens as { produtoId?: string; quantidade: number; valorUnit: number }[]) {
-      if (it.produtoId) {
-        const prod = await prisma.produto.findUnique({ where: { id: it.produtoId }, select: { estoqueVinculadoId: true } })
-        const estoqueId = prod?.estoqueVinculadoId ?? it.produtoId
-        await prisma.entradaEstoque.create({
-          data: {
-            produtoId:  estoqueId,
-            quantidade: -it.quantidade,
-            valorUnit:  it.valorUnit,
-            data:       new Date(data),
-            observacao: `Venda PDV #${pedido.numero}`,
-          },
-        })
-      }
-    }
-  }
+  // Baixa de estoque da venda. Passa pelo mesmo caminho que a edição e o
+  // cancelamento usam, para os três não divergirem.
+  await sincronizarEstoqueDoPedido({
+    numero: pedido.numero,
+    tipo:   pedido.tipo,
+    status: pedido.status,
+    data:   pedido.data,
+    itens:  (itens as ItemPedido[]).map(it => ({
+      produtoId:  it.produtoId ?? null,
+      produto:    it.produto,
+      quantidade: it.quantidade,
+      valorUnit:  it.valorUnit,
+    })),
+  })
 
   return NextResponse.json(s(pedido), { status: 201 })
 }
