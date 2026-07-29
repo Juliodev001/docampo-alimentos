@@ -301,6 +301,26 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
   background: "#fff",
 };
+// Campos do painel de filtros da aba Lançamentos.
+const filtroInp: React.CSSProperties = {
+  width: "100%",
+  border: "1.5px solid #e5e7eb",
+  borderRadius: 8,
+  padding: "8px 10px",
+  fontSize: 13,
+  color: NAVY,
+  outline: "none",
+  boxSizing: "border-box",
+  background: "#fff",
+  fontFamily: "inherit",
+};
+const filtroLbl: React.CSSProperties = {
+  display: "block",
+  fontSize: 12,
+  fontWeight: 600,
+  color: "#6b7280",
+  marginBottom: 5,
+};
 const emptyForm = {
   nome: "",
   codigo: "",
@@ -713,6 +733,14 @@ export default function RocasClient({
     useState<Produto | null>(null);
 
   const [searchLanc, setSearchLanc] = useState("");
+  // Painel de filtros da aba Lançamentos (data / produtor / meeiro / produto).
+  const [showLancFiltros, setShowLancFiltros] = useState(false);
+  const [lancFiltroDe, setLancFiltroDe] = useState("");
+  const [lancFiltroAte, setLancFiltroAte] = useState("");
+  const [lancFiltroProdutor, setLancFiltroProdutor] = useState("");
+  const [lancFiltroMeeiro, setLancFiltroMeeiro] = useState("");
+  const [lancFiltroProduto, setLancFiltroProduto] = useState("");
+  const [lancOrdemAsc, setLancOrdemAsc] = useState(false);
   const [showLancModal, setShowLancModal] = useState(false);
   const [lancForm, setLancForm] = useState(emptyLancForm);
   const [embalagemPadrao, setEmbalagemPadrao] = useState("1.40");
@@ -1949,19 +1977,63 @@ export default function RocasClient({
     fechamentosState.filter(f => f.produtorId === fechForm.produtorId).map(f => f.dataPagamento.slice(0, 10))
   ), [fechForm.produtorId, fechamentosState]);
 
-  const filteredLanc = useMemo(
+  const filteredLanc = useMemo(() => {
+    const busca = searchLanc.toLowerCase();
+    const lista = colheitas.filter((c) => {
+      // Busca livre (roça, meeiro ou produto) — só quando há texto digitado.
+      if (busca) {
+        const casa =
+          (c.produtorNome ?? "").toLowerCase().includes(busca) ||
+          (c.parceiroNome ?? "").toLowerCase().includes(busca) ||
+          c.produtoNome.toLowerCase().includes(busca);
+        if (!casa) return false;
+      }
+      // c.data é ISO ("2026-07-28T..."); o input de data manda "AAAA-MM-DD",
+      // então comparar os 10 primeiros caracteres já resolve o intervalo.
+      const dia = c.data.slice(0, 10);
+      if (lancFiltroDe && dia < lancFiltroDe) return false;
+      if (lancFiltroAte && dia > lancFiltroAte) return false;
+      if (lancFiltroProdutor && c.produtorId !== lancFiltroProdutor) return false;
+      if (lancFiltroMeeiro && c.parceiroId !== lancFiltroMeeiro) return false;
+      if (lancFiltroProduto && c.produtoId !== lancFiltroProduto) return false;
+      return true;
+    });
+    return lista.sort((a, b) =>
+      lancOrdemAsc ? a.data.localeCompare(b.data) : b.data.localeCompare(a.data),
+    );
+  }, [
+    colheitas,
+    searchLanc,
+    lancFiltroDe,
+    lancFiltroAte,
+    lancFiltroProdutor,
+    lancFiltroMeeiro,
+    lancFiltroProduto,
+    lancOrdemAsc,
+  ]);
+
+  const lancFiltrosAtivos =
+    (lancFiltroDe ? 1 : 0) +
+    (lancFiltroAte ? 1 : 0) +
+    (lancFiltroProdutor ? 1 : 0) +
+    (lancFiltroMeeiro ? 1 : 0) +
+    (lancFiltroProduto ? 1 : 0);
+
+  function limparLancFiltros() {
+    setLancFiltroDe("");
+    setLancFiltroAte("");
+    setLancFiltroProdutor("");
+    setLancFiltroMeeiro("");
+    setLancFiltroProduto("");
+  }
+
+  // Só os meeiros do produtor selecionado, quando há um; senão, todos.
+  const meeirosParaFiltro = useMemo(
     () =>
-      colheitas.filter(
-        (c) =>
-          (c.produtorNome ?? "")
-            .toLowerCase()
-            .includes(searchLanc.toLowerCase()) ||
-          (c.parceiroNome ?? "")
-            .toLowerCase()
-            .includes(searchLanc.toLowerCase()) ||
-          c.produtoNome.toLowerCase().includes(searchLanc.toLowerCase()),
-      ),
-    [colheitas, searchLanc],
+      lancFiltroProdutor
+        ? parceirosState.filter((p) => p.produtorId === lancFiltroProdutor)
+        : parceirosState,
+    [parceirosState, lancFiltroProdutor],
   );
 
   const meeirosDoProdutor = useMemo(
@@ -4077,24 +4149,41 @@ export default function RocasClient({
             }}
           >
             <button
+              onClick={() => setShowLancFiltros((v) => !v)}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
-                background: "#fff",
-                color: "#374151",
-                border: "1.5px solid #e5e7eb",
+                background: showLancFiltros || lancFiltrosAtivos > 0 ? "#eff6ff" : "#fff",
+                color: showLancFiltros || lancFiltrosAtivos > 0 ? NAVY : "#374151",
+                border: `1.5px solid ${showLancFiltros || lancFiltrosAtivos > 0 ? NAVY : "#e5e7eb"}`,
                 borderRadius: 8,
                 padding: "8px 14px",
                 fontSize: 13,
-                fontWeight: 500,
+                fontWeight: lancFiltrosAtivos > 0 ? 700 : 500,
                 cursor: "pointer",
               }}
             >
               <FontAwesomeIcon icon={faFilter} style={{ fontSize: 14 }} />{" "}
               Filtros
+              {lancFiltrosAtivos > 0 && (
+                <span
+                  style={{
+                    background: NAVY,
+                    color: "#fff",
+                    borderRadius: 999,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: "1px 7px",
+                    marginLeft: 2,
+                  }}
+                >
+                  {lancFiltrosAtivos}
+                </span>
+              )}
             </button>
             <button
+              onClick={() => setLancOrdemAsc((v) => !v)}
               style={{
                 background: "#fff",
                 color: "#374151",
@@ -4106,7 +4195,7 @@ export default function RocasClient({
                 cursor: "pointer",
               }}
             >
-              Mais recentes primeiro
+              {lancOrdemAsc ? "Mais antigos primeiro" : "Mais recentes primeiro"}
             </button>
             <div style={{ flex: 1, position: "relative", minWidth: 200 }}>
               <FontAwesomeIcon
@@ -4204,6 +4293,121 @@ export default function RocasClient({
               Lançamento
             </button>
           </div>
+
+          {showLancFiltros && (
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: 12,
+                padding: "16px 18px",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+                marginBottom: 16,
+                border: `1px solid ${NAVY}22`,
+              }}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <label style={filtroLbl}>Data de</label>
+                  <input
+                    type="date"
+                    value={lancFiltroDe}
+                    onChange={(e) => setLancFiltroDe(e.target.value)}
+                    style={filtroInp}
+                  />
+                </div>
+                <div>
+                  <label style={filtroLbl}>Data até</label>
+                  <input
+                    type="date"
+                    value={lancFiltroAte}
+                    onChange={(e) => setLancFiltroAte(e.target.value)}
+                    style={filtroInp}
+                  />
+                </div>
+                <div>
+                  <label style={filtroLbl}>Produtor</label>
+                  <select
+                    value={lancFiltroProdutor}
+                    onChange={(e) => {
+                      setLancFiltroProdutor(e.target.value);
+                      // Troca de produtor pode invalidar o meeiro escolhido.
+                      setLancFiltroMeeiro("");
+                    }}
+                    style={filtroInp}
+                  >
+                    <option value="">Todos</option>
+                    {produtoresState.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.codigo ? `${p.codigo} — ` : ""}
+                        {p.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={filtroLbl}>Meeiro</label>
+                  <select
+                    value={lancFiltroMeeiro}
+                    onChange={(e) => setLancFiltroMeeiro(e.target.value)}
+                    style={filtroInp}
+                  >
+                    <option value="">Todos</option>
+                    {meeirosParaFiltro.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.codigo ? `${p.codigo} — ` : ""}
+                        {p.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={filtroLbl}>Produto</label>
+                  <select
+                    value={lancFiltroProduto}
+                    onChange={(e) => setLancFiltroProduto(e.target.value)}
+                    style={filtroInp}
+                  >
+                    <option value="">Todos</option>
+                    {produtosState.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {lancFiltrosAtivos > 0 && (
+                <div style={{ marginTop: 12, textAlign: "right" }}>
+                  <button
+                    onClick={limparLancFiltros}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: "#fff",
+                      color: PINK,
+                      border: `1.5px solid ${PINK}`,
+                      borderRadius: 8,
+                      padding: "7px 14px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faXmark} style={{ fontSize: 13 }} />{" "}
+                    Limpar filtros
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {(() => {
             const valorBruto = filteredLanc.reduce(
