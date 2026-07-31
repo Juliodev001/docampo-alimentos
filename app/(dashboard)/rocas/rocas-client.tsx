@@ -182,6 +182,31 @@ const since = (iso: string) => {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
 };
 
+/**
+ * Agrupa por mês os dias com lançamento em aberto (chaves "YYYY-MM-DD"). O
+ * calendário mostra um mês por vez, então sem esta lista os dias marcados em
+ * outros meses ficam invisíveis e parecem não existir.
+ */
+const mesesComAberto = (dias: Set<string>) => {
+  const porMes = new Map<string, number>();
+  for (const ds of dias) porMes.set(ds.slice(0, 7), (porMes.get(ds.slice(0, 7)) ?? 0) + 1);
+  return [...porMes.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([ym, qtd]) => {
+      const [ano, mes] = ym.split("-").map(Number);
+      return {
+        ym,
+        year: ano,
+        month: mes - 1,
+        qtd,
+        label: new Date(ano, mes - 1).toLocaleDateString("pt-BR", {
+          month: "short",
+          year: "numeric",
+        }),
+      };
+    });
+};
+
 type RelatorioPreviewData = {
   prodNome: string;
   prodCodigo: string | null;
@@ -2064,6 +2089,36 @@ export default function RocasClient({
         .filter(ds => !fechs.some(f => ds >= f.dataInicio.slice(0, 10) && ds <= f.dataFim.slice(0, 10))),
     );
   }, [fecharMeeiroModal?.id, fechamentosMeeiroState, colheitas]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // O calendário abria sempre no mês corrente, então os dias marcados ficavam
+  // fora de vista quando os lançamentos em aberto eram de meses anteriores —
+  // dava a impressão de que a marcação não funcionava. Ao abrir o modal (ou
+  // trocar o produtor), pula para o mês do lançamento em aberto mais antigo.
+  // Depois disso a navegação manual manda, porque as deps não mudam mais.
+  useEffect(() => {
+    if (!showFechModal) return;
+    const primeiro = [...diasAbertosProdutor].sort()[0];
+    if (!primeiro) return;
+    const [ano, mes] = primeiro.split("-").map(Number);
+    setFechCalNav({ year: ano, month: mes - 1 });
+  }, [showFechModal, fechForm.produtorId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!fecharMeeiroModal) return;
+    const primeiro = [...diasAbertosMeeiro].sort()[0];
+    if (!primeiro) return;
+    const [ano, mes] = primeiro.split("-").map(Number);
+    setFecharCalNav({ year: ano, month: mes - 1 });
+  }, [fecharMeeiroModal?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const mesesAbertosProdutor = useMemo(
+    () => mesesComAberto(diasAbertosProdutor),
+    [diasAbertosProdutor],
+  );
+  const mesesAbertosMeeiro = useMemo(
+    () => mesesComAberto(diasAbertosMeeiro),
+    [diasAbertosMeeiro],
+  );
 
   const filteredLanc = useMemo(() => {
     const busca = searchLanc.toLowerCase();
@@ -7415,6 +7470,23 @@ export default function RocasClient({
                                         <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#b45309" }} /> lançamento em aberto
                                       </span>
                                     </div>
+                                    {mesesAbertosProdutor.length > 0 && (
+                                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+                                        <span style={{ fontSize: 10, color: "#6b7280", fontWeight: 600 }}>Meses em aberto:</span>
+                                        {mesesAbertosProdutor.map((m) => {
+                                          const visivel = m.year === fechCalNav.year && m.month === fechCalNav.month;
+                                          return (
+                                            <button
+                                              key={m.ym}
+                                              onClick={() => setFechCalNav({ year: m.year, month: m.month })}
+                                              style={{ background: visivel ? "#b45309" : "#fff7ed", color: visivel ? "#fff" : "#b45309", border: "1px solid #fed7aa", borderRadius: 20, padding: "2px 9px", fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                                            >
+                                              {m.label} ({m.qtd})
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
                                     {fechDatasAdicionais.length > 0 ? (
                                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                                         {[...fechDatasAdicionais].sort().map(ds => (
@@ -10341,6 +10413,23 @@ export default function RocasClient({
                           <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#b45309" }} /> lançamento em aberto
                         </span>
                       </div>
+                      {mesesAbertosMeeiro.length > 0 && (
+                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+                          <span style={{ fontSize: 10, color: "#6b7280", fontWeight: 600 }}>Meses em aberto:</span>
+                          {mesesAbertosMeeiro.map((m) => {
+                            const visivel = m.year === fecharCalNav.year && m.month === fecharCalNav.month;
+                            return (
+                              <button
+                                key={m.ym}
+                                onClick={() => setFecharCalNav({ year: m.year, month: m.month })}
+                                style={{ background: visivel ? "#b45309" : "#fff7ed", color: visivel ? "#fff" : "#b45309", border: "1px solid #fed7aa", borderRadius: 20, padding: "2px 9px", fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                              >
+                                {m.label} ({m.qtd})
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                       {fecharDatasAdicionais.length > 0 ? (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                           {[...fecharDatasAdicionais].sort().map(ds => (
