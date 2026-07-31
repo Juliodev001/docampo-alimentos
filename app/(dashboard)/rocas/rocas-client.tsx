@@ -806,7 +806,6 @@ export default function RocasClient({
   );
   const [searchPagamento, setSearchPagamento] = useState("");
   const [pagamentoFiltroProdutor, setPagamentoFiltroProdutor] = useState("");
-  const [showPagamentoFiltros, setShowPagamentoFiltros] = useState(false);
   const [showHistoricoPag, setShowHistoricoPag] = useState(false);
   const [histBuscaNome, setHistBuscaNome] = useState("");
   const [histDataInicio, setHistDataInicio] = useState("");
@@ -1983,6 +1982,30 @@ export default function RocasClient({
   const diasAcertadosProdutor = useMemo(() => new Set(
     fechamentosState.filter(f => f.produtorId === fechForm.produtorId).map(f => f.dataPagamento.slice(0, 10))
   ), [fechForm.produtorId, fechamentosState]);
+
+  // Dias que têm colheita lançada e ainda não caíram em nenhum fechamento —
+  // marcados no calendário para o usuário enxergar o que falta acertar.
+  const diasAbertosProdutor = useMemo(() => {
+    if (!fechForm.produtorId) return new Set<string>();
+    const fechs = fechamentosState.filter(f => f.produtorId === fechForm.produtorId);
+    return new Set(
+      colheitas
+        .filter(c => c.produtorId === fechForm.produtorId)
+        .map(c => c.data.slice(0, 10))
+        .filter(ds => !fechs.some(f => ds >= f.dataInicio.slice(0, 10) && ds <= f.dataFim.slice(0, 10))),
+    );
+  }, [fechForm.produtorId, fechamentosState, colheitas]);
+
+  const diasAbertosMeeiro = useMemo(() => {
+    if (!fecharMeeiroModal) return new Set<string>();
+    const fechs = fechamentosMeeiroState.filter(f => f.parceiroId === fecharMeeiroModal.id);
+    return new Set(
+      colheitas
+        .filter(c => c.parceiroId === fecharMeeiroModal.id)
+        .map(c => c.data.slice(0, 10))
+        .filter(ds => !fechs.some(f => ds >= f.dataInicio.slice(0, 10) && ds <= f.dataFim.slice(0, 10))),
+    );
+  }, [fecharMeeiroModal?.id, fechamentosMeeiroState, colheitas]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filteredLanc = useMemo(() => {
     const busca = searchLanc.toLowerCase();
@@ -5515,275 +5538,356 @@ export default function RocasClient({
               (!pagamentoFiltroProdutor ||
                 p.produtorId === pagamentoFiltroProdutor),
           );
+
+          // Meeiros com colheitas ainda não cobertas por um fechamento
+          const pendentesMeeiros = parceirosState
+            .map((m) => {
+              const ultFech = fechamentosMeeiroState
+                .filter((f) => f.parceiroId === m.id)
+                .sort(
+                  (a, b) =>
+                    new Date(b.dataFim).getTime() -
+                    new Date(a.dataFim).getTime(),
+                )[0];
+              const desde = ultFech
+                ? new Date(new Date(ultFech.dataFim).getTime() + 86400000)
+                : new Date(0);
+              const abertas = colheitas.filter(
+                (c) => c.parceiroId === m.id && new Date(c.data) >= desde,
+              );
+              const bruto = abertas.reduce((s, c) => {
+                const caixas = arredondarCaixas(
+                  (c.quantidadeTotal - c.descarte) * (c.percParceiro / 100),
+                );
+                return s + caixas * c.preco - caixas * c.bandeja;
+              }, 0);
+              return {
+                meeiro: m,
+                abertas,
+                bruto,
+                desde: ultFech ? since(ultFech.dataFim) : "sempre",
+                item: pagamentosMeeiros.find((p) => p.id === m.id) ?? null,
+              };
+            })
+            // Meeiro pode ser quitado por pagamento avulso, sem fechamento
+            // nenhum. Só é pendente de verdade quem ainda tem saldo.
+            .filter(
+              (x) =>
+                x.abertas.length > 0 &&
+                x.item !== null &&
+                x.item.valorReceber > 0,
+            );
+
           return (
-            <div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              {/* Lançamentos em aberto */}
+              {pendentesMeeiros.length > 0 && (
+                <div
+                  style={{
+                    background: "#fff",
+                    borderRadius: 12,
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+                    padding: "16px 20px",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: ORANGE,
+                      marginBottom: 12,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <span>⚠️</span> Lançamentos em aberto (sem fechamento)
+                  </div>
+                  <div
+                    style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                  >
+                    {pendentesMeeiros.map(({ meeiro, abertas, bruto, desde, item }) => (
+                      <div
+                        key={meeiro.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          flexWrap: "wrap",
+                          gap: 12,
+                          background: ORANGE + "0d",
+                          borderRadius: 8,
+                          padding: "10px 14px",
+                          border: `1px solid ${ORANGE}30`,
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 700,
+                              color: NAVY,
+                            }}
+                          >
+                            {meeiro.nome}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: "#6b7280",
+                              marginTop: 2,
+                            }}
+                          >
+                            {abertas.length} lançamento(s) desde{" "}
+                            <strong>{desde}</strong>
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: 12,
+                            minWidth: 0,
+                          }}
+                        >
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontSize: 11, color: "#6b7280" }}>
+                              Bruto em aberto
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 15,
+                                fontWeight: 700,
+                                color: ORANGE,
+                              }}
+                            >
+                              {fmtCurrency(bruto)}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() =>
+                              window.open(
+                                `/imprimir/meeiro/${meeiro.id}`,
+                                "_blank",
+                              )
+                            }
+                            style={{
+                              background: "#fff",
+                              color: NAVY,
+                              border: `1px solid ${NAVY}40`,
+                              borderRadius: 8,
+                              padding: "7px 14px",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Ver relatório
+                          </button>
+                          <button
+                            onClick={() => item && openFecharMeeiro(item)}
+                            style={{
+                              background: NAVY,
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: 8,
+                              padding: "7px 14px",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            + Fechar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Summary cards */}
+              <div className="grid-3" style={{ gap: 16 }}>
+                <div
+                  style={{
+                    background: "#fff",
+                    borderRadius: 12,
+                    padding: "16px 20px",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+                    borderLeft: `3px solid ${NAVY}`,
+                  }}
+                >
+                  <div
+                    style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}
+                  >
+                    Total de Fechamentos
+                  </div>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: NAVY }}>
+                    {fechamentosMeeiroState.length}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    background: "#fff",
+                    borderRadius: 12,
+                    padding: "16px 20px",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+                    borderLeft: `3px solid ${ORANGE}`,
+                  }}
+                >
+                  <div
+                    style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}
+                  >
+                    Em aberto
+                  </div>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: ORANGE }}>
+                    {filtradosAberto.length}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    background: "#fff",
+                    borderRadius: 12,
+                    padding: "16px 20px",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+                    borderLeft: `3px solid ${GREEN}`,
+                  }}
+                >
+                  <div
+                    style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}
+                  >
+                    Quitados
+                  </div>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: GREEN }}>
+                    {filtradosQuitados.length}
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter / action bar */}
               <div
                 style={{
-                  display: "flex",
-                  gap: 12,
-                  marginBottom: 20,
-                  alignItems: "center",
-                  flexWrap: "wrap",
+                  background: "#fff",
+                  borderRadius: 12,
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+                  padding: "16px 20px",
                 }}
               >
-                <button
-                  onClick={() => setPagamentoStatus("aberto")}
+                <div
                   style={{
                     display: "flex",
+                    gap: 12,
                     alignItems: "center",
-                    gap: 8,
-                    padding: "8px 16px",
-                    borderRadius: 8,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    border:
-                      pagamentoStatus === "aberto"
-                        ? `2px solid ${BLUE}`
-                        : "1.5px solid #e5e7eb",
-                    background:
-                      pagamentoStatus === "aberto" ? BLUE + "12" : "#fff",
-                    color: pagamentoStatus === "aberto" ? BLUE : "#6b7280",
-                    cursor: "pointer",
+                    flexWrap: "wrap",
                   }}
                 >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                  <select
+                    style={{ ...inputStyle, width: 200 }}
+                    value={pagamentoFiltroProdutor}
+                    onChange={(e) =>
+                      setPagamentoFiltroProdutor(e.target.value)
+                    }
                   >
-                    <rect x="2" y="5" width="20" height="14" rx="2" />
-                    <line x1="2" y1="10" x2="22" y2="10" />
-                  </svg>
-                  Em aberto
-                  <span
-                    style={{
-                      background:
-                        pagamentoStatus === "aberto" ? BLUE : "#e5e7eb",
-                      color: pagamentoStatus === "aberto" ? "#fff" : "#6b7280",
-                      borderRadius: 999,
-                      padding: "1px 8px",
-                      fontSize: 11,
-                      fontWeight: 700,
-                    }}
+                    <option value="">Todos os produtores</option>
+                    {produtoresState.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nome}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    style={{ ...inputStyle, width: 150 }}
+                    value={pagamentoStatus}
+                    onChange={(e) =>
+                      setPagamentoStatus(e.target.value as "aberto" | "quitado")
+                    }
                   >
-                    {filtradosAberto.length}
-                  </span>
-                </button>
-                <button
-                  onClick={() => setPagamentoStatus("quitado")}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "8px 16px",
-                    borderRadius: 8,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    border:
-                      pagamentoStatus === "quitado"
-                        ? `2px solid ${BLUE}`
-                        : "1.5px solid #e5e7eb",
-                    background:
-                      pagamentoStatus === "quitado" ? BLUE + "12" : "#fff",
-                    color: pagamentoStatus === "quitado" ? BLUE : "#6b7280",
-                    cursor: "pointer",
-                  }}
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
-                  </svg>
-                  Quitados
-                  <span
-                    style={{
-                      background:
-                        pagamentoStatus === "quitado" ? BLUE : "#e5e7eb",
-                      color: pagamentoStatus === "quitado" ? "#fff" : "#6b7280",
-                      borderRadius: 999,
-                      padding: "1px 8px",
-                      fontSize: 11,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {filtradosQuitados.length}
-                  </span>
-                </button>
-                <div style={{ flex: 1, minWidth: 240, position: "relative" }}>
-                  <FontAwesomeIcon
-                    icon={faMagnifyingGlass}
-                    style={{
-                      fontSize: 14,
-                      position: "absolute",
-                      left: 12,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "#9ca3af",
-                      pointerEvents: "none",
-                    }}
-                  />
-                  <input
-                    value={searchPagamento}
-                    onChange={(e) => setSearchPagamento(e.target.value)}
-                    placeholder="Buscar por meeiro..."
-                    style={{
-                      width: "100%",
-                      border: "1.5px solid #e5e7eb",
-                      borderRadius: 8,
-                      padding: "8px 12px 8px 34px",
-                      fontSize: 13,
-                      color: NAVY,
-                      outline: "none",
-                      boxSizing: "border-box",
-                      background: "#fff",
-                    }}
-                  />
-                </div>
-                <div style={{ position: "relative" }}>
+                    <option value="aberto">Em aberto</option>
+                    <option value="quitado">Quitados</option>
+                  </select>
+                  <div style={{ position: "relative", flex: 1, minWidth: 180 }}>
+                    <FontAwesomeIcon
+                      icon={faMagnifyingGlass}
+                      style={{
+                        position: "absolute",
+                        left: 10,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "#9ca3af",
+                        fontSize: 13,
+                        pointerEvents: "none",
+                      }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Buscar por meeiro..."
+                      value={searchPagamento}
+                      onChange={(e) => setSearchPagamento(e.target.value)}
+                      style={{
+                        ...inputStyle,
+                        width: "100%",
+                        paddingLeft: 32,
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
+                  <div style={{ flex: "0 0 auto" }} />
                   <button
-                    onClick={() => setShowPagamentoFiltros((v) => !v)}
+                    onClick={() => setActiveTab("notas")}
                     style={{
                       display: "flex",
                       alignItems: "center",
                       gap: 6,
-                      background: pagamentoFiltroProdutor
-                        ? BLUE + "12"
-                        : "#fff",
-                      color: pagamentoFiltroProdutor ? BLUE : "#374151",
-                      border: pagamentoFiltroProdutor
-                        ? `1.5px solid ${BLUE}`
-                        : "1.5px solid #e5e7eb",
+                      background: "#fff",
+                      color: "#374151",
+                      border: "1.5px solid #e5e7eb",
                       borderRadius: 8,
-                      padding: "8px 14px",
+                      padding: "9px 16px",
                       fontSize: 13,
                       fontWeight: 500,
                       cursor: "pointer",
                     }}
                   >
-                    <FontAwesomeIcon icon={faFilter} style={{ fontSize: 14 }} />{" "}
-                    Filtros{pagamentoFiltroProdutor ? " (1)" : ""}
+                    <FontAwesomeIcon
+                      icon={faFileLines}
+                      style={{ fontSize: 14 }}
+                    />{" "}
+                    Relatórios
                   </button>
-                  {showPagamentoFiltros && (
-                    <>
-                      <div
-                        onClick={() => setShowPagamentoFiltros(false)}
-                        style={{ position: "fixed", inset: 0, zIndex: 49 }}
-                      />
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "110%",
-                          right: 0,
-                          background: "#fff",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 10,
-                          boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                          zIndex: 50,
-                          padding: 16,
-                          width: 240,
-                        }}
-                      >
-                        <FormField label="Produtor">
-                          <select
-                            value={pagamentoFiltroProdutor}
-                            onChange={(e) =>
-                              setPagamentoFiltroProdutor(e.target.value)
-                            }
-                            style={inputStyle}
-                          >
-                            <option value="">Todos os produtores</option>
-                            {produtoresState.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.nome}
-                              </option>
-                            ))}
-                          </select>
-                        </FormField>
-                        {pagamentoFiltroProdutor && (
-                          <button
-                            onClick={() => setPagamentoFiltroProdutor("")}
-                            style={{
-                              marginTop: 10,
-                              background: "none",
-                              border: "none",
-                              color: PINK,
-                              fontSize: 12,
-                              fontWeight: 600,
-                              cursor: "pointer",
-                              padding: 0,
-                            }}
-                          >
-                            Limpar filtro
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )}
+                  <button
+                    onClick={() => {
+                      setHistBuscaNome("");
+                      setHistDataInicio("");
+                      setHistDataFim("");
+                      setShowHistoricoPag(true);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: NAVY,
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 8,
+                      padding: "9px 18px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <FontAwesomeIcon
+                      icon={faClipboardList}
+                      style={{ fontSize: 14 }}
+                    />{" "}
+                    Histórico de pagamentos
+                  </button>
                 </div>
-                <button
-                  onClick={() => setActiveTab("notas")}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    background: "#fff",
-                    color: "#374151",
-                    border: "1.5px solid #e5e7eb",
-                    borderRadius: 8,
-                    padding: "8px 14px",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    cursor: "pointer",
-                  }}
-                >
-                  <FontAwesomeIcon
-                    icon={faFileLines}
-                    style={{ fontSize: 14 }}
-                  />{" "}
-                  Relatórios
-                </button>
-                <button
-                  onClick={() => {
-                    setHistBuscaNome("");
-                    setHistDataInicio("");
-                    setHistDataFim("");
-                    setShowHistoricoPag(true);
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    background: "#fff",
-                    color: "#374151",
-                    border: "1.5px solid #e5e7eb",
-                    borderRadius: 8,
-                    padding: "8px 14px",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    cursor: "pointer",
-                  }}
-                >
-                  <FontAwesomeIcon
-                    icon={faClipboardList}
-                    style={{ fontSize: 14 }}
-                  />{" "}
-                  Histórico de pagamentos
-                </button>
               </div>
 
+              {/* Table */}
               <div
                 style={{
                   background: "#fff",
@@ -5792,34 +5896,43 @@ export default function RocasClient({
                   overflow: "hidden",
                 }}
               >
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    fontSize: 13,
+                  }}
+                >
                   <thead>
                     <tr
                       style={{
-                        background: "#fff",
+                        background: "#f9fafb",
                         borderBottom: "1px solid #e5e7eb",
                       }}
                     >
                       {[
-                        "Meeiro",
-                        "Chave PIX",
-                        "Valor a receber",
-                        "Emprést aberto",
-                        "Desc emprést.",
-                        "Valor final a pagar",
-                        "Ações",
+                        { label: "Meeiro", align: "left" as const },
+                        { label: "Chave PIX", align: "left" as const },
+                        { label: "Valor a receber", align: "right" as const },
+                        { label: "Emprést aberto", align: "right" as const },
+                        { label: "Desc emprést.", align: "right" as const },
+                        {
+                          label: "Valor final a pagar",
+                          align: "right" as const,
+                        },
+                        { label: "Status", align: "center" as const },
+                        { label: "Ações", align: "center" as const },
                       ].map((h) => (
                         <th
-                          key={h}
+                          key={h.label}
                           style={{
-                            padding: "14px 16px",
-                            textAlign: "left",
-                            fontSize: 12,
+                            padding: "12px 16px",
+                            textAlign: h.align,
                             fontWeight: 600,
-                            color: "#6b7280",
+                            color: "#374151",
                           }}
                         >
-                          {h}
+                          {h.label}
                         </th>
                       ))}
                     </tr>
@@ -5828,10 +5941,10 @@ export default function RocasClient({
                     {lista.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={7}
+                          colSpan={8}
                           style={{
-                            padding: "48px 0",
                             textAlign: "center",
+                            padding: "32px 16px",
                             color: "#9ca3af",
                           }}
                         >
@@ -5843,17 +5956,19 @@ export default function RocasClient({
                         </td>
                       </tr>
                     ) : (
-                      lista.map((p) => (
+                      lista.map((p, i) => (
                         <tr
                           key={p.id}
-                          style={{ borderBottom: "1px solid #f3f4f6" }}
+                          style={{
+                            borderBottom: "1px solid #f3f4f6",
+                            background: i % 2 === 0 ? "#fff" : "#fafafa",
+                          }}
                         >
                           <td
                             style={{
-                              padding: "16px",
-                              fontSize: 13,
-                              color: BLUE,
+                              padding: "12px 16px",
                               fontWeight: 600,
+                              color: NAVY,
                               textTransform: "uppercase",
                             }}
                           >
@@ -5861,8 +5976,7 @@ export default function RocasClient({
                           </td>
                           <td
                             style={{
-                              padding: "16px",
-                              fontSize: 13,
+                              padding: "12px 16px",
                               color: "#374151",
                             }}
                           >
@@ -5870,8 +5984,8 @@ export default function RocasClient({
                           </td>
                           <td
                             style={{
-                              padding: "16px",
-                              fontSize: 13,
+                              padding: "12px 16px",
+                              textAlign: "right",
                               color: "#374151",
                             }}
                           >
@@ -5879,33 +5993,60 @@ export default function RocasClient({
                           </td>
                           <td
                             style={{
-                              padding: "16px",
-                              fontSize: 13,
-                              color: "#374151",
+                              padding: "12px 16px",
+                              textAlign: "right",
+                              color: ORANGE,
                             }}
                           >
                             {fmtCurrency(p.emprestimo)}
                           </td>
                           <td
                             style={{
-                              padding: "16px",
-                              fontSize: 13,
-                              color: "#374151",
+                              padding: "12px 16px",
+                              textAlign: "right",
+                              color: PINK,
                             }}
                           >
                             {fmtCurrency(p.descEmprestimo)}
                           </td>
                           <td
                             style={{
-                              padding: "16px",
-                              fontSize: 13,
+                              padding: "12px 16px",
+                              textAlign: "right",
                               color: "#374151",
                               fontWeight: 600,
                             }}
                           >
                             {fmtCurrency(p.valorFinal)}
                           </td>
-                          <td style={{ padding: "16px" }}>
+                          <td
+                            style={{
+                              padding: "12px 16px",
+                              textAlign: "center",
+                            }}
+                          >
+                            <span
+                              style={{
+                                background:
+                                  p.valorReceber > 0
+                                    ? ORANGE + "20"
+                                    : GREEN + "20",
+                                color: p.valorReceber > 0 ? ORANGE : GREEN,
+                                padding: "3px 10px",
+                                borderRadius: 10,
+                                fontSize: 11,
+                                fontWeight: 600,
+                              }}
+                            >
+                              {p.valorReceber > 0 ? "Em aberto" : "Quitado"}
+                            </span>
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 16px",
+                              textAlign: "center",
+                            }}
+                          >
                             <button
                               onClick={(e) => {
                                 const rect = (
@@ -7187,6 +7328,7 @@ export default function RocasClient({
                                         const ds = `${fechCalDias.year}-${String(fechCalDias.month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
                                         const sel = fechDatasAdicionais.includes(ds);
                                         const acertado = diasAcertadosProdutor.has(ds);
+                                        const aberto = diasAbertosProdutor.has(ds);
                                         return (
                                           <button key={ds} onClick={() => {
                                             const next = fechDatasAdicionais.includes(ds) ? fechDatasAdicionais.filter(x => x !== ds) : [...fechDatasAdicionais, ds];
@@ -7195,12 +7337,25 @@ export default function RocasClient({
                                               const sorted = [...next].sort();
                                               setFechForm(f => ({ ...f, dataInicio: sorted[0], dataFim: sorted[sorted.length - 1] }));
                                             }
-                                          }} style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel || acertado ? 700 : 400, background: sel ? NAVY : acertado ? "#dcfce7" : "transparent", color: sel ? "#fff" : acertado ? "#15803d" : "#374151", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                                          }} style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel || acertado || aberto ? 700 : 400, background: sel ? NAVY : acertado ? "#dcfce7" : aberto ? "#fff7ed" : "transparent", color: sel ? "#fff" : acertado ? "#15803d" : aberto ? "#b45309" : "#374151", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                                             <span>{d}</span>
-                                            {acertado && <div style={{ width: 5, height: 5, borderRadius: "50%", background: sel ? "#fff" : "#15803d" }} />}
+                                            {(acertado || aberto) && (
+                                              <div style={{ display: "flex", gap: 2 }}>
+                                                {acertado && <div style={{ width: 5, height: 5, borderRadius: "50%", background: sel ? "#86efac" : "#15803d" }} />}
+                                                {aberto && <div style={{ width: 5, height: 5, borderRadius: "50%", background: sel ? "#fdba74" : "#b45309" }} />}
+                                              </div>
+                                            )}
                                           </button>
                                         );
                                       })}
+                                    </div>
+                                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 10, color: "#6b7280", marginBottom: 8 }}>
+                                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                        <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#15803d" }} /> já fechado
+                                      </span>
+                                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                        <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#b45309" }} /> lançamento em aberto
+                                      </span>
                                     </div>
                                     {fechDatasAdicionais.length > 0 ? (
                                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -10104,15 +10259,29 @@ export default function RocasClient({
                           const ds = `${fecharCalDias.year}-${String(fecharCalDias.month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
                           const sel = fecharDatasAdicionais.includes(ds);
                           const acertado = diasAcertadosMeeiro.has(ds);
+                          const aberto = diasAbertosMeeiro.has(ds);
                           return (
                             <button key={ds} onClick={() => {
                               setFecharDatasAdicionais(prev => prev.includes(ds) ? prev.filter(x => x !== ds) : [...prev, ds]);
-                            }} style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel || acertado ? 700 : 400, background: sel ? NAVY : acertado ? "#dcfce7" : "transparent", color: sel ? "#fff" : acertado ? "#15803d" : "#374151", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                            }} style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel || acertado || aberto ? 700 : 400, background: sel ? NAVY : acertado ? "#dcfce7" : aberto ? "#fff7ed" : "transparent", color: sel ? "#fff" : acertado ? "#15803d" : aberto ? "#b45309" : "#374151", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                               <span>{d}</span>
-                              {acertado && <div style={{ width: 5, height: 5, borderRadius: "50%", background: sel ? "#fff" : "#15803d" }} />}
+                              {(acertado || aberto) && (
+                                <div style={{ display: "flex", gap: 2 }}>
+                                  {acertado && <div style={{ width: 5, height: 5, borderRadius: "50%", background: sel ? "#86efac" : "#15803d" }} />}
+                                  {aberto && <div style={{ width: 5, height: 5, borderRadius: "50%", background: sel ? "#fdba74" : "#b45309" }} />}
+                                </div>
+                              )}
                             </button>
                           );
                         })}
+                      </div>
+                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 10, color: "#6b7280", marginBottom: 8 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#15803d" }} /> já fechado
+                        </span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#b45309" }} /> lançamento em aberto
+                        </span>
                       </div>
                       {fecharDatasAdicionais.length > 0 ? (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
