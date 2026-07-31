@@ -12,6 +12,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   if (!nome) return NextResponse.json({ error: 'Nome é obrigatório.' }, { status: 400 })
 
+  const existing = await prisma.parceiro.findUnique({ where: { id } })
+  if (!existing) return NextResponse.json({ error: 'Meeiro não encontrado.' }, { status: 404 })
+
+  // `codigo` é único: só vale trocar depois de conferir que ninguém mais usa.
+  const codigo = typeof body.codigo === 'string' ? body.codigo.trim() || null : undefined
+  if (codigo && codigo !== existing.codigo) {
+    const conflict = await prisma.parceiro.findUnique({ where: { codigo } })
+    if (conflict) return NextResponse.json({ error: 'Código já cadastrado por outro meeiro.' }, { status: 400 })
+  }
+
   try {
     const parceiro = await prisma.parceiro.update({
       where: { id },
@@ -24,6 +34,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         valorEmba: valorEmba ?? 0,
         endereco: endereco || null,
         telefone: telefone || null,
+        ...(codigo !== undefined && { codigo }),
         ...(produtorId && { produtorId }),
       },
       include: { produtor: { select: { id: true, nome: true, codigo: true } } },
