@@ -723,6 +723,18 @@ export default function RocasClient({
   const [meeiroFormError, setMeeiroFormError] = useState("");
   const [deleteMeeiroTarget, setDeleteMeeiroTarget] =
     useState<ParceiroProp | null>(null);
+  type MovimentoMeeiro = {
+    colheitas: number;
+    pagamentos: number;
+    vales: number;
+    fechamentos: number;
+    total: number;
+  };
+  const [deleteMeeiroMovimento, setDeleteMeeiroMovimento] =
+    useState<MovimentoMeeiro | null>(null);
+  const [deleteMeeiroCiente, setDeleteMeeiroCiente] = useState(false);
+  const [deletingMeeiro, setDeletingMeeiro] = useState(false);
+  const [deleteMeeiroError, setDeleteMeeiroError] = useState("");
 
   const [searchProduto, setSearchProduto] = useState("");
   const [showProdutoModal, setShowProdutoModal] = useState(false);
@@ -1515,19 +1527,65 @@ export default function RocasClient({
       setSavingMeeiro(false);
     }
   }
+  // Ao abrir o modal de exclusão, levanta o que está pendurado no meeiro para
+  // a decisão ser tomada sabendo o que se perde.
+  useEffect(() => {
+    if (!deleteMeeiroTarget) return;
+    setDeleteMeeiroMovimento(null);
+    setDeleteMeeiroCiente(false);
+    setDeleteMeeiroError("");
+    let cancelado = false;
+    fetch(`/api/parceiros/${deleteMeeiroTarget.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelado && d?.movimento) setDeleteMeeiroMovimento(d.movimento);
+      })
+      .catch(() => {
+        if (!cancelado) setDeleteMeeiroError("Não foi possível conferir os lançamentos.");
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [deleteMeeiroTarget]);
+
   async function handleDeleteMeeiro() {
     if (!deleteMeeiroTarget) return;
+    const temMovimento = (deleteMeeiroMovimento?.total ?? 0) > 0;
+    if (temMovimento && !deleteMeeiroCiente) return;
+    setDeletingMeeiro(true);
+    setDeleteMeeiroError("");
     try {
-      await fetch(`/api/parceiros/${deleteMeeiroTarget.id}`, {
-        method: "DELETE",
-      });
-      setParceirosState((prev) =>
-        prev.filter((p) => p.id !== deleteMeeiroTarget.id),
+      const res = await fetch(
+        `/api/parceiros/${deleteMeeiroTarget.id}${temMovimento ? "?force=true" : ""}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setDeleteMeeiroError(data.error ?? "Erro ao excluir meeiro.");
+        return;
+      }
+      const alvo = deleteMeeiroTarget.id;
+      setParceirosState((prev) => prev.filter((p) => p.id !== alvo));
+      // Espelha localmente o que a rota fez: pagamentos, vales e fechamentos do
+      // meeiro somem, e as colheitas continuam existindo sem o vínculo.
+      setPagamentosState((prev) => prev.filter((p) => p.parceiroId !== alvo));
+      setValesState((prev) => prev.filter((v) => v.parceiroId !== alvo));
+      setFechamentosMeeiroState((prev) =>
+        prev.filter((f) => f.parceiroId !== alvo),
+      );
+      setColheitas((prev) =>
+        prev.map((c) =>
+          c.parceiroId === alvo
+            ? { ...c, parceiroId: null, parceiroNome: null, parceiroCodigo: null }
+            : c,
+        ),
       );
       toast.success("Meeiro excluído", deleteMeeiroTarget.nome);
       setDeleteMeeiroTarget(null);
     } catch {
-      toast.error("Erro");
+      setDeleteMeeiroError("Erro de conexão. Tente novamente.");
+    } finally {
+      setDeletingMeeiro(false);
     }
   }
 
@@ -13767,9 +13825,101 @@ export default function RocasClient({
               >
                 Excluir Meeiro?
               </h3>
-              <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 24px" }}>
+              <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 16px" }}>
                 <strong>{deleteMeeiroTarget.nome}</strong> será removido.
               </p>
+
+              {deleteMeeiroMovimento === null ? (
+                <p style={{ fontSize: 12, color: "#9ca3af", margin: "0 0 20px" }}>
+                  Conferindo lançamentos...
+                </p>
+              ) : deleteMeeiroMovimento.total > 0 ? (
+                <div
+                  style={{
+                    background: "#fff7ed",
+                    border: "1.5px solid #fed7aa",
+                    borderRadius: 10,
+                    padding: "12px 14px",
+                    marginBottom: 16,
+                    textAlign: "left",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#b45309",
+                      textTransform: "uppercase",
+                      marginBottom: 8,
+                    }}
+                  >
+                    Este meeiro tem movimento
+                  </div>
+                  <ul
+                    style={{
+                      margin: 0,
+                      paddingLeft: 18,
+                      fontSize: 12,
+                      color: "#374151",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 3,
+                    }}
+                  >
+                    {deleteMeeiroMovimento.pagamentos > 0 && (
+                      <li>
+                        <strong>{deleteMeeiroMovimento.pagamentos}</strong> pagamento(s) — serão apagados
+                      </li>
+                    )}
+                    {deleteMeeiroMovimento.fechamentos > 0 && (
+                      <li>
+                        <strong>{deleteMeeiroMovimento.fechamentos}</strong> fechamento(s) — serão apagados
+                      </li>
+                    )}
+                    {deleteMeeiroMovimento.vales > 0 && (
+                      <li>
+                        <strong>{deleteMeeiroMovimento.vales}</strong> vale(s) — serão apagados
+                      </li>
+                    )}
+                    {deleteMeeiroMovimento.colheitas > 0 && (
+                      <li>
+                        <strong>{deleteMeeiroMovimento.colheitas}</strong> colheita(s) — continuam registradas, mas sem meeiro
+                      </li>
+                    )}
+                  </ul>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 8,
+                      marginTop: 12,
+                      fontSize: 12,
+                      color: "#b45309",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={deleteMeeiroCiente}
+                      onChange={(e) => setDeleteMeeiroCiente(e.target.checked)}
+                      style={{ marginTop: 2, accentColor: PINK, cursor: "pointer" }}
+                    />
+                    Entendo que isso não pode ser desfeito
+                  </label>
+                </div>
+              ) : (
+                <p style={{ fontSize: 12, color: "#9ca3af", margin: "0 0 20px" }}>
+                  Nenhum lançamento vinculado.
+                </p>
+              )}
+
+              {deleteMeeiroError && (
+                <p style={{ fontSize: 12, color: PINK, margin: "0 0 12px" }}>
+                  {deleteMeeiroError}
+                </p>
+              )}
+
               <div style={{ display: "flex", gap: 10 }}>
                 <button
                   onClick={() => setDeleteMeeiroTarget(null)}
@@ -13787,22 +13937,32 @@ export default function RocasClient({
                 >
                   Cancelar
                 </button>
-                <button
-                  onClick={handleDeleteMeeiro}
-                  style={{
-                    flex: 1,
-                    background: PINK,
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 8,
-                    padding: "10px 0",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Excluir
-                </button>
+                {(() => {
+                  const bloqueado =
+                    deletingMeeiro ||
+                    deleteMeeiroMovimento === null ||
+                    (deleteMeeiroMovimento.total > 0 && !deleteMeeiroCiente);
+                  return (
+                    <button
+                      onClick={handleDeleteMeeiro}
+                      disabled={bloqueado}
+                      style={{
+                        flex: 1,
+                        background: PINK,
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 8,
+                        padding: "10px 0",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: bloqueado ? "not-allowed" : "pointer",
+                        opacity: bloqueado ? 0.5 : 1,
+                      }}
+                    >
+                      {deletingMeeiro ? "Excluindo..." : "Excluir"}
+                    </button>
+                  );
+                })()}
               </div>
             </motion.div>
           </>

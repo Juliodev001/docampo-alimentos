@@ -2,6 +2,31 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 
+/** Movimento vinculado ao meeiro — o que a exclusão levaria junto. */
+async function contarMovimento(id: string) {
+  const [colheitas, pagamentos, vales, fechamentos] = await Promise.all([
+    prisma.colheitaDiaria.count({ where: { parceiroId: id } }),
+    prisma.pagamentoMeeiro.count({ where: { parceiroId: id } }),
+    prisma.vale.count({ where: { parceiroId: id } }),
+    prisma.fechamentoMeeiro.count({ where: { parceiroId: id } }),
+  ])
+  return { colheitas, pagamentos, vales, fechamentos, total: colheitas + pagamentos + vales + fechamentos }
+}
+
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession()
+  if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id } = await params
+  const parceiro = await prisma.parceiro.findUnique({
+    where: { id },
+    include: { produtor: { select: { id: true, nome: true, codigo: true } } },
+  })
+  if (!parceiro) return NextResponse.json({ error: 'Meeiro não encontrado.' }, { status: 404 })
+
+  return NextResponse.json({ ...parceiro, movimento: await contarMovimento(id) })
+}
+
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
   if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -46,17 +71,40 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
   if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
+  const parceiro = await prisma.parceiro.findUnique({ where: { id }, select: { nome: true } })
+  if (!parceiro) return NextResponse.json({ error: 'Meeiro não encontrado.' }, { status: 404 })
+
+  const movimento = await contarMovimento(id)
+  const forcar = req.nextUrl.searchParams.get('force') === 'true'
+
+  // Sem `force`, meeiro com movimento não é apagado: devolve o que seria
+  // perdido para quem chamou decidir. Antes o banco barrava por causa do
+  // FechamentoMeeiro e a tela mostrava só "erro ao excluir".
+  if (movimento.total > 0 && !forcar)
+    return NextResponse.json(
+      { error: `O meeiro "${parceiro.nome}" tem lançamentos registrados.`, movimento },
+      { status: 409 },
+    )
+
   try {
-    // Disconnect from colheitas before deleting
-    await prisma.colheitaDiaria.updateMany({ where: { parceiroId: id }, data: { parceiroId: null } })
-    await prisma.parceiro.delete({ where: { id } })
-    return NextResponse.json({ ok: true })
-  } catch {
+    await prisma.$transaction(async (tx) => {
+      // As colheitas são o registro de produção da roça e sobrevivem ao meeiro,
+      // apenas sem o vínculo. O resto (pagamentos, vales, fechamentos) só existe
+      // em função dele e vai junto — nesta ordem, para não esbarrar nas FKs.
+      await tx.pagamentoMeeiro.deleteMany({ where: { parceiroId: id } })
+      await tx.vale.deleteMany({ where: { parceiroId: id } })
+      await tx.fechamentoMeeiro.deleteMany({ where: { parceiroId: id } })
+      await tx.colheitaDiaria.updateMany({ where: { parceiroId: id }, data: { parceiroId: null } })
+      await tx.parceiro.delete({ where: { id } })
+    })
+    return NextResponse.json({ ok: true, movimento })
+  } catch (e) {
+    console.error('Erro ao excluir meeiro:', e)
     return NextResponse.json({ error: 'Erro ao excluir meeiro.' }, { status: 500 })
   }
 }
