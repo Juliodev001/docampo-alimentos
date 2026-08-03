@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+// Criar a colheita também lança a caixa no estoque (sincronizarEstoqueDaColheita
+// em lib/estoque-colheita), que lê o produto e grava em EntradaEstoque — sem
+// esses models no mock a rota estoura e devolve 500.
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     colheitaDiaria: {
@@ -8,6 +11,13 @@ vi.mock('@/lib/prisma', () => ({
     },
     produtor: {
       findUnique: vi.fn(),
+    },
+    produto: {
+      findUnique: vi.fn(),
+    },
+    entradaEstoque: {
+      create: vi.fn(),
+      deleteMany: vi.fn(),
     },
   },
 }))
@@ -37,12 +47,19 @@ const mockColheita = {
   quantidadeTotal: 100,
   quantidadeDono: 100,
   quantidadeParceiro: 0,
+  descarte: 0,
+  preco: 12,
   responsavelId: 'user-123',
   observacao: null,
   createdAt: new Date(),
 }
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  vi.mocked(prisma.produto.findUnique).mockResolvedValue(null)
+  vi.mocked(prisma.entradaEstoque.deleteMany).mockResolvedValue({ count: 0 } as never)
+  vi.mocked(prisma.entradaEstoque.create).mockResolvedValue({} as never)
+})
 
 describe('GET /api/colheita', () => {
   it('retorna 401 sem sessão', async () => {
@@ -185,6 +202,45 @@ describe('POST /api/colheita', () => {
           quantidadeDono: 65,
           quantidadeParceiro: 35,
         }),
+      })
+    )
+  })
+
+  it('a caixa colhida entra no estoque pelo líquido (total − descarte)', async () => {
+    vi.mocked(getSession).mockResolvedValue(mockSession)
+    vi.mocked(prisma.colheitaDiaria.create).mockResolvedValue({
+      ...mockColheita, descarte: 10,
+    } as never)
+
+    const req = new NextRequest('http://localhost/api/colheita', {
+      method: 'POST',
+      body: JSON.stringify({ data: '2026-05-06', produtoId: 'produto-1', quantidadeTotal: 100, descarte: 10 }),
+    })
+    expect((await POST(req)).status).toBe(201)
+    expect(prisma.entradaEstoque.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          produtoId:  'produto-1',
+          quantidade: 90,
+          observacao: 'Colheita #colheita-1',
+        }),
+      })
+    )
+  })
+
+  it('produto com estoque vinculado lança a entrada no mestre', async () => {
+    vi.mocked(getSession).mockResolvedValue(mockSession)
+    vi.mocked(prisma.colheitaDiaria.create).mockResolvedValue(mockColheita as never)
+    vi.mocked(prisma.produto.findUnique).mockResolvedValue({ estoqueVinculadoId: 'produto-mestre' } as never)
+
+    const req = new NextRequest('http://localhost/api/colheita', {
+      method: 'POST',
+      body: JSON.stringify({ data: '2026-05-06', produtoId: 'produto-1', quantidadeTotal: 100 }),
+    })
+    await POST(req)
+    expect(prisma.entradaEstoque.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ produtoId: 'produto-mestre', quantidade: 100 }),
       })
     )
   })

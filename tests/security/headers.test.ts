@@ -28,29 +28,37 @@ const HEADERS_REQUIRED = [
   'content-security-policy',
 ]
 
+// Os headers de segurança são aplicados pelo Next a partir de headers() no
+// next.config.ts — única fonte de verdade (ver comentário em proxy.ts). O
+// proxy só decide sessão/redirect e devolve NextResponse.next(), que não
+// carrega esses headers: quem os injeta é o servidor, em runtime. Por isso a
+// asserção é feita sobre a configuração, não sobre a resposta do proxy.
+async function headersDoConfig(): Promise<Map<string, string>> {
+  const entries = await nextConfig.headers!()
+  const pares = entries.flatMap((e) =>
+    (e.headers as { key: string; value: string }[]).map(
+      (h) => [h.key.toLowerCase(), h.value] as [string, string],
+    ),
+  )
+  return new Map(pares)
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   mockGet.mockReturnValue(undefined)
 })
 
-// ─── 1. Presença dos headers em rotas protegidas ──────────────────────────────
+// ─── 1. Presença dos headers ─────────────────────────────────────────────────
 describe('Headers de segurança — presença', () => {
-  it.each(HEADERS_REQUIRED)(
-    'middleware define "%s" em rotas autenticadas',
-    async (header) => {
-      const res = await proxy(makeReq('/produtores'))
-      // Rota protegida sem sessão → redirect, mas o header deve aparecer
-      // em rotas que passam pelo next()
-      // Testamos com /login (rota pública → passa pelo next())
-      const resPublic = await proxy(makeReq('/login'))
-      expect(resPublic.headers.get(header)).not.toBeNull()
-    }
-  )
+  it.each(HEADERS_REQUIRED)('next.config define "%s"', async (header) => {
+    const headers = await headersDoConfig()
+    expect(headers.get(header)).toBeDefined()
+  })
 
-  it('todos os 6 headers de segurança estão presentes em rota pública', async () => {
-    const res = await proxy(makeReq('/login'))
+  it('todos os 6 headers de segurança estão configurados', async () => {
+    const headers = await headersDoConfig()
     for (const h of HEADERS_REQUIRED) {
-      expect(res.headers.get(h), `faltando header: ${h}`).not.toBeNull()
+      expect(headers.get(h), `faltando header: ${h}`).toBeDefined()
     }
   })
 })
@@ -58,28 +66,28 @@ describe('Headers de segurança — presença', () => {
 // ─── 2. Valores corretos dos headers ─────────────────────────────────────────
 describe('Headers de segurança — valores', () => {
   it('X-Frame-Options é DENY — impede clickjacking', async () => {
-    const res = await proxy(makeReq('/login'))
-    expect(res.headers.get('x-frame-options')).toBe('DENY')
+    const headers = await headersDoConfig()
+    expect(headers.get('x-frame-options')).toBe('DENY')
   })
 
   it('X-Content-Type-Options é nosniff — impede MIME sniffing', async () => {
-    const res = await proxy(makeReq('/login'))
-    expect(res.headers.get('x-content-type-options')).toBe('nosniff')
+    const headers = await headersDoConfig()
+    expect(headers.get('x-content-type-options')).toBe('nosniff')
   })
 
   it('X-XSS-Protection está ativo com mode=block', async () => {
-    const res = await proxy(makeReq('/login'))
-    expect(res.headers.get('x-xss-protection')).toBe('1; mode=block')
+    const headers = await headersDoConfig()
+    expect(headers.get('x-xss-protection')).toBe('1; mode=block')
   })
 
   it('Referrer-Policy é strict-origin-when-cross-origin', async () => {
-    const res = await proxy(makeReq('/login'))
-    expect(res.headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin')
+    const headers = await headersDoConfig()
+    expect(headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin')
   })
 
   it('Permissions-Policy desativa camera, microphone e geolocation', async () => {
-    const res = await proxy(makeReq('/login'))
-    const policy = res.headers.get('permissions-policy') ?? ''
+    const headers = await headersDoConfig()
+    const policy = headers.get('permissions-policy') ?? ''
     expect(policy).toContain('camera=()')
     expect(policy).toContain('microphone=()')
     expect(policy).toContain('geolocation=()')
@@ -89,33 +97,34 @@ describe('Headers de segurança — valores', () => {
 // ─── 3. Content-Security-Policy ──────────────────────────────────────────────
 describe('Content-Security-Policy', () => {
   it('CSP contém default-src self', async () => {
-    const res = await proxy(makeReq('/login'))
-    const csp = res.headers.get('content-security-policy') ?? ''
-    expect(csp).toContain("default-src 'self'")
+    const headers = await headersDoConfig()
+    expect(headers.get('content-security-policy') ?? '').toContain("default-src 'self'")
   })
 
   it('CSP bloqueia frame-ancestors — segunda defesa contra clickjacking', async () => {
-    const res = await proxy(makeReq('/login'))
-    const csp = res.headers.get('content-security-policy') ?? ''
-    expect(csp).toContain("frame-ancestors 'none'")
+    const headers = await headersDoConfig()
+    expect(headers.get('content-security-policy') ?? '').toContain("frame-ancestors 'none'")
   })
 
   it('CSP restringe connect-src a self — impede exfiltração de dados', async () => {
-    const res = await proxy(makeReq('/login'))
-    const csp = res.headers.get('content-security-policy') ?? ''
-    expect(csp).toContain("connect-src 'self'")
+    const headers = await headersDoConfig()
+    expect(headers.get('content-security-policy') ?? '').toContain("connect-src 'self'")
   })
 
   it('CSP restringe font-src a self', async () => {
-    const res = await proxy(makeReq('/login'))
-    const csp = res.headers.get('content-security-policy') ?? ''
-    expect(csp).toContain("font-src 'self'")
+    const headers = await headersDoConfig()
+    expect(headers.get('content-security-policy') ?? '').toContain("font-src 'self'")
   })
 
   it('CSP restringe img-src — permite apenas self, data: e blob:', async () => {
-    const res = await proxy(makeReq('/login'))
-    const csp = res.headers.get('content-security-policy') ?? ''
-    expect(csp).toContain("img-src 'self' data: blob:")
+    const headers = await headersDoConfig()
+    expect(headers.get('content-security-policy') ?? '').toContain("img-src 'self' data: blob:")
+  })
+
+  it('CSP não libera unsafe-eval — só wasm-unsafe-eval para o Tesseract', async () => {
+    const csp = (await headersDoConfig()).get('content-security-policy') ?? ''
+    expect(csp).toContain("'wasm-unsafe-eval'")
+    expect(csp).not.toContain("'unsafe-eval'")
   })
 })
 
@@ -150,38 +159,13 @@ describe('next.config.ts — headers() configurados', () => {
     const universal = entries.find((e) => e.source === '/(.*)')
     expect(universal).toBeDefined()
   })
-
-  it.each(HEADERS_REQUIRED)(
-    'next.config inclui header "%s"',
-    async (header) => {
-      const entries = await nextConfig.headers!()
-      const allKeys = entries.flatMap((e) => e.headers.map((h: { key: string }) => h.key.toLowerCase()))
-      expect(allKeys).toContain(header)
-    }
-  )
-
-  it('X-Frame-Options tem valor DENY no next.config', async () => {
-    const entries = await nextConfig.headers!()
-    const headers = entries.flatMap((e) => e.headers)
-    const xfo = headers.find((h: { key: string }) => h.key === 'X-Frame-Options')
-    expect(xfo?.value).toBe('DENY')
-  })
-
-  it('CSP no next.config contém frame-ancestors none', async () => {
-    const entries = await nextConfig.headers!()
-    const headers = entries.flatMap((e) => e.headers)
-    const csp = headers.find((h: { key: string }) => h.key === 'Content-Security-Policy')
-    expect(csp?.value).toContain("frame-ancestors 'none'")
-  })
 })
 
-// ─── 6. Headers em redirects ──────────────────────────────────────────────────
-describe('Headers de segurança — comportamento em redirects', () => {
-  it('redirect para /login ainda retorna X-Frame-Options', async () => {
+// ─── 6. Comportamento do proxy ───────────────────────────────────────────────
+describe('proxy — sessão e redirects', () => {
+  it('rota protegida sem sessão redireciona para /login', async () => {
     mockGet.mockReturnValue(undefined)
     const res = await proxy(makeReq('/dashboard'))
-    // redirect → status 307, sem next() — X-Frame-Options pode não estar presente
-    // O importante é que o redirect não expõe dados sensíveis
     expect(res.status).toBe(307)
     expect(res.headers.get('location')).toContain('/login')
   })

@@ -3,8 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
+// O PUT sincroniza os meeiros: lê os atuais (prisma.parceiro), checa se algum
+// removido tem movimento (counts) e grava tudo dentro de $transaction. O mock
+// da transação repassa o próprio prisma como `tx` — a superfície é a mesma.
+vi.mock('@/lib/prisma', () => {
+  const prisma = {
     produtor: {
       findMany:   vi.fn(),
       findUnique: vi.fn(),
@@ -13,14 +16,33 @@ vi.mock('@/lib/prisma', () => ({
       delete:     vi.fn(),
       count:      vi.fn(),
     },
+    parceiro: {
+      findMany:   vi.fn(),
+      create:     vi.fn(),
+      update:     vi.fn(),
+      deleteMany: vi.fn(),
+    },
     colheitaDiaria: {
       updateMany: vi.fn(),
+      count:      vi.fn(),
+    },
+    pagamentoMeeiro: {
+      count: vi.fn(),
+    },
+    vale: {
+      count: vi.fn(),
+    },
+    fechamentoMeeiro: {
+      count: vi.fn(),
     },
     fechamentoPagamento: {
       deleteMany: vi.fn(),
     },
-  },
-}))
+    $transaction: vi.fn(),
+  }
+  prisma.$transaction.mockImplementation((cb: (tx: typeof prisma) => unknown) => cb(prisma))
+  return { prisma }
+})
 
 vi.mock('@/lib/session', () => ({ getSession: vi.fn() }))
 vi.mock('@/lib/mem-cache', () => ({ memCache: { fetch: vi.fn(), invalidate: vi.fn() } }))
@@ -67,6 +89,12 @@ beforeEach(() => {
   vi.mocked(prisma.produtor.findUnique).mockResolvedValue(null)
   vi.mocked(prisma.colheitaDiaria.updateMany).mockResolvedValue({ count: 0 })
   vi.mocked(prisma.fechamentoPagamento.deleteMany).mockResolvedValue({ count: 0 })
+  // Produtor sem meeiros cadastrados e sem movimento é o caso base do PUT
+  vi.mocked(prisma.parceiro.findMany).mockResolvedValue([])
+  vi.mocked(prisma.colheitaDiaria.count).mockResolvedValue(0)
+  vi.mocked(prisma.pagamentoMeeiro.count).mockResolvedValue(0)
+  vi.mocked(prisma.vale.count).mockResolvedValue(0)
+  vi.mocked(prisma.fechamentoMeeiro.count).mockResolvedValue(0)
 })
 
 // ─── GET /api/produtores ──────────────────────────────────────────────────────
@@ -196,12 +224,30 @@ describe('PUT /api/produtores/[id]', () => {
 
   it('atualiza produtor com sucesso', async () => {
     vi.mocked(getSession).mockResolvedValue(session)
-    vi.mocked(prisma.produtor.findUnique).mockResolvedValue(mockProdutor as never)
+    // 1ª chamada é o `existing`; a 2ª acontece dentro da transação e é o que a
+    // rota devolve — por isso o nome novo só aparece na segunda.
+    vi.mocked(prisma.produtor.findUnique)
+      .mockResolvedValueOnce(mockProdutor as never)
+      .mockResolvedValueOnce({ ...mockProdutor, nome: 'Novo Nome' } as never)
     vi.mocked(prisma.produtor.update).mockResolvedValue({ ...mockProdutor, nome: 'Novo Nome' } as never)
     const res = await PUT(makeReqWithId('PUT', { nome: 'Novo Nome', parceiros: [] }), { params })
     expect(res.status).toBe(200)
     const data = await res.json()
     expect(data.nome).toBe('Novo Nome')
+  })
+
+  it('recusa remover meeiro que já tem lançamentos', async () => {
+    vi.mocked(getSession).mockResolvedValue(session)
+    vi.mocked(prisma.produtor.findUnique).mockResolvedValueOnce(mockProdutor as never)
+    vi.mocked(prisma.parceiro.findMany).mockResolvedValue([
+      { id: 'pa-1', nome: 'Lucas' },
+    ] as never)
+    vi.mocked(prisma.colheitaDiaria.count).mockResolvedValue(3)
+    // Lista sem o 'pa-1' → ele seria removido, mas tem colheitas no histórico
+    const res = await PUT(makeReqWithId('PUT', { nome: 'João Silva', parceiros: [] }), { params })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/Lucas/)
+    expect(prisma.$transaction).not.toHaveBeenCalled()
   })
 
   it('retorna 400 quando soma parceiros > 100%', async () => {
