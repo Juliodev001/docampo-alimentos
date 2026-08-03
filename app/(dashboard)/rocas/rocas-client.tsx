@@ -28,7 +28,7 @@ import {
   faEllipsisH,
 } from "@fortawesome/free-solid-svg-icons";
 import { useToast } from "@/components/toast";
-import { arredondarCaixas } from "@/lib/fechamento-calc";
+import { arredondarCaixas, calcularFechamento } from "@/lib/fechamento-calc";
 import { hojeISO } from "@/lib/utils";
 
 const GREEN = "#5ab952";
@@ -6215,6 +6215,49 @@ export default function RocasClient({
             return true;
           });
 
+          // Valor líquido do produtor em cada fechamento — mesma fórmula do
+          // recibo (lib/fechamento-calc): bruto do produtor menos a fatia
+          // rateada das deduções menos os vales vinculados.
+          // Um valor pago informado à mão na edição do fechamento prevalece
+          // sobre o cálculo.
+          const liquidoProdutor = (f: FechamentoRecord) => {
+            if (f.valorPago != null) return f.valorPago;
+            const ini = new Date(f.dataInicio).getTime();
+            const fim = new Date(f.dataFim).getTime();
+            const doPeriodo = colheitas.filter((c) => {
+              if (c.produtorId !== f.produtorId) return false;
+              const t = new Date(c.data).getTime();
+              return t >= ini && t <= fim;
+            });
+            const valesVinculados = valesState
+              .filter((v) => v.fechamentoId === f.id)
+              .reduce((s, v) => s + v.valor, 0);
+            return calcularFechamento(
+              doPeriodo.map((c) => ({
+                quantidadeTotal: c.quantidadeTotal,
+                descarte: c.descarte,
+                preco: c.preco,
+                parceiroId: c.parceiroId,
+                percParceiro: c.percParceiro,
+              })),
+              {
+                combustivel: f.combustivel,
+                bandejaEmbalagem: f.bandejaEmbalagem,
+                valesDinheiro: f.valesDinheiro,
+                creditos: f.creditos,
+                debitosAnteriores: f.debitosAnteriores,
+              },
+              valesVinculados,
+            ).produtor.liquido;
+          };
+          const totaisProdutor = new Map<string, number>(
+            fechamentosState.map((f) => [f.id, liquidoProdutor(f)]),
+          );
+          const totalPagamentoProdutor = fechamentosState.reduce(
+            (s, f) => s + (totaisProdutor.get(f.id) ?? 0),
+            0,
+          );
+
           // Produtores com lançamentos em aberto (após último fechamento)
           const pendentes = produtoresState
             .map((prod) => {
@@ -6551,7 +6594,7 @@ export default function RocasClient({
               )}
 
               {/* Summary cards */}
-              <div className="grid-3" style={{ gap: 16 }}>
+              <div className="grid-4" style={{ gap: 16 }}>
                 <div
                   style={{
                     background: "#fff",
@@ -6568,6 +6611,27 @@ export default function RocasClient({
                   </div>
                   <div style={{ fontSize: 28, fontWeight: 700, color: NAVY }}>
                     {fechamentosState.length}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    background: "#fff",
+                    borderRadius: 12,
+                    padding: "16px 20px",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+                    borderLeft: `3px solid ${BLUE}`,
+                  }}
+                >
+                  <div
+                    style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}
+                  >
+                    Pagamento Total Produtor
+                  </div>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: BLUE }}>
+                    {fmtCurrency(totalPagamentoProdutor)}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
+                    Líquido de todos os fechamentos
                   </div>
                 </div>
                 <div
@@ -6806,6 +6870,17 @@ export default function RocasClient({
                       <th
                         style={{
                           padding: "12px 16px",
+                          textAlign: "right",
+                          fontWeight: 600,
+                          color: "#374151",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        Total Produtor
+                      </th>
+                      <th
+                        style={{
+                          padding: "12px 16px",
                           textAlign: "center",
                           fontWeight: 600,
                           color: "#374151",
@@ -6829,7 +6904,7 @@ export default function RocasClient({
                     {fechFiltrados.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={9}
+                          colSpan={10}
                           style={{
                             textAlign: "center",
                             padding: "32px 16px",
@@ -6906,6 +6981,17 @@ export default function RocasClient({
                             }}
                           >
                             {fmtCurrency(f.debitosAnteriores)}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 16px",
+                              textAlign: "right",
+                              fontWeight: 700,
+                              color: BLUE,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {fmtCurrency(totaisProdutor.get(f.id) ?? 0)}
                           </td>
                           <td
                             style={{
