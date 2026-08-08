@@ -33,7 +33,7 @@ export default function ImprimirPagamento() {
   const { id } = useParams<{ id: string }>()
   const [fechamento, setFechamento] = useState<Fechamento | null>(null)
   const [usuario, setUsuario] = useState('')
-  const [valesAbertos, setValesAbertos] = useState(0)
+  const [valesEmAberto, setValesEmAberto] = useState<ValeLinked[]>([])
   const printed = useRef(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const [capturing, setCapturing] = useState(false)
@@ -74,7 +74,13 @@ export default function ImprimirPagamento() {
     if (!fechamento?.produtor.id) return
     fetch(`/api/vales?produtorId=${fechamento.produtor.id}&status=ABERTO`)
       .then(r => r.json())
-      .then((vs: { valor: number }[]) => setValesAbertos(vs.reduce((s, v) => s + Number(v.valor), 0)))
+      .then((vs: { id: string; valor: string | number; data: string; observacao: string | null }[]) =>
+        setValesEmAberto(
+          Array.isArray(vs)
+            ? vs.map(v => ({ id: v.id, valor: Number(v.valor), data: v.data, observacao: v.observacao }))
+            : [],
+        ),
+      )
   }, [fechamento?.produtor.id])
 
   useEffect(() => {
@@ -93,6 +99,7 @@ export default function ImprimirPagamento() {
   const { produtor, colheitas, dataInicio, dataFim, dataPagamento, combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores, vales } = fechamento
 
   const abatimEmprestimo = vales.reduce((s, v) => s + Number(v.valor), 0)
+  const valesAbertos = valesEmAberto.reduce((s, v) => s + v.valor, 0)
   const calculo = calcularFechamento(
     colheitas,
     { combustivel, bandejaEmbalagem, valesDinheiro, creditos, debitosAnteriores },
@@ -244,6 +251,22 @@ export default function ImprimirPagamento() {
             {vales.map(v => (
               <div key={v.id} style={{ paddingLeft: 10 }}>
                 • {fmtDate(v.data)} — {v.observacao?.trim() ? `${v.observacao.trim()} — ` : ''}{fmtN(Number(v.valor))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Descreve a coluna "Empr. em aberto" — sem isto o produtor via só um
+            valor solto, sem saber de que empréstimo se tratava. Mesmo formato do
+            bloco de abatimento acima. */}
+        {valesEmAberto.length > 0 && (
+          <div style={{ fontSize: 10, color: '#555', margin: '0 0 10px' }}>
+            <div style={{ fontWeight: 700 }}>
+              Empr. em aberto ({fmtN(valesAbertos)}) refere-se {valesEmAberto.length === 1 ? 'ao vale' : `aos ${valesEmAberto.length} vales`} ainda não descontados:
+            </div>
+            {valesEmAberto.map(v => (
+              <div key={v.id} style={{ paddingLeft: 10 }}>
+                • {fmtDate(v.data)} — {v.observacao?.trim() ? `${v.observacao.trim()} — ` : ''}{fmtN(v.valor)}
               </div>
             ))}
           </div>
