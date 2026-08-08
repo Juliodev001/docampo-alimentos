@@ -183,6 +183,20 @@ const since = (iso: string) => {
 };
 
 /**
+ * Período de um fechamento já gravado, em "YYYY-MM-DD".
+ */
+type PeriodoFechado = { ini: string; fim: string };
+
+/**
+ * Acha o fechamento que já cobre o dia. Um fechamento paga tudo que cai dentro
+ * do seu período — o recibo e o cálculo puxam as colheitas por intervalo, não
+ * pelos dias clicados no calendário —, então qualquer dia entre início e fim já
+ * está acertado e não pode entrar num fechamento novo.
+ */
+const fechamentoDoDia = (periodos: PeriodoFechado[], ds: string) =>
+  periodos.find((p) => ds >= p.ini && ds <= p.fim) ?? null;
+
+/**
  * Agrupa por mês os dias com lançamento em aberto (chaves "YYYY-MM-DD"). O
  * calendário mostra um mês por vez, então sem esta lista os dias marcados em
  * outros meses ficam invisíveis e parecem não existir.
@@ -919,7 +933,12 @@ export default function RocasClient({
   function openFecharMeeiro(item: PagItem) {
     setFecharMeeiroError("");
     setConfirmDeleteFechMeeiroId(null);
-    setFecharValesSelecionados([]);
+    // Mesmo padrão do produtor: vale em aberto já entra marcado para abater.
+    setFecharValesSelecionados(
+      valesState
+        .filter((v) => v.parceiroId === item.id && v.status === "ABERTO")
+        .map((v) => v.id),
+    );
     setFecharAjustar(false);
     setFecharDedForm({
       combustivel: "0",
@@ -1429,6 +1448,28 @@ export default function RocasClient({
         setProdutoresState((prev) =>
           prev.map((p) => (p.id === data.id ? norm : p)),
         );
+        // Colheitas, fechamentos e meeiros guardam uma cópia do nome do produtor
+        // (vem pronta do servidor para a lista não precisar cruzar tabelas). Sem
+        // atualizar essas cópias aqui, o nome só mudava na lista de produtores:
+        // relatórios e recibos gerados nesta tela continuavam saindo com o nome
+        // antigo até alguém recarregar a página.
+        setColheitas((prev) =>
+          prev.map((c) =>
+            c.produtorId === data.id ? { ...c, produtorNome: data.nome } : c,
+          ),
+        );
+        setFechamentosState((prev) =>
+          prev.map((f) =>
+            f.produtorId === data.id ? { ...f, produtorNome: data.nome } : f,
+          ),
+        );
+        setParceirosState((prev) =>
+          prev.map((p) =>
+            p.produtorId === data.id
+              ? { ...p, produtorNome: data.nome, produtorCodigo: data.codigo }
+              : p,
+          ),
+        );
         toast.success("Produtor atualizado", data.nome);
       } else {
         setProdutoresState((prev) => [...prev, norm]);
@@ -1539,6 +1580,15 @@ export default function RocasClient({
       if (editingMeeiro) {
         setParceirosState((prev) =>
           prev.map((p) => (p.id === norm.id ? norm : p)),
+        );
+        // Mesma cópia de nome do caso do produtor: a colheita carrega o nome do
+        // meeiro, e é dela que saem os relatórios e recibos desta tela.
+        setColheitas((prev) =>
+          prev.map((c) =>
+            c.parceiroId === norm.id
+              ? { ...c, parceiroNome: norm.nome, parceiroCodigo: norm.codigo }
+              : c,
+          ),
         );
         toast.success("Meeiro atualizado", norm.nome);
       } else {
@@ -2056,39 +2106,109 @@ export default function RocasClient({
     return { pads: Array(firstDay).fill(0) as number[], days: Array.from({ length: daysInMonth }, (_, i) => i + 1) as number[], year, month };
   }, [fecharCalNav]);
 
-  const diasAcertadosMeeiro = useMemo(() => new Set(
-    fecharMeeiroModal
-      ? fechamentosMeeiroState.filter(f => f.parceiroId === fecharMeeiroModal.id).map(f => f.dataPagamento.slice(0, 10))
-      : []
-  ), [fecharMeeiroModal?.id, fechamentosMeeiroState]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Períodos que o produtor/meeiro já teve fechados. O calendário marcava de
+  // verde só a data em que o pagamento foi feito, então os demais dias do
+  // período pago ficavam sem marca nenhuma e o usuário os selecionava de novo,
+  // gerando um fechamento em cima de colheita já paga.
+  const periodosFechadosProdutor = useMemo<PeriodoFechado[]>(
+    () =>
+      fechamentosState
+        .filter(f => f.produtorId === fechForm.produtorId)
+        .map(f => ({
+          ini: f.dataInicio.slice(0, 10),
+          fim: f.dataFim.slice(0, 10),
+        })),
+    [fechForm.produtorId, fechamentosState],
+  );
 
-  const diasAcertadosProdutor = useMemo(() => new Set(
-    fechamentosState.filter(f => f.produtorId === fechForm.produtorId).map(f => f.dataPagamento.slice(0, 10))
-  ), [fechForm.produtorId, fechamentosState]);
+  const periodosFechadosMeeiro = useMemo<PeriodoFechado[]>(
+    () =>
+      fecharMeeiroModal
+        ? fechamentosMeeiroState
+            .filter(f => f.parceiroId === fecharMeeiroModal.id)
+            .map(f => ({
+              ini: f.dataInicio.slice(0, 10),
+              fim: f.dataFim.slice(0, 10),
+            }))
+        : [],
+    [fecharMeeiroModal?.id, fechamentosMeeiroState], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   // Dias que têm colheita lançada e ainda não caíram em nenhum fechamento —
   // marcados no calendário para o usuário enxergar o que falta acertar.
   const diasAbertosProdutor = useMemo(() => {
     if (!fechForm.produtorId) return new Set<string>();
-    const fechs = fechamentosState.filter(f => f.produtorId === fechForm.produtorId);
     return new Set(
       colheitas
         .filter(c => c.produtorId === fechForm.produtorId)
         .map(c => c.data.slice(0, 10))
-        .filter(ds => !fechs.some(f => ds >= f.dataInicio.slice(0, 10) && ds <= f.dataFim.slice(0, 10))),
+        .filter(ds => !fechamentoDoDia(periodosFechadosProdutor, ds)),
     );
-  }, [fechForm.produtorId, fechamentosState, colheitas]);
+  }, [fechForm.produtorId, periodosFechadosProdutor, colheitas]);
 
   const diasAbertosMeeiro = useMemo(() => {
     if (!fecharMeeiroModal) return new Set<string>();
-    const fechs = fechamentosMeeiroState.filter(f => f.parceiroId === fecharMeeiroModal.id);
     return new Set(
       colheitas
         .filter(c => c.parceiroId === fecharMeeiroModal.id)
         .map(c => c.data.slice(0, 10))
-        .filter(ds => !fechs.some(f => ds >= f.dataInicio.slice(0, 10) && ds <= f.dataFim.slice(0, 10))),
+        .filter(ds => !fechamentoDoDia(periodosFechadosMeeiro, ds)),
     );
-  }, [fecharMeeiroModal?.id, fechamentosMeeiroState, colheitas]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fecharMeeiroModal?.id, periodosFechadosMeeiro, colheitas]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Dias com colheita que o período escolhido no modal engloba mas que já foram
+  // pagos num fechamento anterior — puxá-los de novo pagaria a mesma colheita
+  // duas vezes, então o salvamento fica travado enquanto houver algum.
+  const diasJaPagosNoPeriodo = useMemo(() => {
+    const { produtorId, dataInicio, dataFim } = fechForm;
+    if (!produtorId || !dataInicio || !dataFim) return [] as string[];
+    return [
+      ...new Set(
+        colheitas
+          .filter(c => c.produtorId === produtorId)
+          .map(c => c.data.slice(0, 10))
+          .filter(
+            ds =>
+              ds >= dataInicio &&
+              ds <= dataFim &&
+              fechamentoDoDia(periodosFechadosProdutor, ds),
+          ),
+      ),
+    ].sort();
+  }, [fechForm.produtorId, fechForm.dataInicio, fechForm.dataFim, colheitas, periodosFechadosProdutor]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Mesma trava do produtor, para o meeiro: aqui o período nem vem do
+  // calendário, é digitado à mão nos dois campos de data, então é ainda mais
+  // fácil esticar o intervalo por cima de um fechamento já pago.
+  const diasJaPagosNoPeriodoMeeiro = useMemo(() => {
+    if (!fecharMeeiroModal || !fecharDataInicio || !fecharDataFim) return [] as string[];
+    return [
+      ...new Set(
+        colheitas
+          .filter(c => c.parceiroId === fecharMeeiroModal.id)
+          .map(c => c.data.slice(0, 10))
+          .filter(
+            ds =>
+              ds >= fecharDataInicio &&
+              ds <= fecharDataFim &&
+              fechamentoDoDia(periodosFechadosMeeiro, ds),
+          ),
+      ),
+    ].sort();
+  }, [fecharMeeiroModal?.id, fecharDataInicio, fecharDataFim, colheitas, periodosFechadosMeeiro]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Vale em aberto é dívida do produtor, então o padrão é abater no fechamento.
+  // Os checkboxes vinham vazios e, quando o usuário não marcava, o recibo saía
+  // com "Empr. em aberto" cheio e "Abatim. emprést." zerado — o empréstimo
+  // simplesmente não descontava.
+  useEffect(() => {
+    if (!showFechModal) return;
+    setFechValesSelecionados(
+      valesState
+        .filter(v => v.produtorId === fechForm.produtorId && v.status === "ABERTO")
+        .map(v => v.id),
+    );
+  }, [showFechModal, fechForm.produtorId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // O calendário abria sempre no mês corrente, então os dias marcados ficavam
   // fora de vista quando os lançamentos em aberto eram de meses anteriores —
@@ -6308,6 +6428,12 @@ export default function RocasClient({
               setFechError("Data de pagamento é obrigatória");
               return;
             }
+            if (diasJaPagosNoPeriodo.length > 0) {
+              setFechError(
+                `O período inclui colheita já paga em ${diasJaPagosNoPeriodo.map((d) => fmtDate(d)).join(", ")}. Ajuste as datas.`,
+              );
+              return;
+            }
             setSavingFech(true);
             setFechError("");
             try {
@@ -7500,6 +7626,37 @@ export default function RocasClient({
                                     </div>
                                   </div>
 
+                                  {/* O período vai do menor ao maior dia clicado, então basta
+                                      uma data antiga na seleção para o fechamento reabsorver
+                                      colheita já paga no meio do caminho. */}
+                                  {diasJaPagosNoPeriodo.length > 0 && (
+                                    <div
+                                      style={{
+                                        background: "#fff7ed",
+                                        border: "1.5px solid #fed7aa",
+                                        borderRadius: 10,
+                                        padding: "10px 14px",
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: 700,
+                                          color: "#b45309",
+                                          textTransform: "uppercase",
+                                          marginBottom: 4,
+                                        }}
+                                      >
+                                        O período pega dias já pagos
+                                      </div>
+                                      <div style={{ fontSize: 12, color: "#92400e" }}>
+                                        {diasJaPagosNoPeriodo.map((d) => fmtDate(d)).join(", ")} —
+                                        essas colheitas já entraram em fechamento anterior. Ajuste
+                                        o período para não pagar duas vezes.
+                                      </div>
+                                    </div>
+                                  )}
+
                                   {/* Calendário multi-data de pagamento */}
                                   <div style={{ border: "1.5px solid #e0e7ff", borderRadius: 10, padding: 14, background: "#f8faff" }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, marginBottom: 10, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
@@ -7526,17 +7683,21 @@ export default function RocasClient({
                                       {fechCalDias.days.map(d => {
                                         const ds = `${fechCalDias.year}-${String(fechCalDias.month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
                                         const sel = fechDatasAdicionais.includes(ds);
-                                        const acertado = diasAcertadosProdutor.has(ds);
+                                        const fechado = fechamentoDoDia(periodosFechadosProdutor, ds);
+                                        const acertado = !!fechado;
                                         const aberto = diasAbertosProdutor.has(ds);
+                                        const bloqueado = acertado && !sel;
                                         return (
-                                          <button key={ds} onClick={() => {
+                                          <button key={ds} disabled={bloqueado}
+                                            title={fechado ? `Já pago no fechamento de ${fmtDate(fechado.ini)} a ${fmtDate(fechado.fim)}` : undefined}
+                                            onClick={() => {
                                             const next = fechDatasAdicionais.includes(ds) ? fechDatasAdicionais.filter(x => x !== ds) : [...fechDatasAdicionais, ds];
                                             setFechDatasAdicionais(next);
                                             if (next.length > 0) {
                                               const sorted = [...next].sort();
                                               setFechForm(f => ({ ...f, dataInicio: sorted[0], dataFim: sorted[sorted.length - 1] }));
                                             }
-                                          }} style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel || acertado || aberto ? 700 : 400, background: sel ? NAVY : acertado ? "#dcfce7" : aberto ? "#fff7ed" : "transparent", color: sel ? "#fff" : acertado ? "#15803d" : aberto ? "#b45309" : "#374151", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                                          }} style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: bloqueado ? "not-allowed" : "pointer", fontSize: 12, fontWeight: sel || acertado || aberto ? 700 : 400, background: sel ? NAVY : acertado ? "#dcfce7" : aberto ? "#fff7ed" : "transparent", color: sel ? "#fff" : acertado ? "#15803d" : aberto ? "#b45309" : "#374151", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                                             <span>{d}</span>
                                             {(acertado || aberto) && (
                                               <div style={{ display: "flex", gap: 2 }}>
@@ -7550,7 +7711,7 @@ export default function RocasClient({
                                     </div>
                                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 10, color: "#6b7280", marginBottom: 8 }}>
                                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                        <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#15803d" }} /> já fechado
+                                        <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#15803d" }} /> já fechado (não selecionável)
                                       </span>
                                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                                         <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#b45309" }} /> lançamento em aberto
@@ -10147,6 +10308,12 @@ export default function RocasClient({
                 setFecharMeeiroError("Selecione ao menos uma data de pagamento");
                 return;
               }
+              if (diasJaPagosNoPeriodoMeeiro.length > 0) {
+                setFecharMeeiroError(
+                  `O período inclui colheita já paga em ${diasJaPagosNoPeriodoMeeiro.map((d) => fmtDate(d)).join(", ")}. Ajuste as datas.`,
+                );
+                return;
+              }
               setSavingFecharMeeiro(true);
               setFecharMeeiroError("");
               try {
@@ -10448,6 +10615,37 @@ export default function RocasClient({
                       </FormField>
                     </div>
 
+                    {/* O saldo do meeiro é somado por intervalo de datas, então
+                        um período esticado demais recalcula colheita que já saiu
+                        num fechamento anterior. */}
+                    {diasJaPagosNoPeriodoMeeiro.length > 0 && (
+                      <div
+                        style={{
+                          background: "#fff7ed",
+                          border: "1.5px solid #fed7aa",
+                          borderRadius: 10,
+                          padding: "10px 14px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: "#b45309",
+                            textTransform: "uppercase",
+                            marginBottom: 4,
+                          }}
+                        >
+                          O período pega dias já pagos
+                        </div>
+                        <div style={{ fontSize: 12, color: "#92400e" }}>
+                          {diasJaPagosNoPeriodoMeeiro.map((d) => fmtDate(d)).join(", ")} —
+                          essas colheitas já entraram em fechamento anterior. Ajuste o
+                          período para não pagar duas vezes.
+                        </div>
+                      </div>
+                    )}
+
                     {/* Calendário multi-data de pagamento */}
                     <div style={{ border: "1.5px solid #e0e7ff", borderRadius: 10, padding: 14, background: "#f8faff" }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, marginBottom: 10, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
@@ -10474,12 +10672,16 @@ export default function RocasClient({
                         {fecharCalDias.days.map(d => {
                           const ds = `${fecharCalDias.year}-${String(fecharCalDias.month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
                           const sel = fecharDatasAdicionais.includes(ds);
-                          const acertado = diasAcertadosMeeiro.has(ds);
+                          const fechado = fechamentoDoDia(periodosFechadosMeeiro, ds);
+                          const acertado = !!fechado;
                           const aberto = diasAbertosMeeiro.has(ds);
+                          const bloqueado = acertado && !sel;
                           return (
-                            <button key={ds} onClick={() => {
+                            <button key={ds} disabled={bloqueado}
+                              title={fechado ? `Já pago no fechamento de ${fmtDate(fechado.ini)} a ${fmtDate(fechado.fim)}` : undefined}
+                              onClick={() => {
                               setFecharDatasAdicionais(prev => prev.includes(ds) ? prev.filter(x => x !== ds) : [...prev, ds]);
-                            }} style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: sel || acertado || aberto ? 700 : 400, background: sel ? NAVY : acertado ? "#dcfce7" : aberto ? "#fff7ed" : "transparent", color: sel ? "#fff" : acertado ? "#15803d" : aberto ? "#b45309" : "#374151", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                            }} style={{ padding: "5px 2px", border: "none", borderRadius: 6, cursor: bloqueado ? "not-allowed" : "pointer", fontSize: 12, fontWeight: sel || acertado || aberto ? 700 : 400, background: sel ? NAVY : acertado ? "#dcfce7" : aberto ? "#fff7ed" : "transparent", color: sel ? "#fff" : acertado ? "#15803d" : aberto ? "#b45309" : "#374151", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                               <span>{d}</span>
                               {(acertado || aberto) && (
                                 <div style={{ display: "flex", gap: 2 }}>
@@ -10493,7 +10695,7 @@ export default function RocasClient({
                       </div>
                       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 10, color: "#6b7280", marginBottom: 8 }}>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                          <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#15803d" }} /> já fechado
+                          <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#15803d" }} /> já fechado (não selecionável)
                         </span>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                           <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#b45309" }} /> lançamento em aberto
