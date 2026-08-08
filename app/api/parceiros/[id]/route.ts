@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
+import { memCache } from '@/lib/mem-cache'
+
+// `/api/produtores` responde de um cache de 60s que traz os meeiros junto
+// (`include: { parceiros: true }`). Sem derrubar esse cache aqui, renomear um
+// meeiro continuava mostrando o nome velho por até um minuto em toda tela que
+// lê produtores — inclusive nas que geram recibo.
+const KEY_PRODUTORES = 'produtores'
 
 /** Movimento vinculado ao meeiro — o que a exclusão levaria junto. */
 async function contarMovimento(id: string) {
@@ -64,6 +71,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       },
       include: { produtor: { select: { id: true, nome: true, codigo: true } } },
     })
+    memCache.invalidate(KEY_PRODUTORES)
     return NextResponse.json(parceiro)
   } catch (e) {
     console.error('Erro ao atualizar meeiro:', e)
@@ -102,6 +110,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       await tx.colheitaDiaria.updateMany({ where: { parceiroId: id }, data: { parceiroId: null } })
       await tx.parceiro.delete({ where: { id } })
     })
+    memCache.invalidate(KEY_PRODUTORES)
     return NextResponse.json({ ok: true, movimento })
   } catch (e) {
     console.error('Erro ao excluir meeiro:', e)

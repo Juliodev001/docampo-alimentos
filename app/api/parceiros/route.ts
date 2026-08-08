@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
+import { memCache } from '@/lib/mem-cache'
+
+// Ver comentário em `parceiros/[id]/route.ts`: o cache de `/api/produtores`
+// carrega os meeiros junto e precisa cair quando a lista muda.
+const KEY_PRODUTORES = 'produtores'
 
 // GET /api/parceiros — list all parceiros (meeiros) across all produtores
 export async function GET() {
@@ -68,6 +73,7 @@ export async function POST(req: NextRequest) {
       },
       include: { produtor: { select: { id: true, nome: true, codigo: true } } },
     })
+    memCache.invalidate(KEY_PRODUTORES)
     return NextResponse.json(parceiro, { status: 201 })
   } catch (e) {
     console.error('Erro ao criar meeiro:', e)
