@@ -30,6 +30,7 @@ import {
 import { useToast } from "@/components/toast";
 import { arredondarCaixas, calcularFechamento } from "@/lib/fechamento-calc";
 import { hojeISO } from "@/lib/utils";
+import { EMPRESA_NOME } from "@/lib/empresa";
 
 const GREEN = "#5ab952";
 const NAVY = "#2d3561";
@@ -8316,7 +8317,7 @@ export default function RocasClient({
                           }}
                         >
                           <span>
-                            <strong>Outorgante:</strong> DO CAMPO ALIMENTOS
+                            <strong>Outorgante:</strong> {EMPRESA_NOME}
                           </span>
                           <span>
                             <strong>Outorgado:</strong>{" "}

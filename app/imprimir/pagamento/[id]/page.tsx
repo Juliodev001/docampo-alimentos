@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { calcularFechamento, arredondarCaixas } from '@/lib/fechamento-calc'
+import { EMPRESA_NOME } from '@/lib/empresa'
 
 const NAVY = '#2d3561'
 
@@ -162,7 +163,7 @@ export default function ImprimirPagamento() {
 
         <div style={{ textAlign: 'center', marginBottom: 14 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo01.png" alt="Do Campo Alimentos" style={{ height: 32, margin: '0 auto 6px', display: 'block', filter: 'grayscale(100%)' }} />
+          <img src="/logo01.png" alt={EMPRESA_NOME} style={{ height: 32, margin: '0 auto 6px', display: 'block', filter: 'grayscale(100%)' }} />
           <div style={{ fontSize: 16, fontWeight: 700, color: NAVY }}>
             Recibo de Repasse ao Produtor
           </div>
@@ -177,7 +178,7 @@ export default function ImprimirPagamento() {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11 }}>
-          <span><strong>Outorgante:</strong> DO CAMPO ALIMENTOS</span>
+          <span><strong>Outorgante:</strong> {EMPRESA_NOME}</span>
           <span><strong>Outorgado:</strong> {produtor.codigo ? `${produtor.codigo} — ` : ''}{produtor.nome}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, fontSize: 11 }}>
@@ -262,7 +263,7 @@ export default function ImprimirPagamento() {
         {valesEmAberto.length > 0 && (
           <div style={{ fontSize: 10, color: '#555', margin: '0 0 10px' }}>
             <div style={{ fontWeight: 700 }}>
-              Empr. em aberto ({fmtN(valesAbertos)}) refere-se {valesEmAberto.length === 1 ? 'ao vale' : `aos ${valesEmAberto.length} vales`} ainda não descontados:
+              Empr. em aberto ({fmtN(valesAbertos)}) refere-se {valesEmAberto.length === 1 ? 'ao vale ainda não descontado' : `aos ${valesEmAberto.length} vales ainda não descontados`}:
             </div>
             {valesEmAberto.map(v => (
               <div key={v.id} style={{ paddingLeft: 10 }}>

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { arredondarCaixas } from '@/lib/fechamento-calc'
+import { EMPRESA_NOME } from '@/lib/empresa'
 
 const NAVY = '#2d3561'
 
@@ -138,7 +139,7 @@ export default function ImprimirFechamentoMeeiro() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
           <div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo01.png" alt="Do Campo Alimentos" style={{ height: 28, display: 'block', filter: 'grayscale(100%)' }} />
+            <img src="/logo01.png" alt={EMPRESA_NOME} style={{ height: 28, display: 'block', filter: 'grayscale(100%)' }} />
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Recibo de Repasse ao Parceiro</div>
@@ -159,7 +160,7 @@ export default function ImprimirFechamentoMeeiro() {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11 }}>
-          <span><strong>Outorgante:</strong> DO CAMPO ALIMENTOS</span>
+          <span><strong>Outorgante:</strong> {EMPRESA_NOME}</span>
           <span><strong>Outorgado:</strong> {parceiro.nome}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, fontSize: 11 }}>

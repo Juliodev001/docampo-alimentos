@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
+import { EMPRESA_NOME } from '@/lib/empresa'
 
 const NAVY = '#2d3561'
 
@@ -145,7 +146,7 @@ export default function RelatorioCliente() {
 
           <div style={{ textAlign: 'center', marginBottom: 14 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo01.png" alt="Do Campo Alimentos" style={{ height: 32, margin: '0 auto 6px', display: 'block', filter: 'grayscale(100%)' }} />
+            <img src="/logo01.png" alt={EMPRESA_NOME} style={{ height: 32, margin: '0 auto 6px', display: 'block', filter: 'grayscale(100%)' }} />
             <div style={{ fontSize: 16, fontWeight: 700, color: NAVY }}>
               Extrato de Compras do Cliente
             </div>
@@ -167,7 +168,7 @@ export default function RelatorioCliente() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11 }}>
-            <span><strong>Outorgante:</strong> DO CAMPO ALIMENTOS</span>
+            <span><strong>Outorgante:</strong> {EMPRESA_NOME}</span>
             <span><strong>Outorgado:</strong> {cliente.nome}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, fontSize: 11 }}>

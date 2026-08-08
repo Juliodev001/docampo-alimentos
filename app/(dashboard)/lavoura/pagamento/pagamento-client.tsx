@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSearch, faPrint, faPlus, faFileLines, faChevronDown, faChevronUp, faCheck, faXmark, faFilter, faDownload } from '@fortawesome/free-solid-svg-icons'
 import PageSkeleton from '@/components/page-skeleton'
 import { calcularFechamento } from '@/lib/fechamento-calc'
+import { EMPRESA_NOME } from '@/lib/empresa'
 
 const GREEN  = '#5ab952'
 const NAVY   = '#2d3561'
@@ -201,12 +202,12 @@ function gerarPDFLancamentos(produtor: Produtor, lancamentos: ColheitaItem[], fi
   </table>` : ''}
 
   <div class="footer">
-    <p>Do Campo Alimentos · Sistema de Gestão</p>
+    <p>${EMPRESA_NOME} · Sistema de Gestão</p>
     <div class="sig">
       <div class="line">Assinatura do Produtor<br>${produtor.nome}</div>
     </div>
     <div class="sig">
-      <div class="line">Responsável<br>Do Campo Alimentos</div>
+      <div class="line">Responsável<br>${EMPRESA_NOME}</div>
     </div>
   </div>
 </div>

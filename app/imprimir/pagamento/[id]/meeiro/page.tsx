@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { calcularFechamento, arredondarCaixas } from '@/lib/fechamento-calc'
+import { EMPRESA_NOME } from '@/lib/empresa'
 
 const NAVY = '#2d3561'
 
@@ -167,7 +168,7 @@ function ImprimirPagamentoMeeiro() {
 
         <div style={{ textAlign: 'center', marginBottom: 14 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo01.png" alt="Do Campo Alimentos" style={{ height: 32, margin: '0 auto 6px', display: 'block', filter: 'grayscale(100%)' }} />
+          <img src="/logo01.png" alt={EMPRESA_NOME} style={{ height: 32, margin: '0 auto 6px', display: 'block', filter: 'grayscale(100%)' }} />
           <div style={{ fontSize: 16, fontWeight: 700, color: NAVY }}>
             Recibo de Repasse ao Parceiro
           </div>
@@ -182,7 +183,7 @@ function ImprimirPagamentoMeeiro() {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11 }}>
-          <span><strong>Outorgante:</strong> DO CAMPO ALIMENTOS</span>
+          <span><strong>Outorgante:</strong> {EMPRESA_NOME}</span>
           <span><strong>Outorgado:</strong> {meeiro.nome}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, fontSize: 11 }}>

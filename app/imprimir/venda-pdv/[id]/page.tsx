@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
+import { EMPRESA_NOME } from '@/lib/empresa'
 
 type Item = { id: string; produto: string; unidade: string; quantidade: number; valorUnit: number; total: number }
 type Cliente = { id: string; nome: string; cnpjCpf: string | null; telefone: string | null }
@@ -87,7 +88,7 @@ export default function ImprimirVendaPDV() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
           <div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo01.png" alt="Do Campo Alimentos" style={{ height: 24, display: 'block', filter: 'grayscale(100%)' }} />
+            <img src="/logo01.png" alt={EMPRESA_NOME} style={{ height: 24, display: 'block', filter: 'grayscale(100%)' }} />
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>
@@ -103,7 +104,7 @@ export default function ImprimirVendaPDV() {
           <span>Emitido em: {fmtDateTime(emitidoEm)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 10 }}>
-          <span><strong>Vendedor:</strong> DO CAMPO ALIMENTOS</span>
+          <span><strong>Vendedor:</strong> {EMPRESA_NOME}</span>
           <span><strong>Cliente:</strong> {pedido!.cliente?.nome ?? '—'}</span>
         </div>
 
