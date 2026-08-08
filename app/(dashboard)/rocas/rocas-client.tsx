@@ -6168,6 +6168,14 @@ export default function RocasClient({
                             textAlign: h.align,
                             fontWeight: 600,
                             color: "#374151",
+                            // "Ações" fixada à direita: continua alcançável com
+                            // a tabela rolando na horizontal.
+                            ...(h.label === "Ações" && {
+                              position: "sticky" as const,
+                              right: 0,
+                              background: "#f9fafb",
+                              boxShadow: "-6px 0 6px -6px rgba(0,0,0,0.18)",
+                            }),
                           }}
                         >
                           {h.label}
@@ -6283,6 +6291,10 @@ export default function RocasClient({
                             style={{
                               padding: "12px 16px",
                               textAlign: "center",
+                              position: "sticky",
+                              right: 0,
+                              background: "#fff",
+                              boxShadow: "-6px 0 6px -6px rgba(0,0,0,0.18)",
                             }}
                           >
                             <button
@@ -7025,12 +7037,18 @@ export default function RocasClient({
                       >
                         Status
                       </th>
+                      {/* Fixada à direita: mesmo com a tabela rolando, o menu de
+                          cada fechamento continua alcançável sem arrastar. */}
                       <th
                         style={{
                           padding: "12px 16px",
                           textAlign: "center",
                           fontWeight: 600,
                           color: "#374151",
+                          position: "sticky",
+                          right: 0,
+                          background: "#f9fafb",
+                          boxShadow: "-6px 0 6px -6px rgba(0,0,0,0.18)",
                         }}
                       >
                         Ações
@@ -7156,6 +7174,10 @@ export default function RocasClient({
                             style={{
                               padding: "12px 16px",
                               textAlign: "center",
+                              position: "sticky",
+                              right: 0,
+                              background: "#fff",
+                              boxShadow: "-6px 0 6px -6px rgba(0,0,0,0.18)",
                             }}
                           >
                             <button
