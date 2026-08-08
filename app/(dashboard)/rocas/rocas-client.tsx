@@ -6129,9 +6129,13 @@ export default function RocasClient({
                   overflow: "hidden",
                 }}
               >
+                {/* Mesmo caso da tabela de fechamentos do produtor: sem a faixa
+                    de rolagem a coluna "Ações" fica cortada fora do card. */}
+                <div style={{ overflowX: "auto" }}>
                 <table
                   style={{
                     width: "100%",
+                    minWidth: 860,
                     borderCollapse: "collapse",
                     fontSize: 13,
                   }}
@@ -6315,6 +6319,7 @@ export default function RocasClient({
                     )}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
           );
@@ -6909,9 +6914,14 @@ export default function RocasClient({
                   overflow: "hidden",
                 }}
               >
+                {/* São 10 colunas: sem esta faixa de rolagem o `overflow:
+                    hidden` do card cortava a coluna "Ações" fora da tela, e não
+                    havia como chegar no menu de cada fechamento. */}
+                <div style={{ overflowX: "auto" }}>
                 <table
                   style={{
                     width: "100%",
+                    minWidth: 940,
                     borderCollapse: "collapse",
                     fontSize: 13,
                   }}
@@ -7183,6 +7193,7 @@ export default function RocasClient({
                     )}
                   </tbody>
                 </table>
+                </div>
               </div>
 
               {Object.keys(custosPorProdutor).length > 0 && (
