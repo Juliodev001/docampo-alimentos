@@ -7,6 +7,8 @@ import { createSession, deleteSession } from '@/lib/session'
 export async function login(state: { error?: string } | undefined, formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
+  // Checkbox "Lembrar-me": vem 'on' quando marcado, ausente quando não.
+  const lembrar = formData.get('lembrar') === 'on'
 
   if (!email || !password) return { error: 'Preencha todos os campos.' }
 
@@ -16,7 +18,7 @@ export async function login(state: { error?: string } | undefined, formData: For
   const valid = await bcrypt.compare(password, user.password)
   if (!valid) return { error: 'E-mail ou senha incorretos.' }
 
-  await createSession(user.id, user.name, user.email, user.role)
+  await createSession(user.id, user.name, user.email, user.role, lembrar)
   redirect('/')
 }
 

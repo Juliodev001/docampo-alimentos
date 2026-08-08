@@ -134,6 +134,16 @@ export default function LoginPage() {
             </div>
           </div>
 
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: NAVY, cursor: 'pointer', userSelect: 'none' }}>
+            <input
+              name="lembrar"
+              type="checkbox"
+              defaultChecked
+              style={{ width: 16, height: 16, accentColor: GREEN, cursor: 'pointer' }}
+            />
+            Lembrar-me
+          </label>
+
           {state?.error && (
             <motion.p
               initial={{ opacity: 0, y: -8 }}
