@@ -559,6 +559,31 @@ function acharEmitente(linhas: LinhaVisual[], yDest: number): Emitente {
     /D[A4]NF[E3]/.test(norm(l.palavras.map((w) => w.text).join(' ')))
   )
 
+  /**
+   * Cupom fiscal (NFC-e, modelo 65) e recibos não têm o quadro "DANFE" nem o
+   * canhoto: o nome do emitente é CENTRALIZADO, ocupa a linha inteira (não
+   * divide a faixa com o código de barras como na DANFE A4) e vem logo acima do
+   * CNPJ. Ler só a metade esquerda, como no bloco da DANFE, cortaria
+   * "POSTO RIO CERVO" em "POSTO" (< 8 letras), a linha seria descartada e a
+   * varredura escorregaria para a linha do endereço abaixo — foi o que fez o
+   * emitente virar "RODOVIA CERVO". Só entra quando não houve âncora "DANFE"
+   * nem canhoto, para não atropelar a leitura da DANFE A4.
+   */
+  let nomeCupom = ''
+  if (inicio < 0 && !nomeCanhoto) {
+    const iCnpj = linhas.findIndex((l) => /CNPJ/.test(norm(l.palavras.map((w) => w.text).join(' '))))
+    const limite = iCnpj >= 0 ? iCnpj : Math.min(linhas.length, 6)
+    for (let i = 0; i < limite; i++) {
+      const t = (linhas[i]?.palavras ?? []).map((w) => w.text).join(' ').trim()
+      const tn = norm(t)
+      if (plausivel(t) && !BOILERPLATE_CABECALHO.test(tn) && !/^[\d\s.,/:-]+$/.test(tn)) {
+        nomeCupom = t
+        inicio = i
+        break
+      }
+    }
+  }
+
   if (inicio < 0) {
     // Sem a âncora, cai na varredura do topo — melhor que não devolver nada.
     inicio = linhas.findIndex((l, i) => {
@@ -573,7 +598,7 @@ function acharEmitente(linhas: LinhaVisual[], yDest: number): Emitente {
    * ao OCR; o canhoto entra quando a âncora não aparece ou devolve algo que não
    * parece razão social.
    */
-  const nomeAncora = inicio >= 0 ? esquerdaDe(inicio) : ''
+  const nomeAncora = nomeCupom || (inicio >= 0 ? esquerdaDe(inicio) : '')
   const nome = plausivel(nomeAncora) ? nomeAncora : nomeCanhoto
   if (!nome || nome.length < 4) return vazio
   if (inicio < 0) return { nome, endereco: '', municipio: '', uf: '' }
