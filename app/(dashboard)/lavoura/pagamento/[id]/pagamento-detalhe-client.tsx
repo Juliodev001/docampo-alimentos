@@ -33,6 +33,7 @@ type Fechamento = {
   colheitas: Colheita[]
   vales: { valor: number }[]
 }
+type Vale = { id: string; valor: number; data: string; observacao: string | null; fechamentoId: string | null }
 
 function fmtBRL(v: number) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString('pt-BR') }
@@ -47,10 +48,59 @@ export default function PagamentoDetalheClient() {
   const [deleting, setDeleting] = useState(false)
   const [sharing, setSharing] = useState(false)
   const docRef = useRef<HTMLDivElement>(null)
+  const [valesProdutor, setValesProdutor] = useState<Vale[]>([])
+  const [valesSel, setValesSel] = useState<string[]>([])
+  const [savingVales, setSavingVales] = useState(false)
 
   useEffect(() => {
     fetch(`/api/fechamento/${id}`).then(r => r.json()).then(setFechamento).finally(() => setLoading(false))
   }, [id])
+
+  // Empréstimos que este fechamento pode abater: os que ainda estão em aberto e
+  // os que já foram vinculados a ele (para permitir desmarcar).
+  const produtorId = fechamento?.produtor.id
+  const dataFimFech = fechamento?.dataFim
+  useEffect(() => {
+    if (!produtorId || !dataFimFech) return
+    fetch(`/api/vales?produtorId=${encodeURIComponent(produtorId)}`)
+      .then(r => r.json())
+      .then((vs: { id: string; valor: string | number; data: string; observacao: string | null; status: string; fechamentoId: string | null }[]) => {
+        if (!Array.isArray(vs)) return
+        const relevantes = vs
+          .filter(v => v.status === 'ABERTO' || v.fechamentoId === id)
+          .map(v => ({ id: v.id, valor: Number(v.valor), data: v.data, observacao: v.observacao, fechamentoId: v.fechamentoId }))
+        setValesProdutor(relevantes)
+
+        const jaVinculados = relevantes.filter(v => v.fechamentoId === id).map(v => v.id)
+        if (jaVinculados.length > 0) { setValesSel(jaVinculados); return }
+        // Fechamento sem nenhum vale vinculado: já marca os empréstimos tomados
+        // até o fim do período, que é o que deveria ter sido descontado. Fica
+        // marcado mas não salvo sozinho — se o produtor tiver mais de um
+        // fechamento sem acerto, salvar na abertura faria o primeiro que fosse
+        // aberto levar o vale.
+        const fim = dataFimFech.slice(0, 10)
+        setValesSel(relevantes.filter(v => v.data.slice(0, 10) <= fim).map(v => v.id))
+      })
+  }, [produtorId, dataFimFech, id])
+
+  async function salvarVales() {
+    setSavingVales(true)
+    try {
+      const res = await fetch(`/api/fechamento/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ valeIds: valesSel }),
+      })
+      if (!res.ok) throw new Error()
+      const vinculados = valesProdutor.filter(v => valesSel.includes(v.id))
+      setValesProdutor(prev => prev.map(v => ({ ...v, fechamentoId: valesSel.includes(v.id) ? id : null })))
+      setFechamento(f => f ? { ...f, vales: vinculados.map(v => ({ valor: v.valor })) } : f)
+      toast.success('Abatimento atualizado')
+    } catch {
+      toast.error('Não foi possível atualizar o abatimento')
+    } finally {
+      setSavingVales(false)
+    }
+  }
 
   if (loading) return <PageSkeleton cards={0} rows={8} />
   if (!fechamento) return <div style={{ padding: 40, color: PINK }}>Fechamento não encontrado.</div>
@@ -284,6 +334,48 @@ export default function PagamentoDetalheClient() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Empréstimos (vales) do produtor. Fechamento salvo sem vincular o vale
+            deixava o empréstimo preso em ABERTO — o recibo saía com "Empr. em
+            aberto" cheio e "Abatim. emprést." zerado, sem jeito de corrigir a
+            não ser excluindo o fechamento. Aqui dá para marcar depois. */}
+        {valesProdutor.length > 0 && (
+          <div style={{ padding: '20px 28px', borderTop: '2px solid #f3f4f6' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#b45309', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+              Empréstimos do produtor
+            </div>
+            {valesSel.length > 0 && valesVinculados === 0 && (
+              <div style={{ background: '#fff7ed', border: '1.5px solid #fed7aa', borderRadius: 10, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: '#92400e' }}>
+                Este fechamento ainda não abateu nenhum empréstimo — o recibo sai com
+                &quot;Abatim. emprést.&quot; zerado. Confirme abaixo para descontar neste mesmo
+                fechamento, sem precisar refazê-lo.
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+              {valesProdutor.map(v => (
+                <label key={v.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, cursor: 'pointer', fontSize: 13, color: '#374151' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={valesSel.includes(v.id)}
+                      onChange={e => setValesSel(prev => e.target.checked ? [...prev, v.id] : prev.filter(x => x !== v.id))}
+                      style={{ width: 16, height: 16, accentColor: GREEN, cursor: 'pointer' }}
+                    />
+                    {fmtDate(v.data)}{v.observacao ? ` — ${v.observacao}` : ''}
+                  </span>
+                  <span style={{ fontWeight: 700, color: '#b45309' }}>{fmtBRL(v.valor)}</span>
+                </label>
+              ))}
+            </div>
+            <button
+              onClick={salvarVales}
+              disabled={savingVales}
+              style={{ padding: '8px 18px', background: NAVY, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: savingVales ? 'wait' : 'pointer', opacity: savingVales ? 0.7 : 1 }}
+            >
+              {savingVales ? 'Salvando...' : 'Salvar abatimento'}
+            </button>
           </div>
         )}
 

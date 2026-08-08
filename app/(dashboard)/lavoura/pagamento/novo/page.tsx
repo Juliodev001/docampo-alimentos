@@ -21,6 +21,7 @@ type Colheita = {
   descarte: number; nrDoc: string | null
   parceiroId: string | null; percParceiro: number
 }
+type Vale = { id: string; valor: number; data: string; observacao: string | null }
 
 function fmtBRL(v: number) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) }
 function fmtDate(d: string) { return new Date(d).toLocaleDateString('pt-BR') }
@@ -42,6 +43,8 @@ export default function NovoFechamento() {
   const [valesDinheiro, setValesDinheiro] = useState('0')
   const [creditos, setCreditos] = useState('0')
   const [debitosAnteriores, setDebitosAnteriores] = useState('0')
+  const [valesAbertos, setValesAbertos] = useState<Vale[]>([])
+  const [valesSelecionados, setValesSelecionados] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -75,6 +78,22 @@ export default function NovoFechamento() {
   useEffect(() => {
     if (produtorId && dataInicio && dataFim) buscarColheitas()
   }, [produtorId, dataInicio, dataFim]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Vales (empréstimos) em aberto do produtor. Já entram marcados: são dívida
+  // pessoal dele e o padrão é abater no fechamento — esta tela não mandava
+  // `valeIds`, então o recibo saía com "Abatim. emprést." sempre zerado.
+  useEffect(() => {
+    if (!produtorId) { setValesAbertos([]); setValesSelecionados([]); return }
+    fetch(`/api/vales?produtorId=${encodeURIComponent(produtorId)}&status=ABERTO`)
+      .then(r => r.json())
+      .then((vs: { id: string; valor: string | number; data: string; observacao: string | null }[]) => {
+        const lista = Array.isArray(vs)
+          ? vs.map(v => ({ id: v.id, valor: Number(v.valor), data: v.data, observacao: v.observacao }))
+          : []
+        setValesAbertos(lista)
+        setValesSelecionados(lista.map(v => v.id))
+      })
+  }, [produtorId])
 
   const buscarColheitas = useCallback(async () => {
     if (!produtorId || !dataInicio || !dataFim) return
@@ -112,13 +131,16 @@ export default function NovoFechamento() {
 
   const totalCaixas = colheitas.reduce((s, c) => s + (c.quantidadeTotal - c.descarte), 0)
   const bandejaEmbalagem = (parseFloat(valorEmbalagem) || 0) * totalCaixas
+  const abatimEmprestimo = valesAbertos
+    .filter(v => valesSelecionados.includes(v.id))
+    .reduce((s, v) => s + v.valor, 0)
   const calculo = calcularFechamento(colheitas, {
     combustivel: parseFloat(combustivel) || 0,
     bandejaEmbalagem,
     valesDinheiro: parseFloat(valesDinheiro) || 0,
     creditos: parseFloat(creditos) || 0,
     debitosAnteriores: parseFloat(debitosAnteriores) || 0,
-  })
+  }, abatimEmprestimo)
   const totalFaturas = calculo.totalBruto
   const totalInsumos = (parseFloat(combustivel) || 0) + bandejaEmbalagem
   const totalDeducoes = calculo.totalDeducoes
@@ -140,6 +162,7 @@ export default function NovoFechamento() {
         valesDinheiro: parseFloat(valesDinheiro) || 0,
         creditos: parseFloat(creditos) || 0,
         debitosAnteriores: parseFloat(debitosAnteriores) || 0,
+        valeIds: valesSelecionados,
       }),
     })
     if (res.ok) {
@@ -267,6 +290,31 @@ export default function NovoFechamento() {
                 ))}
               </div>
 
+              {/* Empréstimos (vales) em aberto — descontados 100% do produtor,
+                  sem rateio com os meeiros. */}
+              {valesAbertos.length > 0 && (
+                <div style={{ marginTop: 14, padding: '10px 14px', backgroundColor: '#fff7ed', borderRadius: 10, border: '1.5px solid #fed7aa' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#b45309', textTransform: 'uppercase', marginBottom: 6 }}>
+                    Empréstimos em aberto — descontar?
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {valesAbertos.map(v => (
+                      <label key={v.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, cursor: 'pointer', fontSize: 12, color: '#374151' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input
+                            type="checkbox"
+                            checked={valesSelecionados.includes(v.id)}
+                            onChange={e => setValesSelecionados(prev => e.target.checked ? [...prev, v.id] : prev.filter(id => id !== v.id))}
+                          />
+                          {fmtDate(v.data)}{v.observacao ? ` — ${v.observacao}` : ''}
+                        </span>
+                        <span style={{ fontWeight: 700, color: '#b45309' }}>{fmtBRL(v.valor)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div style={{ marginTop: 14, padding: '12px 14px', backgroundColor: '#f8faff', borderRadius: 10, border: '1.5px solid #e0e7ff' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ fontSize: 13, color: '#6b7280' }}>Total Faturas</span>
@@ -276,10 +324,16 @@ export default function NovoFechamento() {
                   <span style={{ fontSize: 13, color: '#6b7280' }}>Total Insumos</span>
                   <span style={{ fontSize: 13, fontWeight: 600, color: ORANGE }}>- {fmtBRL(totalInsumos)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: abatimEmprestimo > 0 ? 4 : 8 }}>
                   <span style={{ fontSize: 13, color: '#6b7280' }}>Total Deduções</span>
                   <span style={{ fontSize: 13, fontWeight: 600, color: PINK }}>- {fmtBRL(totalDeducoes - totalInsumos)}</span>
                 </div>
+                {abatimEmprestimo > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, color: '#6b7280' }}>Abatim. empréstimo</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: PINK }}>- {fmtBRL(abatimEmprestimo)}</span>
+                  </div>
+                )}
                 <div style={{ borderTop: '1px solid #e0e7ff', paddingTop: 8, display: 'flex', justifyContent: 'space-between', marginBottom: produtorSelecionado && produtorSelecionado.parceiros.length > 0 ? 10 : 0 }}>
                   <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Valor Líquido Total</span>
                   <span style={{ fontSize: 18, fontWeight: 800, color: aReceber >= 0 ? GREEN : PINK }}>{fmtBRL(aReceber)}</span>

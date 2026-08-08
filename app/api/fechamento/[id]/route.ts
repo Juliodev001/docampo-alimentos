@@ -50,6 +50,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     },
     include: { produtor: true },
   })
+
+  // Vincular/desvincular empréstimos depois do fechamento criado. Sem isto, um
+  // fechamento salvo sem `valeIds` ficava com o empréstimo preso em ABERTO para
+  // sempre: o recibo mostrava "Empr. em aberto" cheio e "Abatim. emprést."
+  // zerado, e a única saída era excluir o fechamento e refazer.
+  if (Array.isArray(body.valeIds)) {
+    const ids: string[] = body.valeIds
+    // Solta o que foi desmarcado (volta a ser dívida em aberto do produtor).
+    await prisma.vale.updateMany({
+      where: { fechamentoId: id, ...(ids.length > 0 && { id: { notIn: ids } }) },
+      data: { status: 'ABERTO', fechamentoId: null },
+    })
+    // Prende os marcados. O filtro por ABERTO impede roubar vale já descontado
+    // em outro fechamento; os que já eram deste continuam como estão.
+    if (ids.length > 0) {
+      await prisma.vale.updateMany({
+        where: { id: { in: ids }, produtorId: fechamento.produtorId, status: 'ABERTO' },
+        data: { status: 'DESCONTADO', fechamentoId: id },
+      })
+    }
+  }
+
   return NextResponse.json(s(fechamento))
 }
 
