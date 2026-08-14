@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 import { sincronizarEstoqueDoPedido, removerEstoqueDoPedido } from '@/lib/estoque-pedido'
+import { sincronizarTituloDoPedido } from '@/lib/titulo-pedido'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
@@ -63,6 +64,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         valorUnit:  String(it.valorUnit),
       })),
     })
+    // O total mudou junto com os itens: o título em Contas a Receber tem que
+    // cobrar o valor novo, não o da venda original.
+    await sincronizarTituloDoPedido({
+      id:             pedido.id,
+      numero:         pedido.numero,
+      clienteId:      pedido.clienteId,
+      formaPagamento: pedido.formaPagamento,
+      status:         pedido.status,
+      totalValor:     String(pedido.totalValor),
+      data:           pedido.data,
+      dataCobranca:   pedido.dataCobranca,
+    })
     return NextResponse.json(pedido)
   }
 
@@ -84,6 +97,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         quantidade: it.quantidade,
         valorUnit:  String(it.valorUnit),
       })),
+    })
+    // Marcar a carteira como paga (na tela de Avisos) baixa o título; cancelar
+    // o pedido tira ele de Contas a Receber.
+    await sincronizarTituloDoPedido({
+      id:             pedido.id,
+      numero:         pedido.numero,
+      clienteId:      pedido.clienteId,
+      formaPagamento: pedido.formaPagamento,
+      status:         pedido.status,
+      totalValor:     String(pedido.totalValor),
+      data:           pedido.data,
+      dataCobranca:   pedido.dataCobranca,
     })
   }
   return NextResponse.json(pedido)

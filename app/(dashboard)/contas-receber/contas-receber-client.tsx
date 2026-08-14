@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faCreditCard, faDollarSign, faCalendarXmark, faCalendarDay, faCalendarDays, faFilter, faMagnifyingGlass, faChartBar, faCircleInfo } from '@fortawesome/free-solid-svg-icons'
+import { faCreditCard, faDollarSign, faCalendarXmark, faCalendarDay, faCalendarDays, faFilter, faMagnifyingGlass, faChartBar, faCircleInfo, faRotate } from '@fortawesome/free-solid-svg-icons'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
@@ -100,6 +100,7 @@ export default function ContasReceberClient({
   const [q, setQ]           = useState('')
   const [titulos, setTitulos] = useState(inicial)
   const [relOpen, setRelOpen] = useState(false)
+  const [sincronizando, setSincronizando] = useState(false)
   const relRef              = useRef<HTMLDivElement>(null)
 
   /* fechar dropdown ao clicar fora */
@@ -130,6 +131,17 @@ export default function ContasReceberClient({
         : t
       )
     )
+    router.refresh()
+  }
+
+  /**
+   * Traz para cá o que nasceu em outro lugar: NF-e autorizada e venda na
+   * carteira. Rodar de novo não duplica — cada origem tem seu título.
+   */
+  async function sincronizar() {
+    setSincronizando(true)
+    await fetch('/api/titulos/sincronizar', { method: 'POST' })
+    setSincronizando(false)
     router.refresh()
   }
 
@@ -179,6 +191,12 @@ export default function ContasReceberClient({
             }}
           />
         </div>
+
+        <OutlineBtn
+          icon={faRotate}
+          label={sincronizando ? 'Sincronizando...' : 'Sincronizar'}
+          onClick={sincronizando ? undefined : sincronizar}
+        />
 
         {/* Relatórios com dropdown */}
         <div ref={relRef} style={{ position: 'relative' }}>
@@ -234,7 +252,7 @@ export default function ContasReceberClient({
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f9fafb' }}>
-                {['ID', 'Cliente', 'Roça', 'Valor', 'Valor Pago', 'Data Vencimento', 'Status', ''].map(h => (
+                {['ID', 'Cliente', 'Origem', 'Valor', 'Valor Pago', 'Data Vencimento', 'Status', ''].map(h => (
                   <th key={h} style={{
                     padding: '11px 14px', textAlign: 'left',
                     fontSize: 12, color: '#6b7280', fontWeight: 700,
@@ -270,7 +288,7 @@ export default function ContasReceberClient({
                       {t.cliente}
                     </td>
                     <td style={{ padding: '12px 14px', fontSize: 13, color: '#6b7280' }}>
-                      —
+                      {t.descricao || '—'}
                     </td>
                     <td style={{ padding: '12px 14px', fontSize: 13, color: NAVY, fontWeight: 600, whiteSpace: 'nowrap' }}>
                       {formatCurrency(t.valor)}

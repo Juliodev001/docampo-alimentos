@@ -422,6 +422,8 @@ model TituloFinanceiro {
   status        StatusTitulo @default(A_RECEBER)
   origem        OrigemTitulo @default(MANUAL)
   nfeId         String?
+  pedidoId      String?      @unique
+  pedido        Pedido?      @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 }
@@ -668,6 +670,7 @@ model Pedido {
   obsInternas      String?
   obsCliente       String?
   itens            ItemPedido[]
+  titulo           TituloFinanceiro?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 }

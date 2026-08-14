@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 import { s } from '@/lib/serialize'
 import { sincronizarEstoqueDoPedido } from '@/lib/estoque-pedido'
+import { sincronizarTituloDoPedido, ehCarteira } from '@/lib/titulo-pedido'
 
 export async function GET() {
   const session = await getSession()
@@ -55,7 +56,9 @@ export async function POST(req: NextRequest) {
       data:            new Date(data),
       dataEntrega:     dataEntrega ? new Date(dataEntrega) : null,
       formaPagamento:  formaPagamento || null,
-      dataCobranca:    formaPagamento === 'FIADO' && dataCobranca ? new Date(dataCobranca) : null,
+      // A data de cobrança só faz sentido na carteira — e "carteira" tanto é o
+      // FIADO do PDV quanto o rótulo "Carteira" do pedido de venda.
+      dataCobranca:    ehCarteira(formaPagamento) && dataCobranca ? new Date(dataCobranca) : null,
       frete:           frete       ?? 0,
       outrasTaxas:     outrasTaxas ?? 0,
       observacao:      observacao  || null,
@@ -89,6 +92,18 @@ export async function POST(req: NextRequest) {
       quantidade: it.quantidade,
       valorUnit:  it.valorUnit,
     })),
+  })
+
+  // Venda na carteira entra em Contas a Receber já no ato da venda.
+  await sincronizarTituloDoPedido({
+    id:             pedido.id,
+    numero:         pedido.numero,
+    clienteId:      pedido.clienteId,
+    formaPagamento: pedido.formaPagamento,
+    status:         pedido.status,
+    totalValor:     String(pedido.totalValor),
+    data:           pedido.data,
+    dataCobranca:   pedido.dataCobranca,
   })
 
   return NextResponse.json(s(pedido), { status: 201 })
