@@ -14,7 +14,7 @@ import { prisma } from '@/lib/prisma'
  * rótulo "Carteira". É o mesmo negócio, então os dois valem.
  */
 
-const FORMAS_CARTEIRA = ['FIADO', 'CARTEIRA']
+export const FORMAS_CARTEIRA = ['FIADO', 'CARTEIRA']
 
 export const ehCarteira = (formaPagamento?: string | null) =>
   !!formaPagamento && FORMAS_CARTEIRA.includes(formaPagamento.trim().toUpperCase())
