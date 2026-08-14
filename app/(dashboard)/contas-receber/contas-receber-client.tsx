@@ -23,6 +23,12 @@ type Titulo = {
   status: string
 }
 
+/* ── Busca: o usuário digita do jeito que lê na tela ──
+   "3.000,00", "3000", "R$ 3.000,00" são a mesma coisa; "04/08" e "0408" também. */
+const soDigitos      = (s: string) => s.replace(/\D/g, '')
+const normalizarValor = (s: string) => s.replace(/r\$|\s|\./g, '')
+const valorBuscavel   = (v: number) => v.toFixed(2).replace('.', ',')
+
 const statusCfg: Record<string, { label: string; bg: string; color: string }> = {
   RECEBIDO:  { label: 'Recebido',  bg: '#f0faf0', color: '#2d7d28' },
   A_RECEBER: { label: 'A Receber', bg: '#fff7ed', color: '#b85c00' },
@@ -112,12 +118,26 @@ export default function ContasReceberClient({
     return () => document.removeEventListener('mousedown', handle)
   }, [])
 
-  const filtrados = titulos.filter(t =>
-    !q ||
-    t.cliente.toLowerCase().includes(q.toLowerCase()) ||
-    t.descricao.toLowerCase().includes(q.toLowerCase()) ||
-    t.id.slice(-6).toLowerCase().includes(q.toLowerCase())
-  )
+  const busca        = q.trim().toLowerCase()
+  const buscaDigitos = soDigitos(busca)
+  const buscaValor   = normalizarValor(busca)
+
+  const filtrados = titulos.filter(t => {
+    if (!busca) return true
+
+    const dataVenc = formatDate(t.dataVenc)   // 04/08/2026
+
+    return (
+      t.cliente.toLowerCase().includes(busca) ||
+      t.descricao.toLowerCase().includes(busca) ||
+      t.id.slice(-6).toLowerCase().includes(busca) ||
+      // Data: aceita "04/08", "04/08/2026" e também sem as barras ("0408").
+      dataVenc.includes(busca) ||
+      (!!buscaDigitos && soDigitos(dataVenc).includes(buscaDigitos)) ||
+      // Valor: "3000", "3.000", "3.000,00" e "R$ 3.000,00" viram todos "3000,00".
+      (!!buscaValor && valorBuscavel(t.valor).includes(buscaValor))
+    )
+  })
 
   async function marcarRecebido(id: string) {
     await fetch(`/api/titulos/${id}`, {
@@ -182,7 +202,7 @@ export default function ContasReceberClient({
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Buscar por número do pedido, cliente..."
+            placeholder="Buscar por cliente, pedido, data ou valor..."
             style={{
               width: '100%', padding: '8px 12px 8px 34px',
               border: '1.5px solid #e5e7eb', borderRadius: 8,
