@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faArrowTrendUp, faArrowTrendDown, faCaretUp, faCaretDown,
   faChevronLeft, faChevronRight, faCartShopping, faReceipt, faPercent, faTags, faBoxesStacked, faTag,
+  faCalendarDay, faBullseye,
 } from '@fortawesome/free-solid-svg-icons'
 import {
   ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, Tooltip,
@@ -170,6 +171,32 @@ export default function VisaoGeralClient() {
   const margem = atual.totalVendas > 0 ? (atual.lucro / atual.totalVendas) * 100 : 0
   const ticketMedio = atual.nVendas > 0 ? atual.totalVendas / atual.nVendas : 0
 
+  /* Quantos dias o período tem e quantos já passaram.
+     O range vem pronto do servidor e é ancorado em UTC (ver /api/dashboard/resumo);
+     a contagem aqui também é em UTC, senão o dia vira no horário errado e a média
+     dá um salto na passagem da meia-noite.
+     Período no futuro → 0 dias decorridos; período já fechado → todos. */
+  const { diasTotais, diasDecorridos } = useMemo(() => {
+    if (!data.range.inicio || !data.range.fim) return { diasTotais: 0, diasDecorridos: 0 }
+    const DIA = 86_400_000
+    const diaUTC = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+    const ini = diaUTC(new Date(data.range.inicio))
+    const fim = diaUTC(new Date(data.range.fim))
+    const hoje = diaUTC(new Date())
+    const total = Math.round((fim - ini) / DIA) + 1
+    const decorridos =
+      hoje < ini  ? 0
+      : hoje >= fim ? total
+      : Math.round((hoje - ini) / DIA) + 1
+    return { diasTotais: total, diasDecorridos: decorridos }
+  }, [data.range.inicio, data.range.fim])
+
+  const mediaVendasDia = diasDecorridos > 0 ? atual.totalVendas / diasDecorridos : 0
+  /* Só projeta enquanto o período corre. Fechado (ou ainda nem começou), o
+     estimado é o próprio realizado — projetar o passado seria inventar número. */
+  const emAndamento  = diasDecorridos > 0 && diasDecorridos < diasTotais
+  const lucroEstimado = emAndamento ? (atual.lucro / diasDecorridos) * diasTotais : atual.lucro
+
   const canaisComCor = useMemo(
     () => atual.canais.filter(c => c.valor > 0).map(c => ({ ...c, color: CANAL_COLORS[c.nome] ?? '#9ca3af' })),
     [atual.canais],
@@ -235,7 +262,7 @@ export default function VisaoGeralClient() {
           <KpiCard label="Total comprado" value={formatCurrency(atual.totalCompras)} color={PINK} icon={faCartShopping} variacao={comparacao.compras} sub={`${atual.nCompras} compra(s)`} />
           <KpiCard label="Lucro" value={formatCurrency(atual.lucro)} color={atual.lucro >= 0 ? BLUE : PINK} icon={atual.lucro >= 0 ? faArrowTrendUp : faArrowTrendDown} variacao={comparacao.lucro} />
         </div>
-        <div className="kpi-grid-3" style={{ margin: '0 0 16px' }}>
+        <div className="kpi-grid-5" style={{ margin: '0 0 16px' }}>
           <KpiCard label="Caixas compradas" value={atual.caixasLavoura.toLocaleString('pt-BR')} color="#8b5cf6" icon={faBoxesStacked} sub="Produtores e meeiros" />
           <KpiCard label="Margem de lucro" value={`${margem.toFixed(1)}%`} color={ORANGE} icon={faPercent} sub={`Ticket médio: ${formatCurrency(ticketMedio)}`} />
           <KpiCard
@@ -244,6 +271,20 @@ export default function VisaoGeralClient() {
             color={PINK}
             icon={faTag}
             sub={atual.caixasMorango > 0 ? `${atual.caixasMorango.toLocaleString('pt-BR')} cx no período` : 'Sem colheitas no período'}
+          />
+          <KpiCard
+            label="Média de vendas / dia"
+            value={diasDecorridos > 0 ? formatCurrency(mediaVendasDia) : '—'}
+            color={GREEN}
+            icon={faCalendarDay}
+            sub={diasDecorridos > 0 ? `Sobre ${diasDecorridos} dia(s) corridos` : 'Período ainda não começou'}
+          />
+          <KpiCard
+            label={emAndamento ? 'Lucro estimado' : 'Lucro do período'}
+            value={formatCurrency(lucroEstimado)}
+            color={lucroEstimado >= 0 ? BLUE : PINK}
+            icon={faBullseye}
+            sub={emAndamento ? `Projeção no ritmo atual (${diasTotais} dias)` : 'Período fechado — valor real'}
           />
         </div>
 
