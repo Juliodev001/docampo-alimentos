@@ -996,6 +996,25 @@ export default function RocasClient({
     "TODOS" | "PENDENTE" | "PAGO"
   >("TODOS");
   const [searchFech, setSearchFech] = useState("");
+
+  /* Relatório de fechamentos: escolhe a pessoa e o período aqui; quais
+     fechamentos entram no PDF é decidido na tela de seleção seguinte.
+     O tipo diz de qual aba o modal foi aberto — meeiro busca em
+     parceirosState, produtor em produtoresState. */
+  const [relFechTipo, setRelFechTipo] = useState<"meeiro" | "produtor" | null>(null);
+  const [relFechBusca, setRelFechBusca] = useState("");
+  const [relFechId, setRelFechId] = useState("");
+  const [relFechInicio, setRelFechInicio] = useState("");
+  const [relFechFim, setRelFechFim] = useState("");
+
+  function abrirRelatorioFechamentos(tipo: "meeiro" | "produtor") {
+    setRelFechBusca("");
+    setRelFechId("");
+    setRelFechInicio("");
+    setRelFechFim("");
+    setRelFechTipo(tipo);
+  }
+
   const [fechMenuId, setFechMenuId] = useState<string | null>(null);
   const [fechMenuPos, setFechMenuPos] = useState({ top: 0, right: 0 });
   const [editFechTarget, setEditFechTarget] = useState<FechamentoRecord | null>(null);
@@ -6069,8 +6088,11 @@ export default function RocasClient({
                     />
                   </div>
                   <div style={{ flex: "0 0 auto" }} />
+                  {/* Antes pulava para a aba "Notas de lançamento". Agora abre o
+                      relatório de fechamentos do meeiro: busca o nome e o
+                      período, e a tela seguinte escolhe o que vai no PDF. */}
                   <button
-                    onClick={() => setActiveTab("notas")}
+                    onClick={() => abrirRelatorioFechamentos("meeiro")}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -6888,6 +6910,30 @@ export default function RocasClient({
                     />
                   </div>
                   <div style={{ flex: "0 0 auto" }} />
+                  {/* Mesmo relatório da aba de meeiros, aqui sobre os
+                      fechamentos do produtor. */}
+                  <button
+                    onClick={() => abrirRelatorioFechamentos("produtor")}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: "#fff",
+                      color: "#374151",
+                      border: "1.5px solid #e5e7eb",
+                      borderRadius: 8,
+                      padding: "9px 16px",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <FontAwesomeIcon
+                      icon={faFileLines}
+                      style={{ fontSize: 14 }}
+                    />{" "}
+                    Relatórios
+                  </button>
                   <button
                     onClick={() => {
                       setFechError("");
@@ -14862,6 +14908,261 @@ export default function RocasClient({
             </motion.div>
           </>
         )}
+      </AnimatePresence>
+
+      {/* Relatório de fechamentos — escolhe a pessoa e o período.
+          Serve às duas abas: o tipo define de onde vem a lista de nomes e
+          para qual tela de seleção o botão leva. */}
+      <AnimatePresence>
+        {relFechTipo && (() => {
+          const opcoes =
+            relFechTipo === "meeiro"
+              ? parceirosState.map((p) => ({
+                  id: p.id,
+                  nome: p.nome,
+                  sub: p.produtorNome ? `Meeiro de ${p.produtorNome}` : "",
+                }))
+              : produtoresState.map((p) => ({
+                  id: p.id,
+                  nome: p.nome,
+                  sub: p.codigo ? `Código ${p.codigo}` : "",
+                }));
+          const filtradas = opcoes.filter((o) =>
+            o.nome.toLowerCase().includes(relFechBusca.trim().toLowerCase()),
+          );
+          const periodoIncompleto =
+            (relFechInicio && !relFechFim) || (!relFechInicio && relFechFim);
+
+          function verFechamentos() {
+            if (!relFechId || periodoIncompleto) return;
+            const base =
+              relFechTipo === "meeiro" ? "/relatorios/meeiro" : "/relatorios/produtor";
+            const p = new URLSearchParams();
+            if (relFechInicio && relFechFim) {
+              p.set("dataInicio", relFechInicio);
+              p.set("dataFim", relFechFim);
+            }
+            const qs = p.toString();
+            setRelFechTipo(null);
+            router.push(`${base}/${relFechId}${qs ? `?${qs}` : ""}`);
+          }
+
+          return (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setRelFechTipo(null)}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  background: "rgba(0,0,0,0.35)",
+                  zIndex: 40,
+                }}
+              />
+              <div
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingLeft: "var(--sidebar-w, 248px)",
+                  zIndex: 50,
+                  pointerEvents: "none",
+                }}
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 40 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 40 }}
+                  style={{
+                    width: 520,
+                    maxHeight: "90vh",
+                    overflowY: "auto",
+                    background: "#fff",
+                    borderRadius: 16,
+                    padding: "28px 32px",
+                    boxShadow: "0 8px 40px rgba(0,0,0,0.18)",
+                    pointerEvents: "auto",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 4,
+                    }}
+                  >
+                    <h2 style={{ fontSize: 18, fontWeight: 700, color: NAVY, margin: 0 }}>
+                      Relatório de fechamentos
+                    </h2>
+                    <button
+                      onClick={() => setRelFechTipo(null)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "#9ca3af",
+                        padding: 4,
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faXmark} style={{ fontSize: 18 }} />
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 18 }}>
+                    Busque o {relFechTipo === "meeiro" ? "meeiro" : "produtor"} e,
+                    se quiser, limite o período. Na tela seguinte você marca quais
+                    fechamentos entram no PDF.
+                  </div>
+
+                  <p style={{ fontSize: 12, color: "#6b7280", margin: "0 0 5px", fontWeight: 500 }}>
+                    {relFechTipo === "meeiro" ? "Meeiro" : "Produtor"}
+                  </p>
+                  <div style={{ position: "relative", marginBottom: 10 }}>
+                    <FontAwesomeIcon
+                      icon={faMagnifyingGlass}
+                      style={{
+                        position: "absolute",
+                        left: 10,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "#9ca3af",
+                        fontSize: 13,
+                        pointerEvents: "none",
+                      }}
+                    />
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder={`Buscar por ${relFechTipo === "meeiro" ? "meeiro" : "produtor"}...`}
+                      value={relFechBusca}
+                      onChange={(e) => setRelFechBusca(e.target.value)}
+                      style={{
+                        ...inputStyle,
+                        width: "100%",
+                        paddingLeft: 32,
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
+
+                  <div
+                    style={{
+                      maxHeight: 220,
+                      overflowY: "auto",
+                      border: "1.5px solid #e5e7eb",
+                      borderRadius: 10,
+                      marginBottom: 18,
+                    }}
+                  >
+                    {filtradas.length === 0 ? (
+                      <div style={{ padding: "18px 14px", fontSize: 13, color: "#9ca3af", textAlign: "center" }}>
+                        Nenhum nome encontrado.
+                      </div>
+                    ) : (
+                      filtradas.map((o) => {
+                        const sel = relFechId === o.id;
+                        return (
+                          <button
+                            key={o.id}
+                            onClick={() => setRelFechId(o.id)}
+                            style={{
+                              display: "block",
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "10px 14px",
+                              background: sel ? `${NAVY}0d` : "none",
+                              border: "none",
+                              borderLeft: `3px solid ${sel ? NAVY : "transparent"}`,
+                              borderBottom: "1px solid #f3f4f6",
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                            }}
+                          >
+                            <div style={{ fontSize: 13, fontWeight: sel ? 700 : 500, color: NAVY }}>
+                              {o.nome}
+                            </div>
+                            {o.sub && (
+                              <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
+                                {o.sub}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <p style={{ fontSize: 12, color: "#6b7280", margin: "0 0 5px", fontWeight: 500 }}>
+                    Período (opcional)
+                  </p>
+                  <div style={{ display: "flex", gap: 10, marginBottom: 6 }}>
+                    <input
+                      type="date"
+                      value={relFechInicio}
+                      onChange={(e) => setRelFechInicio(e.target.value)}
+                      style={{ ...inputStyle, flex: 1, boxSizing: "border-box" }}
+                    />
+                    <input
+                      type="date"
+                      value={relFechFim}
+                      onChange={(e) => setRelFechFim(e.target.value)}
+                      style={{ ...inputStyle, flex: 1, boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div style={{ fontSize: 11, color: periodoIncompleto ? PINK : "#9ca3af", marginBottom: 20 }}>
+                    {periodoIncompleto
+                      ? "Preencha as duas datas ou deixe as duas em branco."
+                      : "Em branco traz todos os fechamentos. O filtro é pela data de pagamento."}
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                    <button
+                      onClick={() => setRelFechTipo(null)}
+                      style={{
+                        background: "#f3f4f6",
+                        color: "#374151",
+                        border: "none",
+                        borderRadius: 8,
+                        padding: "10px 18px",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={verFechamentos}
+                      disabled={!relFechId || !!periodoIncompleto}
+                      style={{
+                        background: !relFechId || periodoIncompleto ? "#e5e7eb" : NAVY,
+                        color: !relFechId || periodoIncompleto ? "#9ca3af" : "#fff",
+                        border: "none",
+                        borderRadius: 8,
+                        padding: "10px 20px",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: !relFechId || periodoIncompleto ? "not-allowed" : "pointer",
+                        fontFamily: "inherit",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 7,
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 13 }} />
+                      Ver fechamentos
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            </>
+          );
+        })()}
       </AnimatePresence>
     </div>
   );
