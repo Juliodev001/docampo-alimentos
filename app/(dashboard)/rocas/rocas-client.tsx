@@ -5918,12 +5918,12 @@ export default function RocasClient({
                               {fmtCurrency(bruto)}
                             </div>
                           </div>
-                          {/* Vai para a tela de seleção de fechamentos deste
-                              meeiro — a mesma que o botão "Relatórios" da barra
-                              abre, só que sem passar pela busca por nome. */}
                           <button
                             onClick={() =>
-                              router.push(`/relatorios/meeiro/${meeiro.id}`)
+                              window.open(
+                                `/imprimir/meeiro/${meeiro.id}`,
+                                "_blank",
+                              )
                             }
                             style={{
                               background: "#fff",
@@ -6438,11 +6438,19 @@ export default function RocasClient({
                 (s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco,
                 0,
               );
+              const periodoInicio = ultFech
+                ? desde
+                : abertas.length > 0
+                  ? new Date(
+                      Math.min(...abertas.map((c) => new Date(c.data).getTime())),
+                    )
+                  : new Date();
               return {
                 prod,
                 abertas,
                 bruto,
                 desde: ultFech ? since(ultFech.dataFim) : "sempre",
+                periodoInicio,
               };
             })
             .filter((x) => x.abertas.length > 0);
@@ -6595,7 +6603,7 @@ export default function RocasClient({
                   <div
                     style={{ display: "flex", flexDirection: "column", gap: 8 }}
                   >
-                    {pendentes.map(({ prod, abertas, bruto, desde }) => (
+                    {pendentes.map(({ prod, abertas, bruto, desde, periodoInicio }) => (
                       <div
                         key={prod.id}
                         style={{
@@ -6654,16 +6662,54 @@ export default function RocasClient({
                               {fmtCurrency(bruto)}
                             </div>
                           </div>
-                          {/* Vai para a tela de seleção de fechamentos deste
-                              produtor — a mesma que o botão "Relatórios" da
-                              barra abre, só que sem passar pela busca por nome.
-                              Antes abria o preview dos lançamentos em aberto,
-                              que continua acessível pelo menu de cada
-                              fechamento. */}
                           <button
-                            onClick={() =>
-                              router.push(`/relatorios/produtor/${prod.id}`)
-                            }
+                            onClick={() => {
+                              const hoje = new Date();
+                              const relevantes = custosState.filter(
+                                (c) =>
+                                  c.produtorId === prod.id &&
+                                  new Date(c.data) >= periodoInicio &&
+                                  new Date(c.data) <= hoje,
+                              );
+                              const valesAbertos = valesState
+                                .filter(
+                                  (v) =>
+                                    v.produtorId === prod.id &&
+                                    v.status === "ABERTO",
+                                )
+                                .reduce((s, v) => s + v.valor, 0);
+                              setRelatorioPreview(
+                                buildRelatorioProdutor(
+                                  prod,
+                                  abertas,
+                                  {
+                                    combustivel: relevantes.reduce(
+                                      (s, c) => s + c.combustivel,
+                                      0,
+                                    ),
+                                    bandejaEmbalagem: relevantes.reduce(
+                                      (s, c) => s + c.bandejaEmbalagem,
+                                      0,
+                                    ),
+                                    valesDinheiro: relevantes.reduce(
+                                      (s, c) => s + c.valesDinheiro,
+                                      0,
+                                    ),
+                                    creditos: relevantes.reduce(
+                                      (s, c) => s + c.creditos,
+                                      0,
+                                    ),
+                                    debitosAnteriores: relevantes.reduce(
+                                      (s, c) => s + c.debitosAnteriores,
+                                      0,
+                                    ),
+                                  },
+                                  valesAbertos,
+                                  0,
+                                  `${fmtDate(periodoInicio.toISOString())} a ${fmtDate(hoje.toISOString())}`,
+                                ),
+                              );
+                            }}
                             style={{
                               background: "#fff",
                               color: NAVY,
