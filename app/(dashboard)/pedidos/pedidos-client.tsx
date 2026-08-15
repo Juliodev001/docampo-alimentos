@@ -500,6 +500,10 @@ export default function PedidosClient({ pedidos: inicial, clientes, fornecedores
           <FontAwesomeIcon icon={faMagnifyingGlass} style={{ fontSize: 14, position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por número, cliente ou fornecedor..." style={{ ...inputStyle, paddingLeft: 34, border: 'none', outline: 'none', background: 'transparent' }} />
         </div>
+        {/* Mesmo relatório do PDV, no mesmo lugar de sempre: junto da busca. */}
+        <Link href="/relatorios" style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', background: 'white', fontSize: 13, color: NAVY, textDecoration: 'none', fontFamily: 'inherit', fontWeight: 500, whiteSpace: 'nowrap' as const }}>
+          <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 13, color: '#6b7280' }} /> Ver Relatório
+        </Link>
         <button onClick={() => setFiltrosOpen(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, border: `1.5px solid ${filtrosOpen ? NAVY : '#e5e7eb'}`, borderRadius: 8, padding: '8px 14px', background: 'white', fontSize: 13, color: filtrosOpen ? NAVY : '#374151', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, transition: 'all 0.1s', whiteSpace: 'nowrap' as const }}>
           <FontAwesomeIcon icon={faSlidersH} style={{ fontSize: 13, color: '#6b7280' }} /> Filtros
           {statusFiltro !== 'TODOS' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: GREEN, display: 'inline-block' }} />}

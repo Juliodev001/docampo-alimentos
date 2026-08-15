@@ -1,5 +1,6 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, type CSSProperties } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCreditCard, faDollarSign, faCalendarXmark, faCalendarDay, faCalendarDays, faFilter, faMagnifyingGlass, faChartBar, faCircleInfo, faRotate } from '@fortawesome/free-solid-svg-icons'
@@ -68,26 +69,28 @@ function KpiCard({
   )
 }
 
-/* ── botão outline ── */
+/* ── botão outline (vira link quando recebe href) ── */
 function OutlineBtn({
-  icon, label, onClick, active,
-}: { icon: IconDefinition; label: string; onClick?: () => void; active?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 6,
-        border: `1.5px solid ${active ? NAVY : '#e5e7eb'}`,
-        borderRadius: 8, padding: '7px 14px',
-        background: active ? `${NAVY}08` : 'white',
-        fontSize: 13, color: NAVY, cursor: 'pointer',
-        fontFamily: 'inherit', fontWeight: 500,
-        whiteSpace: 'nowrap' as const,
-      }}
-    >
+  icon, label, onClick, active, href,
+}: { icon: IconDefinition; label: string; onClick?: () => void; active?: boolean; href?: string }) {
+  const estilo: CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 6,
+    border: `1.5px solid ${active ? NAVY : '#e5e7eb'}`,
+    borderRadius: 8, padding: '7px 14px',
+    background: active ? `${NAVY}08` : 'white',
+    fontSize: 13, color: NAVY, cursor: 'pointer',
+    fontFamily: 'inherit', fontWeight: 500,
+    whiteSpace: 'nowrap',
+  }
+  const conteudo = (
+    <>
       <FontAwesomeIcon icon={icon} style={{ fontSize: 14, color: '#6b7280' }} />{label}
-    </button>
+    </>
   )
+
+  return href
+    ? <Link href={href} style={{ ...estilo, textDecoration: 'none' }}>{conteudo}</Link>
+    : <button onClick={onClick} style={estilo}>{conteudo}</button>
 }
 
 /* ═══════════════════════════════════════ */
@@ -105,18 +108,7 @@ export default function ContasReceberClient({
   const router  = useRouter()
   const [q, setQ]           = useState('')
   const [titulos, setTitulos] = useState(inicial)
-  const [relOpen, setRelOpen] = useState(false)
   const [sincronizando, setSincronizando] = useState(false)
-  const relRef              = useRef<HTMLDivElement>(null)
-
-  /* fechar dropdown ao clicar fora */
-  useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (relRef.current && !relRef.current.contains(e.target as Node)) setRelOpen(false)
-    }
-    document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
-  }, [])
 
   const busca        = q.trim().toLowerCase()
   const buscaDigitos = soDigitos(busca)
@@ -218,49 +210,9 @@ export default function ContasReceberClient({
           onClick={sincronizando ? undefined : sincronizar}
         />
 
-        {/* Relatórios com dropdown */}
-        <div ref={relRef} style={{ position: 'relative' }}>
-          <OutlineBtn
-            icon={faChartBar}
-            label="Relatórios"
-            active={relOpen}
-            onClick={() => setRelOpen(v => !v)}
-          />
-          {relOpen && (
-            <div style={{
-              position: 'absolute', right: 0, top: 'calc(100% + 6px)',
-              background: 'white', borderRadius: 10,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-              border: '1px solid #e5e7eb',
-              minWidth: 240, zIndex: 50, padding: '6px 0',
-            }}>
-              <p style={{
-                fontSize: 11, fontWeight: 700, color: '#6b7280',
-                textTransform: 'uppercase', letterSpacing: 0.5,
-                padding: '8px 16px 4px', margin: 0,
-              }}>Relatórios</p>
-              {[
-                'Relatório em aberto',
-                'Relatório financeiro por cliente',
-                'Relatório de produtos por cliente',
-              ].map(item => (
-                <button
-                  key={item}
-                  onClick={() => setRelOpen(false)}
-                  style={{
-                    width: '100%', textAlign: 'left', padding: '9px 16px',
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    fontSize: 13, color: '#374151', fontFamily: 'inherit',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#f9fafb')}
-                  onMouseLeave={e => (e.currentTarget.style.background = '')}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Vai para a central de relatórios, como o botão do PDV e o de Pedidos.
+            Antes era um menu com três itens que não abriam nada. */}
+        <OutlineBtn icon={faChartBar} label="Relatórios" href="/relatorios" />
       </div>
 
       {/* ── Tabela ── */}
