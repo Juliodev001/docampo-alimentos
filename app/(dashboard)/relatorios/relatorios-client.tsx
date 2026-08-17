@@ -59,7 +59,11 @@ export default function RelatoriosClient() {
     const p = new URLSearchParams()
     if (relInicio && relFim) { p.set('dataInicio', relInicio); p.set('dataFim', relFim) }
     const qs = p.toString()
-    window.location.href = `/relatorios/cliente/${clienteSelecionado.id}${qs ? `?${qs}` : ''}`
+    // router.push, não window.location: trocar a URL na mão recarregava a
+    // aplicação inteira (todo o JavaScript, o menu, a sessão) só para mostrar
+    // uma lista de pedidos. Pela navegação do Next só o conteúdo novo é
+    // buscado — é a diferença entre abrir na hora e esperar o app subir de novo.
+    router.push(`/relatorios/cliente/${clienteSelecionado.id}${qs ? `?${qs}` : ''}`)
   }
 
   async function gerar(tipo: string) {

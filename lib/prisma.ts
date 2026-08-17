@@ -22,15 +22,30 @@ const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 function createPrismaClient() {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    min: 0,
+    // Uma conexão fica viva mesmo parada (o pool não a fecha por ociosidade):
+    // a primeira consulta depois de uma pausa não paga o preço de abrir conexão
+    // — TCP, TLS e autenticação — antes de responder. Com min 0 o pool esvaziava
+    // e toda volta ao sistema recomeçava do zero.
+    min: 1,
     max: 10,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 30000,
+    // Conexão parada é devolvida em 10 min, não em 30 s: o sistema tem picos
+    // curtos de uso (um lançamento, um relatório) separados por minutos de
+    // silêncio, e reabrir a cada pausa era puro atraso.
+    idleTimeoutMillis: 600_000,
+    // Se o pool está lotado, é melhor falhar em 8 s e mostrar erro do que deixar
+    // a tela pendurada meio minuto por consulta esperando uma vaga.
+    connectionTimeoutMillis: 8_000,
   })
   const adapter = new PrismaPg(pool)
   return new PrismaClient({ adapter })
 }
 
+// O cliente vai no globalThis TAMBÉM em produção. O Next divide o servidor em
+// vários bundles (as páginas num, as rotas de API noutro), e cada bundle carrega
+// a sua cópia deste módulo: sem o global, cada cópia abria o seu próprio pool de
+// até 10 conexões, multiplicando conexões no Postgres sem que nenhuma delas
+// fosse reaproveitada. O globalThis é o único ponto que as cópias compartilham
+// dentro do mesmo processo Node.
 export const prisma = globalForPrisma.prisma || createPrismaClient()
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+globalForPrisma.prisma = prisma

@@ -63,6 +63,12 @@ model EntradaEstoque {
   data       DateTime      @default(now())
   observacao String?
   createdAt  DateTime      @default(now())
+
+  @@index([produtoId])
+  // O saldo e o sync de colheita procuram a entrada pela marca gravada em
+  // observacao ("Colheita #<id>", "Venda PDV #<n>"); sem índice cada busca
+  // varria a tabela inteira.
+  @@index([observacao])
 }
 
 model ColheitaDiaria {
@@ -91,6 +97,14 @@ model ColheitaDiaria {
   observacao         String?
   aprovado           Boolean       @default(true)
   createdAt          DateTime      @default(now())
+
+  // Os relatórios de fechamento sempre pedem as colheitas de uma pessoa dentro
+  // de um período — é este par de colunas, nesta ordem, que a consulta usa.
+  @@index([produtorId, data])
+  @@index([parceiroId, data])
+  @@index([data])
+  @@index([produtoId])
+  @@index([rocaId])
 }
 
 model SaidaLavoura {
@@ -181,6 +195,10 @@ model Compra {
   itens          ItemCompra[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
+
+  @@index([data])
+  @@index([vencimento])
+  @@index([fornecedorId])
 }
 
 model ItemCompra {
@@ -192,6 +210,8 @@ model ItemCompra {
   quantidade Float
   valorUnit  Decimal       @db.Decimal(12, 4)
   total      Decimal       @db.Decimal(12, 4)
+
+  @@index([compraId])
 }
 
 model RegistroProducao {
@@ -264,6 +284,8 @@ model FechamentoPagamento {
   status            String   @default("PENDENTE")
   vales             Vale[]
   createdAt         DateTime @default(now())
+
+  @@index([produtorId, dataPagamento])
 }
 
 model Parceiro {
@@ -285,6 +307,8 @@ model Parceiro {
   fechamentos     FechamentoMeeiro[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @default(now()) @updatedAt
+
+  @@index([produtorId])
 }
 
 model PagamentoMeeiro {
@@ -300,6 +324,9 @@ model PagamentoMeeiro {
   fechamentoMeeiroId String?
   fechamentoMeeiro   FechamentoMeeiro? @relation(fields: [fechamentoMeeiroId], references: [id])
   createdAt          DateTime          @default(now())
+
+  @@index([parceiroId])
+  @@index([fechamentoMeeiroId])
 }
 
 model Vale {
@@ -317,6 +344,11 @@ model Vale {
   fechamentoMeeiroId String?
   fechamentoMeeiro   FechamentoMeeiro?    @relation(fields: [fechamentoMeeiroId], references: [id])
   createdAt          DateTime             @default(now())
+
+  @@index([fechamentoId])
+  @@index([fechamentoMeeiroId])
+  @@index([produtorId])
+  @@index([parceiroId])
 }
 
 model FechamentoMeeiro {
@@ -339,6 +371,8 @@ model FechamentoMeeiro {
   vales             Vale[]
   pagamentos        PagamentoMeeiro[]
   createdAt         DateTime @default(now())
+
+  @@index([parceiroId, dataPagamento])
 }
 
 model Cliente {
@@ -426,6 +460,9 @@ model TituloFinanceiro {
   pedido        Pedido?      @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+
+  @@index([clienteId])
+  @@index([dataVenc])
 }
 
 model NotaFiscal {
@@ -446,6 +483,10 @@ model NotaFiscal {
   statusFinanceiro StatusFinanceiro @default(A_RECEBER)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
+
+  // DRE e Resumo de Vendas filtram por status + data de emissão.
+  @@index([status, dataEmissao])
+  @@index([clienteId])
 }
 
 model ItemNF {
@@ -459,6 +500,8 @@ model ItemNF {
   total        Decimal       @db.Decimal(12, 4)
   ncm          String?
   cfop         String?
+
+  @@index([notaFiscalId])
 }
 
 model Devolucao {
@@ -506,6 +549,8 @@ model Movimentacao {
   valor           Decimal          @db.Decimal(12, 4)
   conciliado      Boolean          @default(false)
   createdAt       DateTime         @default(now())
+
+  @@index([contaBancariaId, data])
 }
 
 enum UserRole {
@@ -673,6 +718,10 @@ model Pedido {
   titulo           TituloFinanceiro?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
+
+  // Extrato do cliente: pedidos de uma pessoa dentro de um período.
+  @@index([clienteId, data])
+  @@index([data])
 }
 
 model ItemPedido {
@@ -685,6 +734,8 @@ model ItemPedido {
   valorUnit  Decimal       @db.Decimal(12, 4)
   desconto   Decimal       @default(0) @db.Decimal(12, 4)
   total      Decimal       @db.Decimal(12, 4)
+
+  @@index([pedidoId])
 }
 
 model ControleRoca {
@@ -705,6 +756,8 @@ model ControleRoca {
   colheitas     ColheitaDiaria[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
+
+  @@index([produtorId])
 }
 
 model RegistroRoca {
@@ -716,6 +769,8 @@ model RegistroRoca {
   descricao     String
   custo         Decimal       @default(0) @db.Decimal(12, 4)
   createdAt     DateTime      @default(now())
+
+  @@index([rocaId])
 }
 
 enum StatusPedido {
@@ -754,6 +809,9 @@ model LancamentoCusto {
   debitosAnteriores Decimal   @default(0) @db.Decimal(12, 4)
   observacao        String?
   createdAt         DateTime  @default(now())
+
+  @@index([produtorId, data])
+  @@index([rocaId])
 }
 
 /// Documento fotografado pelo celular e lido por OCR (Leitor de Documentos).
