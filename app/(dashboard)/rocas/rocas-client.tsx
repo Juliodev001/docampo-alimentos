@@ -9618,8 +9618,12 @@ export default function RocasClient({
       {/* MODAL EDITAR FECHAMENTO (PRODUTOR) */}
       {editFechTarget && (
         <>
-          <div onClick={() => setEditFechTarget(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 60 }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 14, padding: 28, zIndex: 70, width: '95%', maxWidth: 700, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', maxHeight: '92vh', overflowY: 'auto' }}>
+          {/* Acima dos menus "⋮" (299/300). Um menu suspenso é uma camada
+              transparente de tela cheia: enquanto ele estiver montado e acima
+              do modal, todo clique — campo e botão — morre nele, e o modal
+              parece travado mesmo aparecendo normal. */}
+          <div onClick={() => setEditFechTarget(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 310 }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 14, padding: 28, zIndex: 320, width: '95%', maxWidth: 700, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', maxHeight: '92vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <h2 style={{ fontSize: 17, fontWeight: 700, color: NAVY, margin: 0 }}>Editar Fechamento — {editFechTarget.produtorNome}</h2>
               <button onClick={() => setEditFechTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 18 }}>✕</button>
@@ -9784,9 +9788,10 @@ export default function RocasClient({
       {/* MODAL EDITAR FECHAMENTO MEEIRO */}
       {editFechMeeiroTarget && (
         <>
-          {/* Abre por cima do modal "Fechar Pagamento" (zIndex 70), que fica atrás */}
-          <div onClick={() => setEditFechMeeiroTarget(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 80 }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 14, padding: 28, zIndex: 90, width: '95%', maxWidth: 700, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', maxHeight: '92vh', overflowY: 'auto' }}>
+          {/* Abre por cima do modal "Fechar Pagamento" e também dos menus "⋮"
+              (299/300) — pelo mesmo motivo do modal de fechamento do produtor. */}
+          <div onClick={() => setEditFechMeeiroTarget(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 330 }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 14, padding: 28, zIndex: 340, width: '95%', maxWidth: 700, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', maxHeight: '92vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <h2 style={{ fontSize: 17, fontWeight: 700, color: NAVY, margin: 0 }}>Editar Fechamento Meeiro</h2>
               <button onClick={() => setEditFechMeeiroTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 18 }}>✕</button>
