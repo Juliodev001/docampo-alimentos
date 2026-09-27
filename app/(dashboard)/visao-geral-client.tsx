@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faArrowTrendUp, faArrowTrendDown, faCaretUp, faCaretDown,
   faChevronLeft, faChevronRight, faCartShopping, faReceipt, faPercent, faTags, faBoxesStacked, faTag,
-  faCalendarDay, faBullseye,
+  faCalendarDay, faBullseye, faCashRegister,
 } from '@fortawesome/free-solid-svg-icons'
 import {
   ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, Tooltip,
@@ -21,7 +21,7 @@ const PURPLE = '#8b5cf6'
 
 type Periodo = 'dia' | 'semana' | 'mes' | 'ano'
 
-type SeriePonto = { label: string; vendas: number; compras: number; lucro: number }
+type SeriePonto = { label: string; vendas: number; compras: number; lucro: number; pdvPedidos?: number }
 type Resumo = {
   periodo: Periodo
   range: { inicio: string; fim: string }
@@ -33,15 +33,16 @@ type Resumo = {
     series: SeriePonto[]
     nVendas: number; nCompras: number; carteiraPendente: number; caixasLavoura: number
     precoMedioMorango: number; caixasMorango: number
+    pdvPedidos: { total: number; pdv: number; pedidos: number; nPdv: number; nPedidos: number }
   }
-  comparacao: { vendas: number; compras: number; lucro: number }
+  comparacao: { vendas: number; compras: number; lucro: number; pdvPedidos: number }
 }
 
 const EMPTY: Resumo = {
   periodo: 'mes',
   range: { inicio: '', fim: '' },
-  atual: { totalVendas: 0, totalCompras: 0, lucro: 0, canais: [], fornecedores: [], topMeeiros: [], series: [], nVendas: 0, nCompras: 0, carteiraPendente: 0, caixasLavoura: 0, precoMedioMorango: 0, caixasMorango: 0 },
-  comparacao: { vendas: 0, compras: 0, lucro: 0 },
+  atual: { totalVendas: 0, totalCompras: 0, lucro: 0, canais: [], fornecedores: [], topMeeiros: [], series: [], nVendas: 0, nCompras: 0, carteiraPendente: 0, caixasLavoura: 0, precoMedioMorango: 0, caixasMorango: 0, pdvPedidos: { total: 0, pdv: 0, pedidos: 0, nPdv: 0, nPedidos: 0 } },
+  comparacao: { vendas: 0, compras: 0, lucro: 0, pdvPedidos: 0 },
 }
 
 const PERIODOS: { key: Periodo; label: string }[] = [
@@ -257,8 +258,16 @@ export default function VisaoGeralClient() {
 
       <div style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s' }}>
         {/* KPIs */}
-        <div className="kpi-grid-3" style={{ margin: '20px 0 12px' }}>
+        <div className="kpi-grid-4" style={{ margin: '20px 0 12px' }}>
           <KpiCard label="Total vendido" value={formatCurrency(atual.totalVendas)} color={GREEN} icon={faArrowTrendUp} variacao={comparacao.vendas} sub={`${atual.nVendas} venda(s)`} />
+          <KpiCard
+            label="Vendido PDV + Pedidos"
+            value={formatCurrency(atual.pdvPedidos?.total ?? 0)}
+            color={ORANGE}
+            icon={faCashRegister}
+            variacao={comparacao.pdvPedidos}
+            sub={`PDV ${formatCurrency(atual.pdvPedidos?.pdv ?? 0)} (${atual.pdvPedidos?.nPdv ?? 0}) · Pedidos ${formatCurrency(atual.pdvPedidos?.pedidos ?? 0)} (${atual.pdvPedidos?.nPedidos ?? 0})`}
+          />
           <KpiCard label="Total comprado" value={formatCurrency(atual.totalCompras)} color={PINK} icon={faCartShopping} variacao={comparacao.compras} sub={`${atual.nCompras} compra(s)`} />
           <KpiCard label="Lucro" value={formatCurrency(atual.lucro)} color={atual.lucro >= 0 ? BLUE : PINK} icon={atual.lucro >= 0 ? faArrowTrendUp : faArrowTrendDown} variacao={comparacao.lucro} />
         </div>
@@ -301,6 +310,7 @@ export default function VisaoGeralClient() {
               <Area type="monotone" dataKey="vendas" name="Vendas" stroke={GREEN} fill={GREEN} fillOpacity={0.12} strokeWidth={2.5} />
               <Area type="monotone" dataKey="compras" name="Compras" stroke={PINK} fill={PINK} fillOpacity={0.1} strokeWidth={2.5} />
               <Line type="monotone" dataKey="lucro" name="Lucro" stroke={BLUE} strokeWidth={2} dot={false} strokeDasharray="4 3" />
+              <Line type="monotone" dataKey="pdvPedidos" name="PDV + Pedidos" stroke={ORANGE} strokeWidth={2.5} dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>

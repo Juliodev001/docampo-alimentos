@@ -85,10 +85,13 @@ async function somarPeriodo(periodo: Periodo, range: { inicio: Date; fim: Date }
   const comprasWhere = { data: { gte: range.inicio, lte: range.fim }, ...(rocaId ? { centroCustoId: rocaId } : {}) }
   const nfesWhere = { dataEmissao: { gte: range.inicio, lte: range.fim } }
   const pdvWhere = { tipo: 'PDV', status: { not: 'CANCELADO' as never }, data: { gte: range.inicio, lte: range.fim } }
+  // Pedidos de venda (tela Pedidos). Entram só no card "PDV + Pedidos" — não
+  // somam no Total vendido/lucro, que seguem NF-e + PDV + Lavoura.
+  const pedidosWhere = { tipo: 'VENDA', status: { not: 'CANCELADO' as never }, data: { gte: range.inicio, lte: range.fim } }
   const lavouraWhere = { data: { gte: range.inicio, lte: range.fim } }
   const colheitasWhere = { data: { gte: range.inicio, lte: range.fim } }
 
-  const [compras, nfes, pdv, lavoura, colheitas] = await Promise.all([
+  const [compras, nfes, pdv, lavoura, colheitas, pedidosVenda] = await Promise.all([
     prisma.compra.findMany({ where: comprasWhere, select: { data: true, totalValor: true, status: true, fornecedor: { select: { nome: true } } } }),
     prisma.notaFiscal.findMany({ where: nfesWhere, select: { dataEmissao: true, totalValor: true } }),
     prisma.pedido.findMany({ where: pdvWhere, select: { data: true, totalValor: true, formaPagamento: true, status: true } }),
@@ -101,11 +104,13 @@ async function somarPeriodo(periodo: Periodo, range: { inicio: Date; fim: Date }
         produtor: { select: { nome: true } }, parceiro: { select: { nome: true } },
       },
     }),
+    prisma.pedido.findMany({ where: pedidosWhere, select: { data: true, totalValor: true } }),
   ])
 
   const totalCompras = compras.reduce((s, c) => s + Number(c.totalValor), 0)
   const totalNfe = nfes.reduce((s, n) => s + Number(n.totalValor), 0)
   const totalPdv = pdv.reduce((s, p) => s + Number(p.totalValor), 0)
+  const totalPedidos = pedidosVenda.reduce((s, p) => s + Number(p.totalValor), 0)
   const totalLavoura = lavoura.reduce((s, l) => s + Number(l.totalValor), 0)
   const totalVendas = totalNfe + totalPdv + totalLavoura
 
@@ -114,7 +119,7 @@ async function somarPeriodo(periodo: Periodo, range: { inicio: Date; fim: Date }
   const totalComprasGeral = totalCompras + totalCompraLavoura
 
   const bi = bucketInfo(periodo, range)
-  const series = Array.from({ length: bi.n }, (_, i) => ({ label: bi.label(i), vendas: 0, compras: 0, lucro: 0 }))
+  const series = Array.from({ length: bi.n }, (_, i) => ({ label: bi.label(i), vendas: 0, compras: 0, lucro: 0, pdvPedidos: 0 }))
 
   for (const c of compras) {
     const i = bi.index(new Date(c.data))
@@ -130,7 +135,15 @@ async function somarPeriodo(periodo: Periodo, range: { inicio: Date; fim: Date }
   }
   for (const p of pdv) {
     const i = bi.index(new Date(p.data))
-    if (series[i]) series[i].vendas += Number(p.totalValor)
+    if (series[i]) {
+      series[i].vendas += Number(p.totalValor)
+      series[i].pdvPedidos += Number(p.totalValor)
+    }
+  }
+  // Pedidos de venda só alimentam a linha "PDV + Pedidos" (não a de Vendas).
+  for (const p of pedidosVenda) {
+    const i = bi.index(new Date(p.data))
+    if (series[i]) series[i].pdvPedidos += Number(p.totalValor)
   }
   for (const l of lavoura) {
     const i = bi.index(new Date(l.data))
@@ -176,6 +189,13 @@ async function somarPeriodo(periodo: Periodo, range: { inicio: Date; fim: Date }
     caixasLavoura,
     precoMedioMorango,
     caixasMorango,
+    pdvPedidos: {
+      total: totalPdv + totalPedidos,
+      pdv: totalPdv,
+      pedidos: totalPedidos,
+      nPdv: pdv.length,
+      nPedidos: pedidosVenda.length,
+    },
   }
 }
 
@@ -206,6 +226,7 @@ export async function GET(req: NextRequest) {
       vendas: variacao(atual.totalVendas, anterior.totalVendas),
       compras: variacao(atual.totalCompras, anterior.totalCompras),
       lucro: variacao(atual.lucro, anterior.lucro),
+      pdvPedidos: variacao(atual.pdvPedidos.total, anterior.pdvPedidos.total),
     },
   })
 }
