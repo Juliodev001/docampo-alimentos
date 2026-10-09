@@ -429,9 +429,9 @@ const emptyLancForm = {
 };
 const emptyFechForm = {
   produtorId: "",
-  dataInicio: new Date().toISOString().slice(0, 10),
-  dataFim: new Date().toISOString().slice(0, 10),
-  dataPagamento: new Date().toISOString().slice(0, 10),
+  dataInicio: hojeISO(),
+  dataFim: hojeISO(),
+  dataPagamento: hojeISO(),
   combustivel: "0",
   bandejaEmbalagem: "0",
   valesDinheiro: "0",
@@ -895,7 +895,7 @@ export default function RocasClient({
   const [pagarFormaPag, setPagarFormaPag] = useState("PIX");
   const [pagarConta, setPagarConta] = useState("");
   const [pagarData, setPagarData] = useState(
-    new Date().toISOString().slice(0, 10),
+    hojeISO(),
   );
   const [pagarObs, setPagarObs] = useState("");
   const [pagarMenuPos, setPagarMenuPos] = useState({ top: 0, right: 0 });
@@ -912,10 +912,10 @@ export default function RocasClient({
   >([]);
   const [fecharDataInicio, setFecharDataInicio] = useState("");
   const [fecharDataFim, setFecharDataFim] = useState(
-    new Date().toISOString().slice(0, 10),
+    hojeISO(),
   );
   const [fecharDataPagamento, setFecharDataPagamento] = useState(
-    new Date().toISOString().slice(0, 10),
+    hojeISO(),
   );
   const [savingFecharMeeiro, setSavingFecharMeeiro] = useState(false);
   const [fecharMeeiroError, setFecharMeeiroError] = useState("");
@@ -962,12 +962,37 @@ export default function RocasClient({
           return d.toISOString().slice(0, 10)
         })()
       : (csParceiro[0]?.data.slice(0, 10) ??
-        new Date().toISOString().slice(0, 10));
-    setFecharDataInicio(inicio);
-    setFecharDataFim(new Date().toISOString().slice(0, 10));
-    setFecharDataPagamento(new Date().toISOString().slice(0, 10));
-    const todayStr = new Date().toISOString().slice(0, 10);
-    setFecharDatasAdicionais([todayStr]);
+        hojeISO());
+    // Mesmo critério do produtor: dias com colheita ainda não paga entram no
+    // período e já vêm marcados no calendário.
+    const fechadosMeeiro = fechsDoParceiro.map((f) => ({
+      ini: f.dataInicio.slice(0, 10),
+      fim: f.dataFim.slice(0, 10),
+    }));
+    const abertosMeeiro = [
+      ...new Set(
+        csParceiro
+          .map((c) => c.data.slice(0, 10))
+          .filter((ds) => !fechamentoDoDia(fechadosMeeiro, ds)),
+      ),
+    ].sort();
+    let inicioPeriodo = inicio;
+    for (const d of abertosMeeiro) {
+      if (d >= inicioPeriodo) break;
+      if (!fechadosMeeiro.some((p) => p.ini <= inicioPeriodo && p.fim >= d)) {
+        inicioPeriodo = d;
+        break;
+      }
+    }
+    const todayStr = hojeISO();
+    let fimPeriodo = todayStr > inicioPeriodo ? todayStr : inicioPeriodo;
+    const ultimoAbertoMeeiro = abertosMeeiro[abertosMeeiro.length - 1] ?? "";
+    if (ultimoAbertoMeeiro > fimPeriodo) fimPeriodo = ultimoAbertoMeeiro;
+    setFecharDataInicio(inicioPeriodo);
+    setFecharDataFim(fimPeriodo);
+    setFecharDataPagamento(todayStr);
+    const marcados = abertosMeeiro.filter((d) => d >= inicioPeriodo && d <= fimPeriodo);
+    setFecharDatasAdicionais(marcados.length > 0 ? marcados : [todayStr]);
     setFecharCalNav({ year: new Date().getFullYear(), month: new Date().getMonth() });
     setFecharMeeiroModal(item);
   }
@@ -986,7 +1011,7 @@ export default function RocasClient({
   const [deletingFech, setDeletingFech] = useState(false);
   const [fechAjustar, setFechAjustar] = useState(false);
   const [fechDebitarBandeja, setFechDebitarBandeja] = useState(true);
-  const [fechDatasAdicionais, setFechDatasAdicionais] = useState<string[]>([new Date().toISOString().slice(0, 10)]);
+  const [fechDatasAdicionais, setFechDatasAdicionais] = useState<string[]>([hojeISO()]);
   const [fechCalNav, setFechCalNav] = useState({ year: new Date().getFullYear(), month: new Date().getMonth() });
   const [fechValesSelecionados, setFechValesSelecionados] = useState<
     string[]
@@ -1089,8 +1114,8 @@ export default function RocasClient({
 
   // Ao selecionar produtor: auto-preenche datas (a partir do último fechamento) e custos dos lançamentos
   useEffect(() => {
-    if (!fechForm.produtorId) return;
-    const today = new Date().toISOString().slice(0, 10);
+    if (!showFechModal || !fechForm.produtorId) return;
+    const today = hojeISO();
     const prodFechs = fechamentosState
       .filter((f) => f.produtorId === fechForm.produtorId)
       .sort(
@@ -1119,8 +1144,37 @@ export default function RocasClient({
           .slice(0, 10);
       }
     }
+    // Lançamentos em aberto (colheita que não caiu em nenhum fechamento) entram
+    // no período por padrão. Antes o modal partia do dia 1º do mês (ou de hoje,
+    // ao reabrir para o mesmo produtor) e colheita de dias anteriores ficava de
+    // fora sem aviso. Só estica o início até um dia em aberto se não houver
+    // fechamento no meio — senão pagaria de novo colheita já acertada.
+    const fechadosProd = prodFechs.map((f) => ({
+      ini: f.dataInicio.slice(0, 10),
+      fim: f.dataFim.slice(0, 10),
+    }));
+    const abertosProd = [
+      ...new Set(
+        colheitas
+          .filter((c) => c.produtorId === fechForm.produtorId)
+          .map((c) => c.data.slice(0, 10))
+          .filter((ds) => !fechamentoDoDia(fechadosProd, ds)),
+      ),
+    ].sort();
+    for (const d of abertosProd) {
+      if (d >= dataInicio) break;
+      if (!fechadosProd.some((p) => p.ini <= dataInicio && p.fim >= d)) {
+        dataInicio = d;
+        break;
+      }
+    }
+    const ultimoAberto = abertosProd[abertosProd.length - 1] ?? "";
     // Se o último fechamento já cobre até hoje, o início calculado (hoje+1) ficaria depois do fim — usa o início como fim também
-    const dataFim = dataInicio > today ? dataInicio : today;
+    let dataFim = dataInicio > today ? dataInicio : today;
+    if (ultimoAberto > dataFim) dataFim = ultimoAberto;
+    setFechDatasAdicionais(
+      abertosProd.filter((d) => d >= dataInicio && d <= dataFim),
+    );
     const inicio = new Date(dataInicio);
     const fim = new Date(dataFim + "T23:59:59");
     const relevantes = custosState.filter(
@@ -1145,7 +1199,7 @@ export default function RocasClient({
         .reduce((s, c) => s + c.debitosAnteriores, 0)
         .toFixed(2),
     }));
-  }, [fechForm.produtorId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fechForm.produtorId, showFechModal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Se o usuário ajustar as datas manualmente, recalcula os custos
   useEffect(() => {
@@ -2196,6 +2250,16 @@ export default function RocasClient({
       ),
     ].sort();
   }, [fechForm.produtorId, fechForm.dataInicio, fechForm.dataFim, colheitas, periodosFechadosProdutor]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Dias com colheita ainda não paga que ficaram FORA do período escolhido —
+  // sem este aviso o fechamento era salvo e a colheita sumia da conta.
+  const diasAbertosForaProdutor = useMemo(() => {
+    const { produtorId, dataInicio, dataFim } = fechForm;
+    if (!produtorId || !dataInicio || !dataFim) return [] as string[];
+    return [...diasAbertosProdutor]
+      .filter((ds) => ds < dataInicio || ds > dataFim)
+      .sort();
+  }, [fechForm.produtorId, fechForm.dataInicio, fechForm.dataFim, diasAbertosProdutor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mesma trava do produtor, para o meeiro: aqui o período nem vem do
   // calendário, é digitado à mão nos dois campos de data, então é ainda mais
@@ -6474,6 +6538,14 @@ export default function RocasClient({
               );
               return;
             }
+            if (
+              diasAbertosForaProdutor.length > 0 &&
+              !window.confirm(
+                `Os lançamentos de ${diasAbertosForaProdutor.map((d) => fmtDate(d)).join(", ")} ficam FORA deste fechamento e continuam em aberto. Salvar mesmo assim?`,
+              )
+            ) {
+              return;
+            }
             setSavingFech(true);
             setFechError("");
             try {
@@ -6484,7 +6556,7 @@ export default function RocasClient({
                   produtorId: fechForm.produtorId,
                   dataInicio: fechForm.dataInicio,
                   dataFim: fechForm.dataFim,
-                  dataPagamento: [...fechDatasAdicionais].sort()[0] ?? fechForm.dataPagamento,
+                  dataPagamento: fechForm.dataPagamento,
                   datasAdicionais: fechDatasAdicionais,
                   combustivel: fechDebitarBandeja ? Number(fechForm.combustivel) || 0 : 0,
                   bandejaEmbalagem: fechDebitarBandeja ? Number(fechForm.bandejaEmbalagem) || 0 : 0,
@@ -6734,7 +6806,7 @@ export default function RocasClient({
                               setFechAjustar(false);
                               setFechDebitarBandeja(true);
                               setFechValesSelecionados([]);
-                              setFechDatasAdicionais([new Date().toISOString().slice(0, 10)]);
+                              setFechDatasAdicionais([hojeISO()]);
                               setFechCalNav({ year: new Date().getFullYear(), month: new Date().getMonth() });
                               setShowFechModal(true);
                             }}
@@ -6940,7 +7012,7 @@ export default function RocasClient({
                       setFechForm(emptyFechForm);
                       setFechDebitarBandeja(true);
                       setFechValesSelecionados([]);
-                      setFechDatasAdicionais([new Date().toISOString().slice(0, 10)]);
+                      setFechDatasAdicionais([hojeISO()]);
                       setFechCalNav({ year: new Date().getFullYear(), month: new Date().getMonth() });
                       setShowFechModal(true);
                     }}
@@ -7737,10 +7809,52 @@ export default function RocasClient({
                                     </div>
                                   )}
 
-                                  {/* Calendário multi-data de pagamento */}
+                                  {diasAbertosForaProdutor.length > 0 && (
+                                    <div
+                                      style={{
+                                        background: "#fef2f2",
+                                        border: "1.5px solid #fecaca",
+                                        borderRadius: 10,
+                                        padding: "10px 14px",
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: 700,
+                                          color: "#b91c1c",
+                                          textTransform: "uppercase",
+                                          marginBottom: 4,
+                                        }}
+                                      >
+                                        Lançamentos em aberto fora do período
+                                      </div>
+                                      <div style={{ fontSize: 12, color: "#991b1b", marginBottom: 8 }}>
+                                        {diasAbertosForaProdutor.map((d) => fmtDate(d)).join(", ")} —
+                                        essas colheitas ainda não foram pagas e não entram neste fechamento.
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const todos = [...new Set([...fechDatasAdicionais, ...diasAbertosForaProdutor])].sort();
+                                          setFechDatasAdicionais(todos);
+                                          setFechForm((f) => ({
+                                            ...f,
+                                            dataInicio: [f.dataInicio, todos[0]].sort()[0],
+                                            dataFim: [f.dataFim, todos[todos.length - 1]].sort()[1],
+                                          }));
+                                        }}
+                                        style={{ background: "#b91c1c", color: "#fff", border: "none", borderRadius: 7, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
+                                      >
+                                        Incluir no fechamento
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {/* Calendário dos dias de colheita incluídos */}
                                   <div style={{ border: "1.5px solid #e0e7ff", borderRadius: 10, padding: 14, background: "#f8faff" }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, marginBottom: 10, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
-                                      Datas de pagamento *
+                                      Dias de colheita neste fechamento *
                                     </div>
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                                       <button
@@ -7828,7 +7942,7 @@ export default function RocasClient({
                                         ))}
                                       </div>
                                     ) : (
-                                      <div style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", padding: "4px 0" }}>Clique nos dias para selecionar as datas de pagamento</div>
+                                      <div style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", padding: "4px 0" }}>Clique nos dias de colheita que entram neste fechamento</div>
                                     )}
                                   </div>
 
@@ -9370,7 +9484,7 @@ export default function RocasClient({
                       setPagarModal(item);
                       setPagarFormaPag("PIX");
                       setPagarConta("");
-                      setPagarData(new Date().toISOString().slice(0, 10));
+                      setPagarData(hojeISO());
                       setPagarObs("");
                     }}
                     style={{
@@ -10390,13 +10504,24 @@ export default function RocasClient({
 
             async function handleCriarFechamentoMeeiro() {
               if (!fecharDataInicio || !fecharDataFim || fecharDatasAdicionais.length === 0) {
-                setFecharMeeiroError("Selecione ao menos uma data de pagamento");
+                setFecharMeeiroError("Selecione ao menos um dia de colheita");
                 return;
               }
               if (diasJaPagosNoPeriodoMeeiro.length > 0) {
                 setFecharMeeiroError(
                   `O período inclui colheita já paga em ${diasJaPagosNoPeriodoMeeiro.map((d) => fmtDate(d)).join(", ")}. Ajuste as datas.`,
                 );
+                return;
+              }
+              const foraMeeiro = [...diasAbertosMeeiro]
+                .filter((ds) => ds < fecharDataInicio || ds > fecharDataFim)
+                .sort();
+              if (
+                foraMeeiro.length > 0 &&
+                !window.confirm(
+                  `Os lançamentos de ${foraMeeiro.map((d) => fmtDate(d)).join(", ")} ficam FORA deste fechamento e continuam em aberto. Salvar mesmo assim?`,
+                )
+              ) {
                 return;
               }
               setSavingFecharMeeiro(true);
@@ -10731,10 +10856,10 @@ export default function RocasClient({
                       </div>
                     )}
 
-                    {/* Calendário multi-data de pagamento */}
+                    {/* Calendário dos dias de colheita incluídos */}
                     <div style={{ border: "1.5px solid #e0e7ff", borderRadius: 10, padding: 14, background: "#f8faff" }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, marginBottom: 10, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
-                        Datas de pagamento
+                        Dias de colheita neste fechamento
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <button
@@ -10817,7 +10942,7 @@ export default function RocasClient({
                           ))}
                         </div>
                       ) : (
-                        <div style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", padding: "4px 0" }}>Clique nos dias para selecionar as datas de pagamento</div>
+                        <div style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", padding: "4px 0" }}>Clique nos dias de colheita que entram neste fechamento</div>
                       )}
                     </div>
 
