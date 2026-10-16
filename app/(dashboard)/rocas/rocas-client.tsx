@@ -1872,6 +1872,82 @@ export default function RocasClient({
       setLancError("Adicione ao menos um produto");
       return;
     }
+    // Lançamento sem meeiro, num produtor que tem meeiros, fica 100% do
+    // produtor e não entra em fechamento de meeiro nenhum. Foi o que tirou as
+    // 23 caixas de 28/09 do fechamento da Valdene — o meeiro não foi marcado
+    // (trocar o produtor no formulário também limpa a seleção).
+    if (
+      meeirosDoProdutor.length > 0 &&
+      lancForm.meeiroIds.length === 0 &&
+      !window.confirm(
+        "Nenhum meeiro foi selecionado. Essas caixas ficam 100% do produtor e não entram no fechamento de nenhum meeiro. Salvar assim mesmo?",
+      )
+    ) {
+      return;
+    }
+    // Dia que já está dentro de um fechamento: o valor salvo daquele
+    // fechamento foi calculado antes, então este lançamento não entra nele.
+    // Foi o que aconteceu com a Valdene em 28/09 (lançado 1 minuto depois do
+    // fechamento de 28/09 a 02/10 ser criado).
+    {
+      const dia = lancForm.data;
+      const cobre = (f: { dataInicio: string; dataFim: string }) =>
+        f.dataInicio.slice(0, 10) <= dia && f.dataFim.slice(0, 10) >= dia;
+      const avisos: string[] = [];
+      const fp = fechamentosState.find(
+        (f) => f.produtorId === lancForm.produtorId && cobre(f),
+      );
+      if (fp) {
+        avisos.push(
+          `produtor (${fmtDate(fp.dataInicio)} a ${fmtDate(fp.dataFim)}, ${fp.status})`,
+        );
+      }
+      for (const mid of lancForm.meeiroIds) {
+        const fm = fechamentosMeeiroState.find((f) => f.parceiroId === mid && cobre(f));
+        if (fm) {
+          const nome = parceirosState.find((p) => p.id === mid)?.nome ?? "meeiro";
+          avisos.push(
+            `${nome} (${fmtDate(fm.dataInicio)} a ${fmtDate(fm.dataFim)}, ${fm.status})`,
+          );
+        }
+      }
+      if (
+        avisos.length > 0 &&
+        !window.confirm(
+          `O dia ${fmtDate(dia)} já está em fechamento: ${avisos.join("; ")}.\n\n` +
+            "Este lançamento NÃO entra no valor desses fechamentos. Se algum estiver PENDENTE, exclua e faça de novo depois de salvar. Salvar assim mesmo?",
+        )
+      ) {
+        return;
+      }
+    }
+    // Mesmo lançamento salvo de novo (mesma data, produtor, produto,
+    // quantidade e meeiro) costuma ser clique repetido — confirma antes.
+    {
+      const meeirosAlvo = lancForm.meeiroIds.length > 0 ? lancForm.meeiroIds : [null];
+      const repetidos = lancItems.filter((item) =>
+        meeirosAlvo.some((mid) =>
+          colheitas.some(
+            (c) =>
+              c.data.slice(0, 10) === lancForm.data &&
+              c.produtorId === lancForm.produtorId &&
+              c.produtoId === item.produtoId &&
+              Number(c.quantidadeTotal) === Number(item.quantidade) &&
+              (c.parceiroId ?? null) === mid,
+          ),
+        ),
+      );
+      if (
+        repetidos.length > 0 &&
+        !window.confirm(
+          `Já existe lançamento igual em ${fmtDate(lancForm.data)} (${repetidos
+            .map((i) => `${i.quantidade} cx de ${i.produtoNome}`)
+            .join(", ")}). Lançar de novo vai DUPLICAR as caixas. Continuar?`,
+        )
+      ) {
+        return;
+      }
+    }
     setSavingLanc(true);
     setLancError("");
     try {
