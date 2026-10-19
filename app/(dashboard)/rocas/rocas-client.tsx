@@ -30,6 +30,7 @@ import {
 import { useToast } from "@/components/toast";
 import { arredondarCaixas, calcularFechamento } from "@/lib/fechamento-calc";
 import { hojeISO } from "@/lib/utils";
+import SelectBusca from "@/components/select-busca";
 import { EMPRESA_NOME } from "@/lib/empresa";
 
 const GREEN = "#5ab952";
@@ -5706,23 +5707,23 @@ export default function RocasClient({
                       >
                         {/* Produtor */}
                         <FormField label="Produtor">
-                          <select
+                          <SelectBusca
                             style={inputStyle}
                             value={lancEditForm.produtorId}
-                            onChange={(e) =>
+                            onChange={(v) =>
                               setLancEditForm((f) => ({
                                 ...f,
-                                produtorId: e.target.value,
+                                produtorId: v,
                                 parceiroId: "",
                                 rocaId: "",
                               }))
                             }
-                          >
-                            <option value="">Selecione o produtor</option>
-                            {produtoresState.map((p) => (
-                              <option key={p.id} value={p.id}>{p.nome}</option>
-                            ))}
-                          </select>
+                            options={produtoresState.map((p) => ({
+                              value: p.id,
+                              label: `${p.codigo ? `${p.codigo} – ` : ""}${p.nome}`,
+                            }))}
+                            placeholder="Selecione o produtor"
+                          />
                         </FormField>
 
                         {/* Meeiro + % */}
@@ -13667,26 +13668,23 @@ export default function RocasClient({
                   }}
                 >
                   <FormField label="Produtor">
-                    <select
+                    <SelectBusca
                       value={lancForm.produtorId}
-                      onChange={(e) =>
+                      onChange={(v) =>
                         setLancForm((f) => ({
                           ...f,
-                          produtorId: e.target.value,
+                          produtorId: v,
                           rocaId: "",
                           meeiroIds: [],
                         }))
                       }
+                      options={produtoresState.map((p) => ({
+                        value: p.id,
+                        label: `${p.codigo ? `${p.codigo} – ` : ""}${p.nome}`,
+                      }))}
+                      placeholder="Selecione o produtor"
                       style={inputStyle}
-                    >
-                      <option value="">Selecione o produtor</option>
-                      {produtoresState.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.codigo ? `${p.codigo} – ` : ""}
-                          {p.nome}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </FormField>
                 </div>
 
