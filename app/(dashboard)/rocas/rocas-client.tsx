@@ -890,6 +890,11 @@ export default function RocasClient({
     valorFinal: number;
     produtorId: string;
     produtorNome: string;
+    emAberto?: boolean;
+    valorAberto?: number;
+    valorPendentes?: number;
+    adiantado?: number;
+    pendentesIds?: string[];
   };
   const [pagarMenuId, setPagarMenuId] = useState<string | null>(null);
   const [pagarModal, setPagarModal] = useState<PagItem | null>(null);
@@ -1097,17 +1102,17 @@ export default function RocasClient({
     const perc = parceirosState.find(p => p.id === fecharMeeiroModal.id)?.percentual ?? 0
     const embTotal = perc > 0 ? Math.round((embMeeiro / (perc / 100)) * 100) / 100 : 0
     setFecharDedForm(f => ({ ...f, bandejaEmbalagem: String(embTotal) }))
-    // Pré-marca só os pagamentos avulsos feitos DENTRO do período selecionado —
-    // débitos/pagamentos de outras datas pertencem ao fechamento daquele período
-    // e ficam desmarcados (o usuário ainda pode marcar manualmente se quiser).
+    // Pré-marca os adiantamentos (pagamentos avulsos ainda não abatidos) feitos
+    // a partir do início do período — inclusive depois do fim, porque o meeiro
+    // costuma receber dias depois da semana colhida. São exatamente os que o
+    // "Valor a receber" já desconta; deixar de abater pagaria duas vezes.
     setFecharPagosSelecionados(
       pagamentosState
         .filter(p =>
           p.parceiroId === fecharMeeiroModal.id &&
           p.status === 'CONFIRMADO' &&
           !p.fechamentoMeeiroId &&
-          p.dataPag.slice(0, 10) >= fecharDataInicio &&
-          p.dataPag.slice(0, 10) <= fecharDataFim
+          p.dataPag.slice(0, 10) >= fecharDataInicio
         )
         .map(p => p.id),
     )
@@ -2058,84 +2063,49 @@ export default function RocasClient({
     setLancMenuId(null);
   }
 
+  // Valor a receber do meeiro, por período (regra de 2026-11-03):
+  //   colheitas dele que ainda não caíram em nenhum fechamento de meeiro
+  //   + fechamentos de meeiro PENDENTES (feitos e ainda não pagos)
+  //   − adiantamentos (pagamentos avulsos) feitos depois do último fechamento
+  //     e ainda não abatidos em fechamento nenhum.
+  // O meeiro só fica "Quitado" quando não tem colheita fora de fechamento nem
+  // fechamento pendente. Antes o saldo era "tudo que ele já ganhou − tudo que
+  // já foi pago", com fórmulas diferentes de cada lado; a diferença acumulada
+  // comia as colheitas novas e o meeiro aparecia quitado sem fechamento.
   const pagamentosMeeiros = useMemo(
     () =>
       parceirosState.map((m) => {
-        const fechDoProd = fechamentosState.filter(
-          (f) => f.produtorId === m.produtorId,
+        const fechs = fechamentosMeeiroState.filter((f) => f.parceiroId === m.id);
+        const periodos = fechs.map((f) => ({
+          ini: f.dataInicio.slice(0, 10),
+          fim: f.dataFim.slice(0, 10),
+        }));
+        const abertas = colheitas.filter(
+          (c) => c.parceiroId === m.id && !fechamentoDoDia(periodos, c.data.slice(0, 10)),
         );
-        let valorTotal = 0;
-        let temMovimento = false;
-
-        if (fechDoProd.length > 0) {
-          for (const fech of fechDoProd) {
-            const todasCsFech = colheitas.filter(
-              (c) =>
-                c.produtorId === fech.produtorId &&
-                c.data >= fech.dataInicio &&
-                c.data <= fech.dataFim,
-            );
-            const fechCs = todasCsFech.filter((c) => c.parceiroId === m.id);
-            if (fechCs.length === 0) continue;
-            temMovimento = true;
-            const totalGeralBruto = todasCsFech.reduce(
-              (s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco,
-              0,
-            );
-            const totalBruto = fechCs.reduce(
-              (s, c) => s + (c.quantidadeTotal - c.descarte) * c.preco,
-              0,
-            );
-            const totalDed =
-              fech.combustivel +
-              fech.bandejaEmbalagem +
-              fech.valesDinheiro +
-              fech.creditos +
-              fech.debitosAnteriores;
-            // Deduções (combustível, embalagem, vales...) são rateadas pela
-            // participação deste meeiro no bruto geral do fechamento — cada
-            // um paga só a parte proporcional às próprias caixas, nunca o
-            // valor total combinado com o produtor e os demais meeiros.
-            const fator =
-              totalGeralBruto > 0 ? totalBruto / totalGeralBruto : 0;
-            const valorLiquido = Math.max(0, totalBruto - totalDed * fator);
-            valorTotal += valorLiquido * (m.percentual / 100);
-          }
-          // colheitas ainda não cobertas por nenhum fechamento
-          const pendente = colheitas
-            .filter(
-              (c) =>
-                c.parceiroId === m.id &&
-                !fechDoProd.some(
-                  (f) => c.data >= f.dataInicio && c.data <= f.dataFim,
-                ),
-            )
-            .reduce((s, c) => {
-              const caixas = arredondarCaixas((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100));
-              return s + caixas * c.preco - caixas * c.bandeja;
-            }, 0);
-          if (pendente > 0) {
-            valorTotal += pendente;
-            temMovimento = true;
-          }
-        } else {
-          const cs = colheitas.filter((c) => c.parceiroId === m.id);
-          valorTotal = cs.reduce((s, c) => {
-            const caixas = arredondarCaixas((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100));
-            return s + caixas * c.preco - caixas * c.bandeja;
-          }, 0);
-          temMovimento = valorTotal > 0;
-        }
-
-        const totalPago = pagamentosState
-          // DESCONTADO = absorvido por um fechamento; segue sendo dinheiro já pago
-          .filter((p) => p.parceiroId === m.id && (p.status === "CONFIRMADO" || p.status === "DESCONTADO"))
+        const valorAberto = abertas.reduce((s, c) => {
+          const caixas = arredondarCaixas((c.quantidadeTotal - c.descarte) * (c.percParceiro / 100));
+          return s + caixas * c.preco - caixas * c.bandeja;
+        }, 0);
+        const pendentes = fechs.filter((f) => f.status !== "PAGO");
+        const valorPendentes = pendentes.reduce((s, f) => s + f.valorPago, 0);
+        const ultimoFim = periodos.reduce((mx, pr) => (pr.fim > mx ? pr.fim : mx), "");
+        const adiantado = pagamentosState
+          .filter(
+            (p) =>
+              p.parceiroId === m.id &&
+              p.status === "CONFIRMADO" &&
+              !p.fechamentoMeeiroId &&
+              p.dataPag.slice(0, 10) > ultimoFim,
+          )
           .reduce((s, p) => s + p.valor, 0);
-        const totalFechado = fechamentosMeeiroState
-          .filter((f) => f.parceiroId === m.id && f.status === "PAGO")
-          .reduce((s, f) => s + f.valorPago, 0);
-        temMovimento = temMovimento || totalPago > 0 || totalFechado > 0;
-        const saldo = Math.max(0, valorTotal - totalPago - totalFechado);
+        const saldo = Math.max(0, valorAberto + valorPendentes - adiantado);
+        const emAberto = abertas.length > 0 || pendentes.length > 0;
+        const temMovimento =
+          emAberto ||
+          fechs.length > 0 ||
+          pagamentosState.some((p) => p.parceiroId === m.id) ||
+          colheitas.some((c) => c.parceiroId === m.id);
         return {
           id: m.id,
           nome: m.nome,
@@ -2145,11 +2115,16 @@ export default function RocasClient({
           descEmprestimo: 0,
           valorFinal: saldo,
           temMovimento,
+          emAberto,
+          valorAberto,
+          valorPendentes,
+          adiantado,
+          pendentesIds: pendentes.map((f) => f.id),
           produtorId: m.produtorId,
           produtorNome: m.produtorNome,
         };
       }),
-    [colheitas, parceirosState, pagamentosState, fechamentosState, fechamentosMeeiroState],
+    [colheitas, parceirosState, pagamentosState, fechamentosMeeiroState],
   );
 
   const custosPorProdutor = useMemo(() => {
@@ -5918,11 +5893,9 @@ export default function RocasClient({
 
       {activeTab === "pagamento" &&
         (() => {
-          const filtradosAberto = pagamentosMeeiros.filter(
-            (p) => p.valorReceber > 0,
-          );
+          const filtradosAberto = pagamentosMeeiros.filter((p) => p.emAberto);
           const filtradosQuitados = pagamentosMeeiros.filter(
-            (p) => p.valorReceber === 0 && p.temMovimento,
+            (p) => !p.emAberto && p.temMovimento,
           );
           const listaStatus =
             pagamentoStatus === "aberto" ? filtradosAberto : filtradosQuitados;
@@ -5963,13 +5936,13 @@ export default function RocasClient({
                 item: pagamentosMeeiros.find((p) => p.id === m.id) ?? null,
               };
             })
-            // Meeiro pode ser quitado por pagamento avulso, sem fechamento
-            // nenhum. Só é pendente de verdade quem ainda tem saldo.
+            // Pendente = tem colheita fora de fechamento de meeiro. Pagamento
+            // avulso não quita: vira adiantamento a abater no fechamento.
             .filter(
               (x) =>
                 x.abertas.length > 0 &&
                 x.item !== null &&
-                x.item.valorReceber > 0,
+                x.item.emAberto,
             );
 
           return (
@@ -6437,17 +6410,17 @@ export default function RocasClient({
                             <span
                               style={{
                                 background:
-                                  p.valorReceber > 0
+                                  p.emAberto
                                     ? ORANGE + "20"
                                     : GREEN + "20",
-                                color: p.valorReceber > 0 ? ORANGE : GREEN,
+                                color: p.emAberto ? ORANGE : GREEN,
                                 padding: "3px 10px",
                                 borderRadius: 10,
                                 fontSize: 11,
                                 fontWeight: 600,
                               }}
                             >
-                              {p.valorReceber > 0 ? "Em aberto" : "Quitado"}
+                              {p.emAberto ? "Em aberto" : "Quitado"}
                             </span>
                           </td>
                           <td
@@ -10452,26 +10425,55 @@ export default function RocasClient({
                   onClick={async () => {
                     const p = pagarModal;
                     try {
-                      const res = await fetch("/api/pagamento-meeiro", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          parceiroId: p.id,
-                          valor: p.valorFinal,
-                          formaPag: pagarFormaPag,
-                          conta: pagarConta,
-                          dataPag: pagarData,
-                          observacao: pagarObs,
-                        }),
-                      });
-                      if (!res.ok) throw new Error();
-                      const novo: PagamentoMeeiroRecord = await res.json();
-                      setPagamentosState((prev) => [novo, ...prev]);
+                      // 1) Fechamentos já feitos e ainda pendentes: o pagamento é
+                      //    deles — muda o status para PAGO, sem lançar nada à parte.
+                      const pendIds = p.pendentesIds ?? [];
+                      for (const fid of pendIds) {
+                        const r = await fetch(`/api/fechamento-meeiro/${fid}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ status: "PAGO" }),
+                        });
+                        if (!r.ok) throw new Error();
+                      }
+                      if (pendIds.length > 0) {
+                        setFechamentosMeeiroState((prev) =>
+                          prev.map((f) =>
+                            pendIds.includes(f.id) ? { ...f, status: "PAGO" } : f,
+                          ),
+                        );
+                      }
+                      // 2) O que sobra é colheita sem fechamento: vira
+                      //    ADIANTAMENTO, abatido no próximo fechamento. O meeiro
+                      //    continua "Em aberto" até esse fechamento ser feito.
+                      const resto = Math.max(
+                        0,
+                        p.valorFinal - (pendIds.length > 0 ? p.valorPendentes ?? 0 : 0),
+                      );
+                      if (resto > 0.004) {
+                        const res = await fetch("/api/pagamento-meeiro", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            parceiroId: p.id,
+                            valor: Math.round(resto * 100) / 100,
+                            formaPag: pagarFormaPag,
+                            conta: pagarConta,
+                            dataPag: pagarData,
+                            observacao: pagarObs,
+                          }),
+                        });
+                        if (!res.ok) throw new Error();
+                        const novo: PagamentoMeeiroRecord = await res.json();
+                        setPagamentosState((prev) => [novo, ...prev]);
+                      }
                       gerarComprovante(p);
                       setPagarModal(null);
                       toast.success(
-                        "Pagamento confirmado",
-                        `${p.nome} movido para Quitados`,
+                        "Pagamento registrado",
+                        resto > 0.004
+                          ? `${p.nome}: ${fmtCurrency(resto)} como adiantamento — será abatido no próximo fechamento`
+                          : `${p.nome}: fechamento marcado como pago`,
                       );
                     } catch {
                       toast.error("Erro ao registrar pagamento");
