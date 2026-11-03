@@ -952,6 +952,8 @@ export default function RocasClient({
     obs: string;
   }>(null);
   const [salvandoAdiant, setSalvandoAdiant] = useState(false);
+  // Menu "⋯" de cada fechamento de meeiro (mesmo padrão da aba do produtor).
+  const [fechMeeiroMenu, setFechMeeiroMenu] = useState<null | { id: string; top: number; right: number }>(null);
 
   async function editarFechamentoMeeiro(f: FechamentoMeeiroRecord) {
     setEditFechMeeiroError("");
@@ -6068,22 +6070,18 @@ export default function RocasClient({
                 p.produtorId === pagamentoFiltroProdutor),
           );
 
-          // Meeiros com colheitas ainda não cobertas por um fechamento
+          // Meeiros com colheitas que não caíram em NENHUM fechamento de meeiro
+          // (mesma regra do "Valor a receber"): pega também dia esquecido no
+          // meio de dois fechamentos, não só o que vem depois do último.
           const pendentesMeeiros = parceirosState
             .map((m) => {
-              const ultFech = fechamentosMeeiroState
+              const periodosM = fechamentosMeeiroState
                 .filter((f) => f.parceiroId === m.id)
-                .sort(
-                  (a, b) =>
-                    new Date(b.dataFim).getTime() -
-                    new Date(a.dataFim).getTime(),
-                )[0];
-              const desde = ultFech
-                ? new Date(new Date(ultFech.dataFim).getTime() + 86400000)
-                : new Date(0);
+                .map((f) => ({ ini: f.dataInicio.slice(0, 10), fim: f.dataFim.slice(0, 10) }));
               const abertas = colheitas.filter(
-                (c) => c.parceiroId === m.id && new Date(c.data) >= desde,
+                (c) => c.parceiroId === m.id && !fechamentoDoDia(periodosM, c.data.slice(0, 10)),
               );
+              const primeiroDia = abertas.map((c) => c.data.slice(0, 10)).sort()[0];
               const bruto = abertas.reduce((s, c) => {
                 const caixas = arredondarCaixas(
                   (c.quantidadeTotal - c.descarte) * (c.percParceiro / 100),
@@ -6094,7 +6092,7 @@ export default function RocasClient({
                 meeiro: m,
                 abertas,
                 bruto,
-                desde: ultFech ? since(ultFech.dataFim) : "sempre",
+                desde: primeiroDia ? fmtDate(primeiroDia) : "—",
                 item: pagamentosMeeiros.find((p) => p.id === m.id) ?? null,
               };
             })
@@ -6109,8 +6107,8 @@ export default function RocasClient({
 
           return (
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              {/* Lançamentos em aberto */}
-              {pendentesMeeiros.length > 0 && (
+              {/* Lançamentos em aberto — sempre visível; vazio diz que está tudo fechado */}
+              {(
                 <div
                   style={{
                     background: "#fff",
@@ -6135,6 +6133,11 @@ export default function RocasClient({
                   <div
                     style={{ display: "flex", flexDirection: "column", gap: 8 }}
                   >
+                    {pendentesMeeiros.length === 0 && (
+                      <div style={{ fontSize: 13, color: "#6b7280" }}>
+                        Nenhum lançamento de meeiro em aberto — todas as colheitas já estão em algum fechamento.
+                      </div>
+                    )}
                     {pendentesMeeiros.map(({ meeiro, abertas, bruto, desde, item }) => (
                       <div
                         key={meeiro.id}
@@ -6303,7 +6306,7 @@ export default function RocasClient({
                       }}
                     >
                       <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>{titulo}</div>
-                      <div style={{ fontSize: 28, fontWeight: 700, color: cor }}>{valor}</div>
+                      <div className="kpi-val" style={{ fontSize: 28, fontWeight: 700, color: cor, wordBreak: "break-word" }}>{valor}</div>
                       {sub && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{sub}</div>}
                     </div>
                   );
@@ -6351,7 +6354,7 @@ export default function RocasClient({
                       >
                         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                           <select
-                            style={{ ...inputStyle, width: 200 }}
+                            style={{ ...inputStyle, flex: "1 1 180px", minWidth: 0, width: "auto" }}
                             value={fechMeeiroFiltro}
                             onChange={(e) => setFechMeeiroFiltro(e.target.value)}
                           >
@@ -6363,7 +6366,7 @@ export default function RocasClient({
                             ))}
                           </select>
                           <select
-                            style={{ ...inputStyle, width: 150 }}
+                            style={{ ...inputStyle, flex: "1 1 140px", minWidth: 0, width: "auto" }}
                             value={fechMeeiroStatus}
                             onChange={(e) => setFechMeeiroStatus(e.target.value as "TODOS" | "PENDENTE" | "PAGO")}
                           >
@@ -6436,9 +6439,10 @@ export default function RocasClient({
                           >
                             Adiantamento
                           </button>
-                          <div style={{ width: 230 }}>
+                          <div style={{ flex: "1 1 200px", minWidth: 0 }}>
                             <SelectBusca
                               value=""
+                              corPlaceholder="#fff"
                               onChange={(id) => {
                                 const item = pagamentosMeeiros.find((m) => m.id === id);
                                 if (item) openFecharMeeiro(item);
@@ -6595,14 +6599,23 @@ export default function RocasClient({
                                           boxShadow: "-6px 0 6px -6px rgba(0,0,0,0.18)",
                                         }}
                                       >
-                                        <div style={{ display: "flex", gap: 10, justifyContent: "center", alignItems: "center" }}>
-                                          {linkBtn("recibo", "#6b7280", () => window.open(`/imprimir/fechamento-meeiro/${f.id}`, "_blank"))}
-                                          {linkBtn("editar", NAVY, () => editarFechamentoMeeiro(f))}
-                                          {pago
-                                            ? linkBtn("desmarcar pago", ORANGE, () => statusFechamentoMeeiro(f, "PENDENTE"))
-                                            : linkBtn("marcar pago", GREEN, () => statusFechamentoMeeiro(f, "PAGO"))}
-                                          {!pago && linkBtn("excluir", "#dc2626", () => excluirFechamentoMeeiro(f))}
-                                        </div>
+                                        <button
+                                          title="Ações"
+                                          onClick={(e) => {
+                                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                            const alturaMenu = 170;
+                                            const top =
+                                              rect.bottom + 4 + alturaMenu > window.innerHeight
+                                                ? rect.top - alturaMenu
+                                                : rect.bottom + 4;
+                                            setFechMeeiroMenu((m) =>
+                                              m?.id === f.id ? null : { id: f.id, top, right: window.innerWidth - rect.right },
+                                            );
+                                          }}
+                                          style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", padding: 4 }}
+                                        >
+                                          <FontAwesomeIcon icon={faEllipsisH} style={{ fontSize: 16 }} />
+                                        </button>
                                       </td>
                                     </tr>
                                   );
@@ -6612,6 +6625,67 @@ export default function RocasClient({
                           </table>
                         </div>
                       </div>
+
+                      {/* Menu de ações do fechamento */}
+                      {fechMeeiroMenu &&
+                        (() => {
+                          const f = fechamentosMeeiroState.find((x) => x.id === fechMeeiroMenu.id);
+                          if (!f) return null;
+                          const pago = f.status === "PAGO";
+                          const item = (label: string, cor: string, acao: () => void) => (
+                            <button
+                              onClick={() => {
+                                setFechMeeiroMenu(null);
+                                acao();
+                              }}
+                              style={{
+                                display: "block",
+                                width: "100%",
+                                textAlign: "left",
+                                padding: "10px 16px",
+                                fontSize: 13,
+                                color: cor,
+                                background: "none",
+                                border: "none",
+                                borderBottom: "1px solid #f3f4f6",
+                                cursor: "pointer",
+                                fontFamily: "inherit",
+                              }}
+                            >
+                              {label}
+                            </button>
+                          );
+                          return (
+                            <>
+                              <div
+                                onClick={() => setFechMeeiroMenu(null)}
+                                style={{ position: "fixed", inset: 0, zIndex: 998 }}
+                              />
+                              <div
+                                style={{
+                                  position: "fixed",
+                                  top: fechMeeiroMenu.top,
+                                  right: fechMeeiroMenu.right,
+                                  zIndex: 999,
+                                  background: "#fff",
+                                  borderRadius: 10,
+                                  boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+                                  minWidth: 190,
+                                  overflow: "hidden",
+                                }}
+                              >
+                                {item("📄 Ver recibo", "#374151", () =>
+                                  window.open(`/imprimir/fechamento-meeiro/${f.id}`, "_blank"),
+                                )}
+                                {item("✏️ Editar fechamento", "#374151", () => editarFechamentoMeeiro(f))}
+                                {pago
+                                  ? item("↩️ Desmarcar pago", ORANGE, () => statusFechamentoMeeiro(f, "PENDENTE"))
+                                  : item("✅ Marcar como pago", GREEN, () => statusFechamentoMeeiro(f, "PAGO"))}
+                                {!pago && item("🗑️ Excluir", "#dc2626", () => excluirFechamentoMeeiro(f))}
+                              </div>
+                            </>
+                          );
+                        })()}
 
                       {/* Modal de adiantamento */}
                       {adiantModal && (

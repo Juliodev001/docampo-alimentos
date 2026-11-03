@@ -21,6 +21,7 @@ export default function SelectBusca({
   placeholder = 'Selecione',
   disabled = false,
   style,
+  corPlaceholder = '#9ca3af',
 }: {
   value: string
   onChange: (value: string) => void
@@ -28,6 +29,8 @@ export default function SelectBusca({
   placeholder?: string
   disabled?: boolean
   style?: React.CSSProperties
+  /** Cor do texto quando nada está escolhido (ex.: branco em botão escuro). */
+  corPlaceholder?: string
 }) {
   const [aberto, setAberto] = useState(false)
   const [busca, setBusca] = useState('')
@@ -122,7 +125,7 @@ export default function SelectBusca({
             ...style,
             textAlign: 'left',
             cursor: disabled ? 'not-allowed' : 'pointer',
-            color: selecionada ? (style?.color ?? '#111827') : '#9ca3af',
+            color: selecionada ? (style?.color ?? '#111827') : corPlaceholder,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
