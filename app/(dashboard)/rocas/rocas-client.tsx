@@ -937,6 +937,168 @@ export default function RocasClient({
     debitosAnteriores: "0",
   });
 
+  // ── Aba "Pagamento Meeiros": visão por fechamento (igual à do produtor) ──
+  // Cada pagamento fica ligado a um fechamento (período, valor, status), e o
+  // adiantamento é um lançamento próprio, abatido no fechamento seguinte.
+  const [meeiroView, setMeeiroView] = useState<"fechamentos" | "saldo">("fechamentos");
+  const [fechMeeiroFiltro, setFechMeeiroFiltro] = useState("");
+  const [fechMeeiroStatus, setFechMeeiroStatus] = useState<"TODOS" | "PENDENTE" | "PAGO">("TODOS");
+  const [buscaFechMeeiro, setBuscaFechMeeiro] = useState("");
+  const [adiantModal, setAdiantModal] = useState<null | {
+    parceiroId: string;
+    valor: string;
+    data: string;
+    formaPag: string;
+    obs: string;
+  }>(null);
+  const [salvandoAdiant, setSalvandoAdiant] = useState(false);
+
+  async function editarFechamentoMeeiro(f: FechamentoMeeiroRecord) {
+    setEditFechMeeiroError("");
+    setEditFechMeeiroForm({
+      dataInicio: f.dataInicio.slice(0, 10),
+      dataFim: f.dataFim.slice(0, 10),
+      dataPagamento: f.dataPagamento.slice(0, 10),
+      valorBruto: String(f.valorBruto),
+      valorPago: String(f.valorPago),
+      combustivel: String(f.combustivel),
+      bandejaEmbalagem: String(f.bandejaEmbalagem),
+      valesDinheiro: String(f.valesDinheiro),
+      creditos: String(f.creditos),
+      debitosAnteriores: String(f.debitosAnteriores),
+      valesDeduzidos: String(f.valesDeduzidos),
+    });
+    setEditFechMeeiroColheitas([]);
+    setEditFechMeeiroValesAbertos(0);
+    setEditFechMeeiroTarget(f);
+    try {
+      const res = await fetch(`/api/fechamento-meeiro/${f.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setEditFechMeeiroColheitas(
+          (data.colheitas ?? []).map(
+            (c: { id: string; data: string; produtoId: string; produto: { nome: string }; quantidadeTotal: number; preco: number; percParceiro: number }) => ({
+              id: c.id,
+              data: c.data.slice(0, 10),
+              produtoId: c.produtoId,
+              produtoNome: c.produto?.nome ?? "",
+              quantidadeTotal: c.quantidadeTotal,
+              preco: Number(c.preco),
+              percParceiro: c.percParceiro,
+            }),
+          ),
+        );
+        const valesAbertos = (data.vales ?? [])
+          .filter((v: { status: string }) => v.status === "ABERTO")
+          .reduce((s: number, v: { valor: number }) => s + Number(v.valor), 0);
+        setEditFechMeeiroValesAbertos(valesAbertos);
+      }
+    } catch {
+      /* a edição abre mesmo sem a lista de colheitas */
+    }
+  }
+
+  async function statusFechamentoMeeiro(f: FechamentoMeeiroRecord, status: "PAGO" | "PENDENTE") {
+    const nome = parceirosState.find((p) => p.id === f.parceiroId)?.nome ?? "meeiro";
+    const msg =
+      status === "PAGO"
+        ? `Marcar como PAGO o fechamento de ${nome} (${fmtDate(f.dataInicio)} a ${fmtDate(f.dataFim)}) — ${fmtCurrency(f.valorPago)}?`
+        : `Voltar para PENDENTE o fechamento de ${nome} (${fmtDate(f.dataInicio)} a ${fmtDate(f.dataFim)})?`;
+    if (!window.confirm(msg)) return;
+    try {
+      const res = await fetch(`/api/fechamento-meeiro/${f.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error();
+      setFechamentosMeeiroState((prev) =>
+        prev.map((x) => (x.id === f.id ? { ...x, status } : x)),
+      );
+      toast.success(status === "PAGO" ? "Marcado como pago" : "Voltou para pendente", nome);
+    } catch {
+      toast.error("Erro ao atualizar");
+    }
+  }
+
+  async function excluirFechamentoMeeiro(f: FechamentoMeeiroRecord) {
+    const nome = parceirosState.find((p) => p.id === f.parceiroId)?.nome ?? "meeiro";
+    if (
+      !window.confirm(
+        `Excluir o fechamento de ${nome} (${fmtDate(f.dataInicio)} a ${fmtDate(f.dataFim)})? Os vales e adiantamentos abatidos nele voltam a ficar em aberto.`,
+      )
+    )
+      return;
+    try {
+      const res = await fetch(`/api/fechamento-meeiro/${f.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setFechamentosMeeiroState((prev) => prev.filter((x) => x.id !== f.id));
+      setValesState((prev) =>
+        prev.map((v) =>
+          v.fechamentoMeeiroId === f.id ? { ...v, status: "ABERTO", fechamentoMeeiroId: null } : v,
+        ),
+      );
+      setPagamentosState((prev) =>
+        prev.map((p) =>
+          p.fechamentoMeeiroId === f.id ? { ...p, status: "CONFIRMADO", fechamentoMeeiroId: null } : p,
+        ),
+      );
+      toast.success("Fechamento excluído", nome);
+    } catch {
+      toast.error("Erro ao excluir");
+    }
+  }
+
+  async function salvarAdiantamento() {
+    if (!adiantModal) return;
+    const valor = parseFloat(adiantModal.valor.replace(",", "."));
+    if (!adiantModal.parceiroId || !(valor > 0) || !adiantModal.data) {
+      toast.error("Preencha meeiro, valor e data");
+      return;
+    }
+    setSalvandoAdiant(true);
+    try {
+      const res = await fetch("/api/pagamento-meeiro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parceiroId: adiantModal.parceiroId,
+          valor: Math.round(valor * 100) / 100,
+          formaPag: adiantModal.formaPag,
+          dataPag: adiantModal.data,
+          observacao: adiantModal.obs ? `Adiantamento — ${adiantModal.obs}` : "Adiantamento",
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const novo: PagamentoMeeiroRecord = await res.json();
+      setPagamentosState((prev) => [novo, ...prev]);
+      const nome = parceirosState.find((p) => p.id === adiantModal.parceiroId)?.nome ?? "";
+      toast.success("Adiantamento registrado", `${nome}: ${fmtCurrency(valor)} — será abatido no próximo fechamento`);
+      setAdiantModal(null);
+    } catch {
+      toast.error("Erro ao registrar adiantamento");
+    } finally {
+      setSalvandoAdiant(false);
+    }
+  }
+
+  async function excluirAdiantamento(p: PagamentoMeeiroRecord) {
+    const nome = parceirosState.find((x) => x.id === p.parceiroId)?.nome ?? "meeiro";
+    if (!window.confirm(`Excluir o adiantamento de ${fmtCurrency(p.valor)} de ${nome} (${fmtDate(p.dataPag)})?`)) return;
+    try {
+      const res = await fetch("/api/pagamento-meeiro", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: p.id }),
+      });
+      if (!res.ok) throw new Error();
+      setPagamentosState((prev) => prev.filter((x) => x.id !== p.id));
+      toast.success("Adiantamento excluído", nome);
+    } catch {
+      toast.error("Erro ao excluir");
+    }
+  }
+
   function openFecharMeeiro(item: PagItem) {
     setFecharMeeiroError("");
     setConfirmDeleteFechMeeiroId(null);
@@ -6076,6 +6238,504 @@ export default function RocasClient({
                 </div>
               )}
 
+              {/* Alterna entre a visão por fechamento (padrão, igual à do
+                  produtor) e o saldo por meeiro (visão extra). */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {([
+                  ["fechamentos", "Fechamentos"],
+                  ["saldo", "Saldo por meeiro"],
+                ] as const).map(([k, label]) => (
+                  <button
+                    key={k}
+                    onClick={() => setMeeiroView(k)}
+                    style={{
+                      background: meeiroView === k ? NAVY : "#fff",
+                      color: meeiroView === k ? "#fff" : "#374151",
+                      border: `1.5px solid ${meeiroView === k ? NAVY : "#e5e7eb"}`,
+                      borderRadius: 8,
+                      padding: "8px 16px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {meeiroView === "fechamentos" &&
+                (() => {
+                  const nomeMeeiro = (id: string) =>
+                    parceirosState.find((p) => p.id === id)?.nome ?? "—";
+                  const fechsMeeiroFiltrados = fechamentosMeeiroState
+                    .filter((f) => {
+                      if (fechMeeiroFiltro && f.parceiroId !== fechMeeiroFiltro) return false;
+                      if (fechMeeiroStatus !== "TODOS" && (f.status === "PAGO" ? "PAGO" : "PENDENTE") !== fechMeeiroStatus)
+                        return false;
+                      if (
+                        buscaFechMeeiro.trim() &&
+                        !nomeMeeiro(f.parceiroId).toLowerCase().includes(buscaFechMeeiro.trim().toLowerCase())
+                      )
+                        return false;
+                      return true;
+                    })
+                    .sort((a, b) =>
+                      a.dataFim === b.dataFim
+                        ? b.createdAt.localeCompare(a.createdAt)
+                        : b.dataFim.localeCompare(a.dataFim),
+                    );
+                  const totalPagoMeeiros = fechamentosMeeiroState.reduce((s, f) => s + f.valorPago, 0);
+                  const nPend = fechamentosMeeiroState.filter((f) => f.status !== "PAGO").length;
+                  const nPagos = fechamentosMeeiroState.filter((f) => f.status === "PAGO").length;
+                  const adiantamentosAbertos = pagamentosState
+                    .filter((p) => p.status === "CONFIRMADO" && !p.fechamentoMeeiroId)
+                    .sort((a, b) => b.dataPag.localeCompare(a.dataPag));
+                  const card = (titulo: string, valor: React.ReactNode, cor: string, sub?: string) => (
+                    <div
+                      style={{
+                        background: "#fff",
+                        borderRadius: 12,
+                        padding: "16px 20px",
+                        boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+                        borderLeft: `3px solid ${cor}`,
+                      }}
+                    >
+                      <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>{titulo}</div>
+                      <div style={{ fontSize: 28, fontWeight: 700, color: cor }}>{valor}</div>
+                      {sub && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{sub}</div>}
+                    </div>
+                  );
+                  const th = (label: string, align: "left" | "right" | "center" = "left") => (
+                    <th style={{ padding: "12px 16px", textAlign: align, fontWeight: 600, color: "#374151", whiteSpace: "nowrap" }}>
+                      {label}
+                    </th>
+                  );
+                  const linkBtn = (label: string, cor: string, onClick: () => void) => (
+                    <button
+                      onClick={onClick}
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: cor,
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        padding: 0,
+                        fontFamily: "inherit",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                  return (
+                    <>
+                      <div className="grid-4" style={{ gap: 16 }}>
+                        {card("Total de Fechamentos", fechamentosMeeiroState.length, NAVY)}
+                        {card("Pagamento Total Meeiros", fmtCurrency(totalPagoMeeiros), BLUE, "Líquido de todos os fechamentos")}
+                        {card("Pendentes", nPend, ORANGE)}
+                        {card("Pagos", nPagos, GREEN)}
+                      </div>
+
+                      {/* Filtros e ações */}
+                      <div
+                        style={{
+                          background: "#fff",
+                          borderRadius: 12,
+                          boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+                          padding: "16px 20px",
+                        }}
+                      >
+                        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                          <select
+                            style={{ ...inputStyle, width: 200 }}
+                            value={fechMeeiroFiltro}
+                            onChange={(e) => setFechMeeiroFiltro(e.target.value)}
+                          >
+                            <option value="">Todos os meeiros</option>
+                            {parceirosState.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.nome}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            style={{ ...inputStyle, width: 150 }}
+                            value={fechMeeiroStatus}
+                            onChange={(e) => setFechMeeiroStatus(e.target.value as "TODOS" | "PENDENTE" | "PAGO")}
+                          >
+                            <option value="TODOS">Todos os status</option>
+                            <option value="PENDENTE">Pendente</option>
+                            <option value="PAGO">Pago</option>
+                          </select>
+                          <div style={{ position: "relative", flex: 1, minWidth: 180 }}>
+                            <FontAwesomeIcon
+                              icon={faMagnifyingGlass}
+                              style={{
+                                position: "absolute",
+                                left: 10,
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                color: "#9ca3af",
+                                fontSize: 13,
+                                pointerEvents: "none",
+                              }}
+                            />
+                            <input
+                              type="text"
+                              placeholder="Buscar por meeiro..."
+                              value={buscaFechMeeiro}
+                              onChange={(e) => setBuscaFechMeeiro(e.target.value)}
+                              style={{ ...inputStyle, width: "100%", paddingLeft: 32, boxSizing: "border-box" }}
+                            />
+                          </div>
+                          <button
+                            onClick={() => abrirRelatorioFechamentos("meeiro")}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              background: "#fff",
+                              color: "#374151",
+                              border: "1.5px solid #e5e7eb",
+                              borderRadius: 8,
+                              padding: "9px 16px",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              cursor: "pointer",
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 14 }} /> Relatórios
+                          </button>
+                          <button
+                            onClick={() =>
+                              setAdiantModal({
+                                parceiroId: fechMeeiroFiltro,
+                                valor: "",
+                                data: hojeISO(),
+                                formaPag: "PIX",
+                                obs: "",
+                              })
+                            }
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              background: "#fff",
+                              color: ORANGE,
+                              border: `1.5px solid ${ORANGE}`,
+                              borderRadius: 8,
+                              padding: "9px 16px",
+                              fontSize: 13,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Adiantamento
+                          </button>
+                          <div style={{ width: 230 }}>
+                            <SelectBusca
+                              value=""
+                              onChange={(id) => {
+                                const item = pagamentosMeeiros.find((m) => m.id === id);
+                                if (item) openFecharMeeiro(item);
+                              }}
+                              options={parceirosState.map((p) => ({ value: p.id, label: p.nome }))}
+                              placeholder="+ Novo Fechamento"
+                              style={{
+                                ...inputStyle,
+                                background: NAVY,
+                                color: "#fff",
+                                border: "none",
+                                fontWeight: 600,
+                                fontSize: 13,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Adiantamentos ainda não abatidos em fechamento */}
+                      {adiantamentosAbertos.length > 0 && (
+                        <div
+                          style={{
+                            background: "#fff",
+                            borderRadius: 12,
+                            boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+                            padding: "16px 20px",
+                          }}
+                        >
+                          <div style={{ fontSize: 13, fontWeight: 700, color: ORANGE, marginBottom: 10 }}>
+                            Adiantamentos a abater no próximo fechamento
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {adiantamentosAbertos.map((p) => (
+                              <div
+                                key={p.id}
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  flexWrap: "wrap",
+                                  gap: 10,
+                                  fontSize: 13,
+                                  padding: "8px 12px",
+                                  borderRadius: 8,
+                                  background: ORANGE + "0d",
+                                  border: `1px solid ${ORANGE}30`,
+                                }}
+                              >
+                                <span>
+                                  <strong style={{ color: NAVY }}>{nomeMeeiro(p.parceiroId)}</strong>
+                                  {" — "}
+                                  {fmtDate(p.dataPag)} · {p.formaPag}
+                                  {p.observacao ? ` · ${p.observacao}` : ""}
+                                </span>
+                                <span style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                                  <strong style={{ color: ORANGE }}>{fmtCurrency(p.valor)}</strong>
+                                  {linkBtn("excluir", "#dc2626", () => excluirAdiantamento(p))}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tabela de fechamentos */}
+                      <div
+                        style={{
+                          background: "#fff",
+                          borderRadius: 12,
+                          boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", minWidth: 1000, borderCollapse: "collapse", fontSize: 13 }}>
+                            <thead>
+                              <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
+                                {th("Meeiro")}
+                                {th("Período")}
+                                {th("Data Pgto")}
+                                {th("Bruto", "right")}
+                                {th("Embalagem", "right")}
+                                {th("Vales", "right")}
+                                {th("Outros desc.", "right")}
+                                {th("Total Meeiro", "right")}
+                                {th("Status", "center")}
+                                <th
+                                  style={{
+                                    padding: "12px 16px",
+                                    textAlign: "center",
+                                    fontWeight: 600,
+                                    color: "#374151",
+                                    position: "sticky",
+                                    right: 0,
+                                    background: "#f9fafb",
+                                    boxShadow: "-6px 0 6px -6px rgba(0,0,0,0.18)",
+                                  }}
+                                >
+                                  Ações
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {fechsMeeiroFiltrados.length === 0 ? (
+                                <tr>
+                                  <td colSpan={10} style={{ textAlign: "center", padding: "32px 16px", color: "#9ca3af" }}>
+                                    Nenhum fechamento encontrado
+                                  </td>
+                                </tr>
+                              ) : (
+                                fechsMeeiroFiltrados.map((f, i) => {
+                                  const pago = f.status === "PAGO";
+                                  const fundo = i % 2 === 0 ? "#fff" : "#fafafa";
+                                  return (
+                                    <tr key={f.id} style={{ borderBottom: "1px solid #f3f4f6", background: fundo }}>
+                                      <td style={{ padding: "12px 16px", fontWeight: 600, color: NAVY }}>{nomeMeeiro(f.parceiroId)}</td>
+                                      <td style={{ padding: "12px 16px", color: "#374151", whiteSpace: "nowrap" }}>
+                                        {fmtDate(f.dataInicio)} — {fmtDate(f.dataFim)}
+                                      </td>
+                                      <td style={{ padding: "12px 16px", color: "#374151" }}>{fmtDate(f.dataPagamento)}</td>
+                                      <td style={{ padding: "12px 16px", textAlign: "right", color: "#374151" }}>{fmtCurrency(f.valorBruto)}</td>
+                                      <td style={{ padding: "12px 16px", textAlign: "right", color: PINK }}>{fmtCurrency(f.bandejaEmbalagem)}</td>
+                                      <td style={{ padding: "12px 16px", textAlign: "right", color: PINK }}>
+                                        {fmtCurrency(f.valesDinheiro + f.valesDeduzidos)}
+                                      </td>
+                                      <td style={{ padding: "12px 16px", textAlign: "right", color: ORANGE }}>
+                                        {fmtCurrency(f.combustivel + f.creditos + f.debitosAnteriores)}
+                                      </td>
+                                      <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: BLUE, whiteSpace: "nowrap" }}>
+                                        {fmtCurrency(f.valorPago)}
+                                      </td>
+                                      <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                                        <span
+                                          style={{
+                                            background: pago ? GREEN + "20" : ORANGE + "20",
+                                            color: pago ? GREEN : ORANGE,
+                                            padding: "3px 10px",
+                                            borderRadius: 10,
+                                            fontSize: 11,
+                                            fontWeight: 600,
+                                          }}
+                                        >
+                                          {pago ? "Pago" : "Pendente"}
+                                        </span>
+                                      </td>
+                                      <td
+                                        style={{
+                                          padding: "12px 16px",
+                                          textAlign: "center",
+                                          position: "sticky",
+                                          right: 0,
+                                          background: fundo,
+                                          boxShadow: "-6px 0 6px -6px rgba(0,0,0,0.18)",
+                                        }}
+                                      >
+                                        <div style={{ display: "flex", gap: 10, justifyContent: "center", alignItems: "center" }}>
+                                          {linkBtn("recibo", "#6b7280", () => window.open(`/imprimir/fechamento-meeiro/${f.id}`, "_blank"))}
+                                          {linkBtn("editar", NAVY, () => editarFechamentoMeeiro(f))}
+                                          {pago
+                                            ? linkBtn("desmarcar pago", ORANGE, () => statusFechamentoMeeiro(f, "PENDENTE"))
+                                            : linkBtn("marcar pago", GREEN, () => statusFechamentoMeeiro(f, "PAGO"))}
+                                          {!pago && linkBtn("excluir", "#dc2626", () => excluirFechamentoMeeiro(f))}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Modal de adiantamento */}
+                      {adiantModal && (
+                        <div
+                          onClick={() => !salvandoAdiant && setAdiantModal(null)}
+                          style={{
+                            position: "fixed",
+                            inset: 0,
+                            background: "rgba(0,0,0,0.4)",
+                            zIndex: 1000,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: 16,
+                          }}
+                        >
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              background: "#fff",
+                              borderRadius: 14,
+                              padding: 24,
+                              width: "100%",
+                              maxWidth: 440,
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 12,
+                            }}
+                          >
+                            <div style={{ fontSize: 17, fontWeight: 700, color: NAVY }}>Adiantamento ao meeiro</div>
+                            <div style={{ fontSize: 12, color: "#6b7280" }}>
+                              O valor fica registrado e é abatido no próximo fechamento do meeiro. Ele continua
+                              &ldquo;Em aberto&rdquo; até esse fechamento ser feito e pago.
+                            </div>
+                            <FormField label="Meeiro">
+                              <SelectBusca
+                                value={adiantModal.parceiroId}
+                                onChange={(v) => setAdiantModal((m) => (m ? { ...m, parceiroId: v } : m))}
+                                options={parceirosState.map((p) => ({ value: p.id, label: p.nome }))}
+                                placeholder="Selecione o meeiro"
+                                style={inputStyle}
+                              />
+                            </FormField>
+                            <div className="grid-2" style={{ gap: 10 }}>
+                              <FormField label="Valor (R$)">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={adiantModal.valor}
+                                  onChange={(e) => setAdiantModal((m) => (m ? { ...m, valor: e.target.value } : m))}
+                                  style={inputStyle}
+                                />
+                              </FormField>
+                              <FormField label="Data">
+                                <input
+                                  type="date"
+                                  value={adiantModal.data}
+                                  onChange={(e) => setAdiantModal((m) => (m ? { ...m, data: e.target.value } : m))}
+                                  style={inputStyle}
+                                />
+                              </FormField>
+                            </div>
+                            <FormField label="Forma de pagamento">
+                              <select
+                                value={adiantModal.formaPag}
+                                onChange={(e) => setAdiantModal((m) => (m ? { ...m, formaPag: e.target.value } : m))}
+                                style={inputStyle}
+                              >
+                                <option value="PIX">PIX</option>
+                                <option value="DINHEIRO">Dinheiro</option>
+                                <option value="TRANSFERENCIA">Transferência</option>
+                              </select>
+                            </FormField>
+                            <FormField label="Observação (opcional)">
+                              <input
+                                value={adiantModal.obs}
+                                onChange={(e) => setAdiantModal((m) => (m ? { ...m, obs: e.target.value } : m))}
+                                style={inputStyle}
+                              />
+                            </FormField>
+                            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
+                              <button
+                                onClick={() => setAdiantModal(null)}
+                                disabled={salvandoAdiant}
+                                style={{
+                                  background: "#fff",
+                                  border: "1.5px solid #e5e7eb",
+                                  borderRadius: 8,
+                                  padding: "9px 16px",
+                                  fontSize: 13,
+                                  cursor: "pointer",
+                                  fontFamily: "inherit",
+                                }}
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                onClick={salvarAdiantamento}
+                                disabled={salvandoAdiant}
+                                style={{
+                                  background: ORANGE,
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: 8,
+                                  padding: "9px 18px",
+                                  fontSize: 13,
+                                  fontWeight: 700,
+                                  cursor: salvandoAdiant ? "wait" : "pointer",
+                                  fontFamily: "inherit",
+                                }}
+                              >
+                                {salvandoAdiant ? "Salvando…" : "Registrar adiantamento"}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+
+              {meeiroView === "saldo" && (
+                <>
               {/* Summary cards */}
               <div className="grid-3" style={{ gap: 16 }}>
                 <div
@@ -6470,6 +7130,8 @@ export default function RocasClient({
                 </table>
                 </div>
               </div>
+                </>
+              )}
             </div>
           );
         })()}
