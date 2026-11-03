@@ -6311,7 +6311,7 @@ export default function RocasClient({
                     </div>
                   );
                   const th = (label: string, align: "left" | "right" | "center" = "left") => (
-                    <th style={{ padding: "12px 16px", textAlign: align, fontWeight: 600, color: "#374151", whiteSpace: "nowrap" }}>
+                    <th style={{ padding: "12px 10px", textAlign: align, fontWeight: 600, color: "#374151", whiteSpace: "nowrap" }}>
                       {label}
                     </th>
                   );
@@ -6518,7 +6518,7 @@ export default function RocasClient({
                         }}
                       >
                         <div style={{ overflowX: "auto" }}>
-                          <table style={{ width: "100%", minWidth: 1000, borderCollapse: "collapse", fontSize: 13 }}>
+                          <table style={{ width: "100%", minWidth: 860, borderCollapse: "collapse", fontSize: 13 }}>
                             <thead>
                               <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
                                 {th("Meeiro")}
@@ -6532,7 +6532,7 @@ export default function RocasClient({
                                 {th("Status", "center")}
                                 <th
                                   style={{
-                                    padding: "12px 16px",
+                                    padding: "12px 10px",
                                     textAlign: "center",
                                     fontWeight: 600,
                                     color: "#374151",
@@ -6559,23 +6559,23 @@ export default function RocasClient({
                                   const fundo = i % 2 === 0 ? "#fff" : "#fafafa";
                                   return (
                                     <tr key={f.id} style={{ borderBottom: "1px solid #f3f4f6", background: fundo }}>
-                                      <td style={{ padding: "12px 16px", fontWeight: 600, color: NAVY }}>{nomeMeeiro(f.parceiroId)}</td>
-                                      <td style={{ padding: "12px 16px", color: "#374151", whiteSpace: "nowrap" }}>
+                                      <td style={{ padding: "12px 10px", fontWeight: 600, color: NAVY }}>{nomeMeeiro(f.parceiroId)}</td>
+                                      <td style={{ padding: "12px 10px", color: "#374151", whiteSpace: "nowrap" }}>
                                         {fmtDate(f.dataInicio)} — {fmtDate(f.dataFim)}
                                       </td>
-                                      <td style={{ padding: "12px 16px", color: "#374151" }}>{fmtDate(f.dataPagamento)}</td>
-                                      <td style={{ padding: "12px 16px", textAlign: "right", color: "#374151" }}>{fmtCurrency(f.valorBruto)}</td>
-                                      <td style={{ padding: "12px 16px", textAlign: "right", color: PINK }}>{fmtCurrency(f.bandejaEmbalagem)}</td>
-                                      <td style={{ padding: "12px 16px", textAlign: "right", color: PINK }}>
+                                      <td style={{ padding: "12px 10px", color: "#374151" }}>{fmtDate(f.dataPagamento)}</td>
+                                      <td style={{ padding: "12px 10px", textAlign: "right", color: "#374151" }}>{fmtCurrency(f.valorBruto)}</td>
+                                      <td style={{ padding: "12px 10px", textAlign: "right", color: PINK }}>{fmtCurrency(f.bandejaEmbalagem)}</td>
+                                      <td style={{ padding: "12px 10px", textAlign: "right", color: PINK }}>
                                         {fmtCurrency(f.valesDinheiro + f.valesDeduzidos)}
                                       </td>
-                                      <td style={{ padding: "12px 16px", textAlign: "right", color: ORANGE }}>
+                                      <td style={{ padding: "12px 10px", textAlign: "right", color: ORANGE }}>
                                         {fmtCurrency(f.combustivel + f.creditos + f.debitosAnteriores)}
                                       </td>
-                                      <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: BLUE, whiteSpace: "nowrap" }}>
+                                      <td style={{ padding: "12px 10px", textAlign: "right", fontWeight: 700, color: BLUE, whiteSpace: "nowrap" }}>
                                         {fmtCurrency(f.valorPago)}
                                       </td>
-                                      <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                                      <td style={{ padding: "12px 10px", textAlign: "center", whiteSpace: "nowrap" }}>
                                         <span
                                           style={{
                                             background: pago ? GREEN + "20" : ORANGE + "20",
@@ -6591,7 +6591,7 @@ export default function RocasClient({
                                       </td>
                                       <td
                                         style={{
-                                          padding: "12px 16px",
+                                          padding: "12px 10px",
                                           textAlign: "center",
                                           position: "sticky",
                                           right: 0,
